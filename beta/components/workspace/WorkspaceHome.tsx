@@ -20,9 +20,7 @@ export function WorkspaceHome({ children }: WorkspaceHomeProps) {
             <AquinBrand size="sm" href="/" />
           </div>
           <div className="mt-auto">
-            <div className="flex w-full items-center rounded-md bg-black/5 px-2 py-1.5 dark:bg-white/5">
-              <ProfileChip popoverSide="top" popoverAlign="start" />
-            </div>
+            <ProfileChip variant="sidebar" />
           </div>
         </div>
       }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Avvvatars from "avvvatars-react";
-import { CircleNotch, Moon, Sun } from "@phosphor-icons/react";
+import { CircleNotch, GearSix, Moon, Sun } from "@phosphor-icons/react";
 import {
   Popover,
   PopoverContent,
@@ -47,9 +47,11 @@ function ProfileUrlLink({
 }
 
 export default function ProfileChip({
+  variant = "chip",
   popoverSide = "bottom",
   popoverAlign = "end",
 }: {
+  variant?: "chip" | "sidebar";
   popoverSide?: "top" | "bottom" | "left" | "right";
   popoverAlign?: "start" | "center" | "end";
 } = {}) {
@@ -217,25 +219,56 @@ export default function ProfileChip({
   const nameInputClass =
     "w-full min-w-0 border-0 bg-transparent p-0 text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 outline-none transition-colors placeholder:text-stone-400 focus:text-stone-900 focus:decoration-stone-500 dark:text-stone-300 dark:decoration-white/20 dark:placeholder:text-stone-500 dark:focus:text-[#f5f5f3] dark:focus:decoration-white/40";
 
+  const isSidebar = variant === "sidebar";
+
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10 outline-none transition-shadow hover:ring-black/20 data-[state=open]:ring-black/30 dark:ring-white/10 dark:hover:ring-white/20 dark:data-[state=open]:ring-white/30"
-            title={displayName}
-          >
-            {avatarThumb(36)}
-          </button>
+          {isSidebar ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2.5 rounded-md bg-black/5 px-2 py-1.5 text-left outline-none transition-colors hover:bg-black/[0.07] data-[state=open]:bg-black/[0.07] dark:bg-white/5 dark:hover:bg-white/[0.08] dark:data-[state=open]:bg-white/[0.08]"
+            >
+              <span className="size-8 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10 dark:ring-white/10">
+                {avatarThumb(32)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium leading-tight text-stone-900 dark:text-[#f5f5f3]">
+                  {displayName}
+                </span>
+                <span className="block truncate text-[11px] leading-tight text-stone-500 dark:text-stone-400">
+                  {profile.email}
+                </span>
+              </span>
+              <GearSix
+                className="size-4 shrink-0 text-stone-500 dark:text-stone-400"
+                weight="regular"
+                aria-hidden
+              />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10 outline-none transition-shadow hover:ring-black/20 data-[state=open]:ring-black/30 dark:ring-white/10 dark:hover:ring-white/20 dark:data-[state=open]:ring-white/30"
+              title={displayName}
+            >
+              {avatarThumb(36)}
+            </button>
+          )}
         </PopoverTrigger>
         <PopoverContent
-          align={popoverAlign}
-          side={popoverSide}
+          align={isSidebar ? "start" : popoverAlign}
+          side={isSidebar ? "top" : popoverSide}
           sideOffset={8}
-          className="w-[min(calc(100vw-2rem),20rem)] rounded-2xl border-black/10 bg-white p-0 shadow-xl dark:border-white/10 dark:bg-black"
+          className={cn(
+            "rounded-xl border-black/10 bg-white p-0 shadow-lg dark:border-white/10 dark:bg-black",
+            isSidebar
+              ? "w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)]"
+              : "w-[min(calc(100vw-2rem),20rem)]",
+          )}
         >
-          <PopoverHeader className="gap-0.5 px-5 pt-4 pb-2">
+          <PopoverHeader className={cn("gap-0.5 pb-2", isSidebar ? "px-3 pt-3" : "px-5 pt-4")}>
             <PopoverTitle className="text-base font-semibold text-stone-900 font-host-grotesk tracking-[-0.02em] dark:text-[#f5f5f3]">
               Profile
             </PopoverTitle>
@@ -244,7 +277,12 @@ export default function ProfileChip({
             </PopoverDescription>
           </PopoverHeader>
 
-          <div className="max-h-[min(70vh,560px)] overflow-y-auto px-5 pb-5 pt-2 no-scrollbar">
+          <div
+            className={cn(
+              "overflow-y-auto no-scrollbar",
+              isSidebar ? "max-h-[min(50vh,360px)] px-3 pb-3 pt-1" : "max-h-[min(70vh,560px)] px-5 pb-5 pt-2",
+            )}
+          >
             <div className="flex flex-col items-start gap-2.5">
               <div className="mb-1 w-full">
                 <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
