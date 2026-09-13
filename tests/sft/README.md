@@ -42,3 +42,33 @@ Train this SFT, then aq eval. Report pass/fail. Read inspect.md. objective, loss
 ```
 aq ask tests/sft/tune -y "Train, then aq eval. Report pass/fail. Read inspect.md. objective, loss_on, parent?"
 ```
+
+---
+
+## SDK (`aquin`)
+
+Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
+
+Train `base` before `tune`.
+
+```bash
+aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
+from aquin import Aquin
+aq = Aquin("tests/sft/base")
+print(aq.train())
+print(aq.eval())
+aq = Aquin("tests/sft/tune")
+print(aq.train())
+print(aq.eval())
+print(aq.status())
+PY
+```
+
+CLI parity: `./aq/bin/aq train tests/<path>` then `eval` on the same path(s).
+
+
+
+## Pass bar
+
+- CLI and SDK: train + eval succeed per this README (or documented skip)

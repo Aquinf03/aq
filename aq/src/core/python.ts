@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { spawn, spawnSync, type ChildProcess } from "node:child_process"
 import path from "node:path"
 import { assertTrain, isTrain } from "./schema.js"
+import { openRun } from "./run.js"
 import { kernelRoot } from "./root.js"
 
 const kernelDir = kernelRoot()
@@ -194,5 +195,5 @@ export async function kernelStep(step: string, argv: string[]): Promise<void> {
   if (image.value) req.image = image.value
   if (mt.value !== undefined) req.max_tokens = Number(mt.value)
   if (temp.value !== undefined) req.temperature = Number(temp.value)
-  await runKernel(train, req)
+  await runKernel(openRun(train).root, req)
 }

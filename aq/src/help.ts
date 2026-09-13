@@ -5,7 +5,7 @@ export function help(): string {
   return [
     "aq  Aquin CLI",
     "",
-    "A train is a directory. Docs: https://aquinf03.github.io/aq",
+    "A run is recipe.yaml + artifacts/. Docs: https://aq.aquin.app/docs · SDK: pip install -e ./sdk",
     "",
     "  aq                      agent chat (TTY)",
     "  aq agent                same",

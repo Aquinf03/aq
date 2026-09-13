@@ -2,7 +2,7 @@
 
 After **aq train**, **aq serve** loads the checkpoint and generates text. Kernel-owned forward pass. Tokenizer hash must match. Output: `artifacts/serve.json` plus the text on stdout.
 
-Do not tick TODO until CLI and agent both work.
+Do not tick TODO until CLI, agent, and SDK paths work.
 
 ```
 cd aq && npm run build
@@ -54,7 +54,33 @@ aq ask tests/serve-checkpoint -y "Train if needed, then aq serve the cat. Read a
 
 ---
 
+---
+
+## SDK (`aquin`)
+
+Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
+
+After train, also `aq.serve("hello")` / `aq serve`.
+
+```bash
+aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
+from aquin import Aquin
+aq = Aquin("tests/serve-checkpoint")
+print(aq.train())
+print(aq.eval())
+print(aq.serve("hello", max_tokens=16))
+print(aq.status())
+PY
+```
+
+CLI parity: `./aq/bin/aq train tests/<path>` then `eval` on the same path(s).
+
+
+
 ## Pass bar
+
+- SDK: same train/eval (or documented skip) via `aquin`
 
 - CLI: train, eval pass, serve writes serve.json with non-empty text
 - Agent: output from aq serve / serve.json, no fake generation

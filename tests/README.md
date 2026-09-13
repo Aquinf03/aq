@@ -1,29 +1,88 @@
 # tests
 
-Manual end-to-end trains. Not `aq eval` probes. Each folder is a train plus a README.
+Manual end-to-end **runs**. Each runnable folder has `recipe.yaml` (+ data / evals as needed). Training writes **`artifacts/`**.
 
-- [linear-regression](linear-regression/) — first coverage family
-- [logistic-regression](logistic-regression/) — binary classification
-- [ridge](ridge/) — linear + L2 penalty
-- [lasso](lasso/) — linear + L1, can zero weights
-- [elastic-net](elastic-net/) — L1 + L2 mix
-- [decision-trees](decision-trees/) — CART splits
-- [random-forests](random-forests/) — bagged trees
-- [gradient-boosting](gradient-boosting/) — sequential residual trees
-- [gaussian-processes](gaussian-processes/) — RBF posterior mean
-- [transformers](transformers/) — encoder, decoder, encoder-decoder (kernel-owned)
-- [tokenizer-in-train](tokenizer-in-train/) — tokenizer file hashed like weights; eval loads that file
-- [tokenizer-algorithms](tokenizer-algorithms/) — byte, BPE, WordPiece, Unigram
-- [pack-mixture](pack-mixture/) — pack, mixture weights, context windows
-- [ar-pretrain](ar-pretrain/) — next-token / causal LM
-- [masked-pretrain](masked-pretrain/) — MLM and span corruption
-- [mtp-pretrain](mtp-pretrain/) — multi-token prediction (t+1, t+2)
-- [fim-pretrain](fim-pretrain/) — fill-in-the-middle (prefix / suffix / middle)
-- [continued-pretrain](continued-pretrain/) — warm-start from a parent checkpoint
-- [sft](sft/) — supervised fine-tune (loss on completion)
-- [full-ft](full-ft/) — full fine-tune (loss on all tokens)
-- [lora](lora/) — LoRA (frozen parent, rank adapters)
-- [qlora](qlora/) — QLoRA (4-bit frozen parent + LoRA)
-- [serve-checkpoint](serve-checkpoint/) — generate from a trained checkpoint (`aq serve`)
-- [guard-safety](guard-safety/) — opt-in `guard.safety`: `aq train` good settle vs mid-train blow-up abort
+**Identity:** `recipe.yaml` is enough. `experiment.md` is optional.
 
+| Surface | How |
+|---------|-----|
+| **CLI** | `./aq/bin/aq train tests/<path>` |
+| **SDK** | Python in the folder — see [`sdk-ridge/example.py`](sdk-ridge/example.py) |
+
+```bash
+aq/kernel/.venv/bin/pip install -e ./sdk
+cd aq && npm run build && cd ..
+
+cd tests/sdk-ridge && ../../aq/kernel/.venv/bin/python example.py
+```
+
+---
+
+## SDK examples (code + YAML)
+
+| Suite | What it shows |
+|-------|----------------|
+| [sdk-ridge](sdk-ridge/) | `example.py` + existing `recipe.yaml` |
+| [sdk-from-dict](sdk-from-dict/) | `example.py` builds YAML via `from_dict`, then trains |
+
+Other suites are science fixtures (CLI + optional `Aquin("tests/…")` in their README). The **canonical SDK samples** are the two folders above.
+
+---
+
+## Science fixtures
+
+### Tabular / classical
+
+| Suite | Path(s) |
+|-------|---------|
+| [linear-regression](linear-regression/) | `linear-regression` |
+| [logistic-regression](logistic-regression/) | `logistic-regression` |
+| [ridge](ridge/) | `ridge` |
+| [lasso](lasso/) | `lasso` |
+| [elastic-net](elastic-net/) | `elastic-net` |
+| [decision-trees](decision-trees/) | `decision-trees` |
+| [random-forests](random-forests/) | `random-forests` |
+| [gradient-boosting](gradient-boosting/) | `gradient-boosting` |
+| [gaussian-processes](gaussian-processes/) | `gaussian-processes` |
+
+### Transformers / tokenizers / packing
+
+| Suite | Path(s) |
+|-------|---------|
+| [transformers](transformers/) | `decoder`, `encoder`, `encoder-decoder` |
+| [tokenizer-in-train](tokenizer-in-train/) | `tokenizer-in-train` |
+| [tokenizer-algorithms](tokenizer-algorithms/) | `byte`, `bpe`, `wordpiece`, `unigram` |
+| [pack-mixture](pack-mixture/) | `pack-mixture` |
+
+### Foundation / LM
+
+| Suite | Path(s) |
+|-------|---------|
+| [ar-pretrain](ar-pretrain/) | `ar-pretrain` |
+| [masked-pretrain](masked-pretrain/) | `mlm`, `span` |
+| [mtp-pretrain](mtp-pretrain/) | `mtp-pretrain` |
+| [fim-pretrain](fim-pretrain/) | `fim-pretrain` |
+| [continued-pretrain](continued-pretrain/) | `base` then `continue` |
+| [sft](sft/) | `base` then `tune` |
+| [full-ft](full-ft/) | `base` then `tune` |
+| [lora](lora/) | `base` then `tune` |
+| [qlora](qlora/) | `base` then `tune` (CUDA) |
+| [serve-checkpoint](serve-checkpoint/) | train then `serve` |
+
+### Vision / VLM
+
+| Suite | Path(s) |
+|-------|---------|
+| [cnn-vision](cnn-vision/) | `cnn-vision` |
+| [vit-vision](vit-vision/) | `vit-vision` |
+| [vlm-clip](vlm-clip/) | `vlm-clip` |
+| [vlm-llava](vlm-llava/) | `vlm-llava` |
+
+### Safety / agent
+
+| Suite | Path(s) |
+|-------|---------|
+| [guard-safety](guard-safety/) | `good`, `bad` |
+| [aq-agent-internal-evals](aq-agent-internal-evals/) | agent probes |
+
+Kernel deps: `pip install -r aq/kernel/requirements.txt` (prefer `aq/kernel/.venv`).

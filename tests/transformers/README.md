@@ -2,7 +2,7 @@
 
 Three trains. Same method (`transformer`), three **types**: decoder, encoder, encoder-decoder. Kernel-owned `fit`. No PyTorch. No Hugging Face. Training here is next-token / classify / copy with cross-entropy, not SFT or LoRA. Those are later recipe slots.
 
-Do not tick TODO until **all three** CLI paths work (and agent on at least one).
+Do not tick TODO until CLI + SDK on all three (agent on at least one).
 
 ```
 cd aq && npm run build
@@ -67,7 +67,36 @@ aq ask tests/transformers/decoder -y "Train the transformer, then aq eval. Repor
 
 ---
 
+---
+
+## SDK (`aquin`)
+
+Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
+
+```bash
+aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
+from aquin import Aquin
+aq = Aquin("tests/transformers/decoder")
+print(aq.train())
+print(aq.eval())
+aq = Aquin("tests/transformers/encoder")
+print(aq.train())
+print(aq.eval())
+aq = Aquin("tests/transformers/encoder-decoder")
+print(aq.train())
+print(aq.eval())
+print(aq.status())
+PY
+```
+
+CLI parity: `./aq/bin/aq train tests/<path>` then `eval` on the same path(s).
+
+
+
 ## Pass bar
+
+- SDK: same train/eval (or documented skip) via `aquin`
 
 - All three: eval **pass**, inspect shows the right `arch`
 - Agent: numbers from `aq eval`, no fake pass

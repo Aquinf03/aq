@@ -1,10 +1,15 @@
 import { existsSync, readdirSync, renameSync, statSync } from "node:fs"
 import path from "node:path"
 
-/** A train is a directory. These two files are enough. The rest is optional. */
+/**
+ * A run is recipe.yaml (+ artifacts/ once you train).
+ * experiment.md is optional brief — not required for SDK / kernel.
+ */
 
 export const LEGACY_IDENTITY = "instructions.md" as const
-export const REQUIRED = ["experiment.md", "recipe.yaml"] as const
+/** @deprecated Prefer recipe-only; kept for messaging / migration docs. */
+export const REQUIRED = ["recipe.yaml"] as const
+export const OPTIONAL_IDENTITY = "experiment.md" as const
 
 export const OPTIONAL_DIRS = [
   "data",
@@ -22,7 +27,7 @@ function hasRecipe(root: string): boolean {
 
 function hasIdentity(root: string): boolean {
   return (
-    existsSync(path.join(root, "experiment.md")) ||
+    existsSync(path.join(root, OPTIONAL_IDENTITY)) ||
     existsSync(path.join(root, LEGACY_IDENTITY))
   )
 }
@@ -30,17 +35,23 @@ function hasIdentity(root: string): boolean {
 /** Rename legacy `instructions.md` to `experiment.md` when present. */
 export function migrateLegacyIdentity(dir: string): void {
   const root = path.resolve(dir)
-  const exp = path.join(root, "experiment.md")
+  const exp = path.join(root, OPTIONAL_IDENTITY)
   const leg = path.join(root, LEGACY_IDENTITY)
   if (!existsSync(exp) && existsSync(leg)) {
     renameSync(leg, exp)
   }
 }
 
+/** True if dir has recipe.yaml (SDK-first identity). */
 export function isTrain(dir: string): boolean {
   const root = path.resolve(dir)
   if (!existsSync(root) || !statSync(root).isDirectory()) return false
-  return hasRecipe(root) && hasIdentity(root)
+  return hasRecipe(root)
+}
+
+/** @deprecated Use has recipe only; identity file is optional. */
+export function hasTrainBrief(dir: string): boolean {
+  return hasIdentity(path.resolve(dir))
 }
 
 export function assertTrain(dir: string): string {
@@ -50,7 +61,7 @@ export function assertTrain(dir: string): string {
   }
   migrateLegacyIdentity(root)
   if (!isTrain(root)) {
-    throw new Error(`not a train (need ${REQUIRED.join(" and ")}): ${root}`)
+    throw new Error(`not a run (need recipe.yaml): ${root}`)
   }
   return root
 }

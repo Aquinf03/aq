@@ -4,7 +4,7 @@ Two trains. **base** is next-token from scratch. **continue** loads that checkpo
 
 Train **base first**. Then continue.
 
-Do not tick TODO until both CLI paths work (agent on continue after base exists).
+Do not tick TODO until CLI + SDK on base/continue (agent on continue after base).
 
 ```
 cd aq && npm run build
@@ -46,3 +46,33 @@ aq ask tests/continued-pretrain/continue -y "Train, then aq eval. Report pass/fa
 ```
 
 If base has no checkpoint, train `tests/continued-pretrain/base` first.
+
+---
+
+## SDK (`aquin`)
+
+Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
+
+Train `base` before `continue`.
+
+```bash
+aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
+from aquin import Aquin
+aq = Aquin("tests/continued-pretrain/base")
+print(aq.train())
+print(aq.eval())
+aq = Aquin("tests/continued-pretrain/continue")
+print(aq.train())
+print(aq.eval())
+print(aq.status())
+PY
+```
+
+CLI parity: `./aq/bin/aq train tests/<path>` then `eval` on the same path(s).
+
+
+
+## Pass bar
+
+- CLI and SDK: train + eval succeed per this README (or documented skip)

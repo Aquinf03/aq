@@ -1,31 +1,45 @@
-# guard-safety
+# ViT vision — end to end
 
-Opt-in `guard.safety`: one good train, one bad train that blows up **for several steps** and gets killed.
+Run (`recipe.yaml` + `data/images`). aq-owned ViT (`vit-t/16`) on circle vs square.
 
 ```
-aq train tests/guard-safety/good
-aq train tests/guard-safety/bad
+cd aq && npm run build
+cd ..
 ```
 
-**good** — should finish (~2s).
+Do not tick TODO until CLI and SDK paths work.
 
-**bad** — should fail mid-run with `guard.safety: loss blew up for N consecutive steps…`.
+---
+
+## 1. Manual CLI
+
+```
+./aq/bin/aq train tests/vit-vision
+./aq/bin/aq eval tests/vit-vision
+cat tests/vit-vision/artifacts/inspect.md
+```
+
+---
+
+## 2. Agent
+
+```
+cd tests/vit-vision && ../../aq/bin/aq
+```
+
+Train, eval, report real metrics from artifacts.
+
 ---
 
 ## SDK (`aquin`)
 
 Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
 
-`good` should settle; `bad` should abort mid-train.
-
 ```bash
 aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
 AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
 from aquin import Aquin
-aq = Aquin("tests/guard-safety/good")
-print(aq.train())
-print(aq.eval())
-aq = Aquin("tests/guard-safety/bad")
+aq = Aquin("tests/vit-vision")
 print(aq.train())
 print(aq.eval())
 print(aq.status())

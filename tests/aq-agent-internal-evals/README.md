@@ -10,3 +10,7 @@ node aq-agent-internal-evals/run.mjs follow-skill
 ```
 
 Needs a configured provider (`aq provider`). `AQ` overrides the aq binary. Work copies land in `.work/` (gitignored).
+
+## Note (SDK-first)
+
+Fixture trains under `fixtures/` / case overlays are still **`recipe.yaml` runs**. This suite exercises the agent CLI, not `aquin` directly. Identity does not require `experiment.md` or a slot forest.

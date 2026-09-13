@@ -1,6 +1,6 @@
 # Linear regression — end to end
 
-This folder is a train. True line: `y = 2x + 3`. Fit on `data.csv`. Gate is MSE on `evals/holdout.csv` (`min_score` 0.01, lower is better). After train, `artifacts/inspect.md` should show intercept near 3 and `x` near 2.
+This folder is a run (`recipe.yaml` + data; `artifacts/` on train). True line: `y = 2x + 3`. Fit on `data.csv`. Gate is MSE on `evals/holdout.csv` (`min_score` 0.01, lower is better). After train, `artifacts/inspect.md` should show intercept near 3 and `x` near 2.
 
 Build the CLI first (from repo root):
 
@@ -11,7 +11,7 @@ cd ..
 
 `aq` below means `aq/bin/aq` from the repo root (or that binary on your PATH).
 
-Do not tick TODO until both paths below work.
+Do not tick TODO until CLI, agent, and SDK paths work.
 
 ---
 
@@ -56,7 +56,7 @@ after two trains (run train twice) to compare run records.
 
 ## 2. Agent
 
-From the train (TTY):
+From the run (TTY):
 
 ```
 cd tests/linear-regression
@@ -79,7 +79,29 @@ Or one-shot (no chat UI):
 
 ---
 
+---
+
+## SDK (`aquin`)
+
+Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
+
+```bash
+aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
+from aquin import Aquin
+aq = Aquin("tests/linear-regression")
+print(aq.train())
+print(aq.eval())
+print(aq.status())
+PY
+```
+
+CLI parity: `./aq/bin/aq train tests/<path>` then `eval` on the same path(s).
+
+
+
 ## Pass bar
 
 - CLI: train + eval pass, inspect looks like `y = 2x + 3`
 - Agent: same, and it does not claim pass if eval failed
+- SDK: train + eval pass on this folder

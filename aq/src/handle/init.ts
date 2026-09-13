@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, copyFile } from "node:fs/promises"
 import { existsSync, readdirSync } from "node:fs"
 import path from "node:path"
-import { OPTIONAL_DIRS, REQUIRED } from "../core/schema.js"
+import { OPTIONAL_DIRS } from "../core/schema.js"
 import { aqRoot } from "../core/root.js"
 
 const templates = path.join(aqRoot(), "templates")
@@ -115,7 +115,8 @@ export async function init(dir: string): Promise<InitResult> {
   const created: string[] = []
   const skipped: string[] = []
 
-  for (const name of REQUIRED) {
+  // recipe.yaml is required identity; experiment.md is optional brief (still scaffolded).
+  for (const name of ["recipe.yaml", "experiment.md"] as const) {
     const dest = path.join(root, name)
     const body = await readFile(path.join(templates, name), "utf8")
     await writeNew(dest, body, created, skipped, cwd)

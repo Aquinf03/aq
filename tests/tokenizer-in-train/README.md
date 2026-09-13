@@ -1,8 +1,8 @@
 # Tokenizer in the train — hashed like weights
 
-This folder is a train. The tokenizer is **`artifacts/tokenizer.json`**. Its sha256 is on the checkpoint and in the run record. Eval encodes with **that file**, not a new fit. Change the file, eval must refuse.
+This folder is a run (`recipe.yaml` + data; `artifacts/` on train). The tokenizer is **`artifacts/tokenizer.json`**. Its sha256 is on the checkpoint and in the run record. Eval encodes with **that file**, not a new fit. Change the file, eval must refuse.
 
-Do not tick TODO until CLI and agent both work.
+Do not tick TODO until CLI, agent, and SDK paths work.
 
 ```
 cd aq && npm run build
@@ -54,7 +54,30 @@ aq ask tests/tokenizer-in-train -y "Train, then aq eval. Report pass/fail. Read 
 
 ---
 
+---
+
+## SDK (`aquin`)
+
+Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
+
+```bash
+aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
+from aquin import Aquin
+aq = Aquin("tests/tokenizer-in-train")
+print(aq.train())
+print(aq.eval())
+print(aq.status())
+PY
+```
+
+CLI parity: `./aq/bin/aq train tests/<path>` then `eval` on the same path(s).
+
+
+
 ## Pass bar
+
+- SDK: same train/eval (or documented skip) via `aquin`
 
 - CLI: train pins hash, eval passes, junk tokenizer.json makes eval refuse
 - Agent: same, no fake pass

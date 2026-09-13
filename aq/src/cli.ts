@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     const rel = path.relative(process.cwd(), root) || root
     console.log("train")
     console.log("  " + rel)
-    console.log("  rename this folder anytime — aq only needs experiment.md + recipe.yaml inside")
+    console.log("  rename this folder anytime — aq only needs recipe.yaml inside")
     if (created.length) {
       console.log("created")
       for (const f of created) console.log("  " + f)
