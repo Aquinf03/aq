@@ -382,7 +382,7 @@ export function CliTokenDropdown() {
         <CaretDown className="size-3.5 shrink-0" weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
+        align="start"
         sideOffset={8}
         className="w-[min(calc(100vw-2rem),22rem)] rounded-xl border-black/10 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-black"
         onCloseAutoFocus={e => e.preventDefault()}

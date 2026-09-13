@@ -9,15 +9,15 @@ type WorkspaceHomeProps = {
   children: React.ReactNode;
 };
 
-/** Owner home chrome: brand + profile in sidebar; CLI token in main header. */
+/** Owner home chrome: brand + aq-token top, profile bottom in sidebar. */
 export function WorkspaceHome({ children }: WorkspaceHomeProps) {
   return (
     <WorkspaceShell
-      mainHeader={<CliTokenDropdown />}
       sidebar={
         <div className="flex h-full flex-col px-4 pb-3 pt-4">
-          <div className="flex items-center">
+          <div className="flex flex-col items-start gap-3">
             <AquinBrand size="sm" href="/" />
+            <CliTokenDropdown />
           </div>
           <div className="mt-auto">
             <ProfileChip variant="sidebar" />

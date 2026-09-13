@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Avvvatars from "avvvatars-react";
@@ -9,13 +8,10 @@ import { CircleNotch, GearSix, Moon, Sun } from "@phosphor-icons/react";
 import {
   Popover,
   PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useTheme } from "@/contexts/ThemeContext";
-import { userProfileHref, userProfilePath, validateUsername } from "@/lib/username";
+import { validateUsername } from "@/lib/username";
 import { cn } from "@/lib/utils";
 
 interface Profile {
@@ -23,27 +19,6 @@ interface Profile {
   username: string | null;
   avatar_url: string | null;
   email: string;
-}
-
-function ProfileUrlLink({
-  username,
-  className,
-  onNavigate,
-}: {
-  username: string;
-  className: string;
-  onNavigate: () => void;
-}) {
-  const [label, setLabel] = useState(userProfilePath(username));
-  useEffect(() => {
-    setLabel(userProfileHref(username, window.location.origin));
-  }, [username]);
-
-  return (
-    <Link href={userProfilePath(username)} className={className} onClick={onNavigate}>
-      {label}
-    </Link>
-  );
 }
 
 export default function ProfileChip({
@@ -268,28 +243,17 @@ export default function ProfileChip({
               : "w-[min(calc(100vw-2rem),20rem)]",
           )}
         >
-          <PopoverHeader className={cn("gap-0.5 pb-2", isSidebar ? "px-3 pt-3" : "px-5 pt-4")}>
-            <PopoverTitle className="text-base font-semibold text-stone-900 font-host-grotesk tracking-[-0.02em] dark:text-[#f5f5f3]">
-              Profile
-            </PopoverTitle>
-            <PopoverDescription className="text-xs text-stone-400 dark:text-stone-500">
-              Manage your Aquin account
-            </PopoverDescription>
-          </PopoverHeader>
-
           <div
             className={cn(
               "overflow-y-auto no-scrollbar",
-              isSidebar ? "max-h-[min(50vh,360px)] px-3 pb-3 pt-1" : "max-h-[min(70vh,560px)] px-5 pb-5 pt-2",
+              isSidebar ? "max-h-[min(50vh,360px)] px-3 pb-3 pt-3" : "max-h-[min(70vh,560px)] px-5 pb-5 pt-4",
             )}
           >
-            <div className="flex flex-col items-start gap-2.5">
-              <div className="mb-1 w-full">
-                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
-                  Appearance
-                </p>
+            <div className="flex w-full flex-col gap-2.5">
+              <div className="grid w-full grid-cols-2 items-start gap-2">
+                <span className="text-sm text-stone-400 dark:text-stone-500">theme:</span>
                 <div
-                  className="grid grid-cols-2 gap-1 rounded-xl border border-black/10 bg-black/[0.03] p-1 dark:border-white/10 dark:bg-white/[0.06]"
+                  className="inline-flex items-center gap-0.5 rounded-md bg-black/5 p-0.5 dark:bg-white/5"
                   role="group"
                   aria-label="Color theme"
                 >
@@ -297,123 +261,136 @@ export default function ProfileChip({
                     type="button"
                     onClick={() => setTheme("light")}
                     className={cn(
-                      "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex size-7 items-center justify-center rounded transition-colors",
                       theme === "light"
                         ? "bg-white text-stone-900 shadow-sm dark:bg-white dark:text-black"
-                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-[#f5f5f3]",
+                        : "text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-200",
                     )}
+                    aria-label="Light mode"
                     aria-pressed={theme === "light"}
                   >
                     <Sun className="size-3.5" weight="bold" />
-                    Light
                   </button>
                   <button
                     type="button"
                     onClick={() => setTheme("dark")}
                     className={cn(
-                      "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex size-7 items-center justify-center rounded transition-colors",
                       theme === "dark"
-                        ? "bg-black text-white shadow-sm dark:bg-white dark:text-black"
-                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-[#f5f5f3]",
+                        ? "bg-white text-stone-900 shadow-sm dark:bg-white dark:text-black"
+                        : "text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-200",
                     )}
+                    aria-label="Dark mode"
                     aria-pressed={theme === "dark"}
                   >
                     <Moon className="size-3.5" weight="bold" />
-                    Dark
                   </button>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className={`${linkTextClass} max-w-full truncate text-left disabled:opacity-50`}
-              >
-                {uploadingAvatar ? (
-                  <span className="inline-flex items-center gap-2">
-                    <CircleNotch className="size-3.5 animate-spin" weight="bold" />
-                    Uploading…
-                  </span>
-                ) : avatarFileName ? (
-                  avatarFileName
-                ) : (
-                  "Change photo"
-                )}
-              </button>
-              <div className="relative w-full">
-                <input
-                  value={tempName}
-                  onChange={e => setTempName(e.target.value)}
-                  onBlur={() => void handleSaveName()}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") {
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  disabled={savingName}
-                  aria-label="Full name"
-                  className={nameInputClass}
-                />
-                {savingName ? (
-                  <CircleNotch
-                    className="absolute right-0 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-stone-400"
-                    weight="bold"
-                  />
-                ) : null}
+              <div className="grid w-full grid-cols-2 items-start gap-2">
+                <span className="text-sm text-stone-400 dark:text-stone-500">photo:</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className={`${linkTextClass} min-w-0 truncate text-left disabled:opacity-50`}
+                >
+                  {uploadingAvatar ? (
+                    <span className="inline-flex items-center gap-2">
+                      <CircleNotch className="size-3.5 animate-spin" weight="bold" />
+                      Uploading…
+                    </span>
+                  ) : avatarFileName ? (
+                    avatarFileName
+                  ) : (
+                    "Change photo"
+                  )}
+                </button>
               </div>
 
-              <div className="relative w-full">
-                <div className="flex items-baseline gap-0.5">
-                  <span className="shrink-0 text-sm text-stone-400 dark:text-stone-500">@</span>
+              <div className="grid w-full grid-cols-2 items-start gap-2">
+                <span className="text-sm text-stone-400 dark:text-stone-500">name:</span>
+                <div className="relative min-w-0">
                   <input
-                    value={tempUsername}
-                    onChange={e => {
-                      setTempUsername(e.target.value.toLowerCase());
-                      setUsernameError(null);
-                    }}
-                    onBlur={() => void handleSaveUsername()}
+                    value={tempName}
+                    onChange={e => setTempName(e.target.value)}
+                    onBlur={() => void handleSaveName()}
                     onKeyDown={e => {
                       if (e.key === "Enter") {
                         e.currentTarget.blur();
                       }
                     }}
-                    disabled={savingUsername}
-                    aria-label="Username"
-                    placeholder="username"
+                    disabled={savingName}
+                    aria-label="Full name"
                     className={nameInputClass}
                   />
+                  {savingName ? (
+                    <CircleNotch
+                      className="absolute right-0 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-stone-400"
+                      weight="bold"
+                    />
+                  ) : null}
                 </div>
-                {savingUsername ? (
-                  <CircleNotch
-                    className="absolute right-0 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-stone-400"
-                    weight="bold"
-                  />
-                ) : null}
-                {usernameError ? (
-                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{usernameError}</p>
-                ) : null}
               </div>
 
-              {profile.username ? (
-                <ProfileUrlLink username={profile.username} className={linkTextClass} onNavigate={() => setOpen(false)} />
-              ) : null}
+              <div className="grid w-full grid-cols-2 items-start gap-2">
+                <span className="pt-0.5 text-sm text-stone-400 dark:text-stone-500">username:</span>
+                <div className="relative min-w-0">
+                  <div className="flex items-baseline gap-0.5">
+                    <span className="shrink-0 text-sm text-stone-400 dark:text-stone-500">@</span>
+                    <input
+                      value={tempUsername}
+                      onChange={e => {
+                        setTempUsername(e.target.value.toLowerCase());
+                        setUsernameError(null);
+                      }}
+                      onBlur={() => void handleSaveUsername()}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      disabled={savingUsername}
+                      aria-label="Username"
+                      placeholder="username"
+                      className={nameInputClass}
+                    />
+                  </div>
+                  {savingUsername ? (
+                    <CircleNotch
+                      className="absolute right-0 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-stone-400"
+                      weight="bold"
+                    />
+                  ) : null}
+                  {usernameError ? (
+                    <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{usernameError}</p>
+                  ) : null}
+                </div>
+              </div>
 
-              <p className={linkTextClass}>{profile.email}</p>
+              <div className="grid w-full grid-cols-2 items-start gap-2">
+                <span className="text-sm text-stone-400 dark:text-stone-500">email:</span>
+                <p className={`${linkTextClass} min-w-0 truncate`}>{profile.email}</p>
+              </div>
 
-              <button type="button" onClick={() => void handlePasswordReset()} className={linkTextClass}>
-                Send reset email
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                className={`${linkTextClass} hover:text-red-700 hover:decoration-red-300 dark:hover:text-red-400 dark:hover:decoration-red-400/40`}
-              >
-                Sign out
-              </button>
-              <a href="mailto:aquin@aquin.app" className={linkTextClass}>
-                aquin@aquin.app
-              </a>
+              <div className="grid w-full grid-cols-2 items-start gap-2">
+                <span className="text-sm text-stone-400 dark:text-stone-500">password:</span>
+                <button type="button" onClick={() => void handlePasswordReset()} className={`${linkTextClass} text-left`}>
+                  Reset
+                </button>
+              </div>
+
+              <div className="grid w-full grid-cols-2 items-start gap-2">
+                <span className="text-sm text-stone-400 dark:text-stone-500">account:</span>
+                <button
+                  type="button"
+                  onClick={() => void handleSignOut()}
+                  className={`${linkTextClass} text-left hover:text-red-700 hover:decoration-red-300 dark:hover:text-red-400 dark:hover:decoration-red-400/40`}
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
         </PopoverContent>
