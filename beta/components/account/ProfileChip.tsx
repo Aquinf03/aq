@@ -46,7 +46,13 @@ function ProfileUrlLink({
   );
 }
 
-export default function ProfileChip() {
+export default function ProfileChip({
+  popoverSide = "bottom",
+  popoverAlign = "end",
+}: {
+  popoverSide?: "top" | "bottom" | "left" | "right";
+  popoverAlign?: "start" | "center" | "end";
+} = {}) {
   const { user } = useAuth();
   const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -224,8 +230,8 @@ export default function ProfileChip() {
           </button>
         </PopoverTrigger>
         <PopoverContent
-          align="end"
-          side="bottom"
+          align={popoverAlign}
+          side={popoverSide}
           sideOffset={8}
           className="w-[min(calc(100vw-2rem),20rem)] rounded-2xl border-black/10 bg-white p-0 shadow-xl dark:border-white/10 dark:bg-black"
         >

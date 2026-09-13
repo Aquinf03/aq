@@ -4,9 +4,9 @@ import { CircleNotch } from "@phosphor-icons/react";
 import { AuthHeader } from "@/components/AuthHeader";
 import { LoggedInHome } from "@/components/account/LoggedInHome";
 import { ProfileAvatar } from "@/components/account/ProfileAvatar";
+import { WorkspaceHome } from "@/components/workspace/WorkspaceHome";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { userProfileHref } from "@/lib/username";
 import { useEffect, useState } from "react";
 
 type Props = {
@@ -16,7 +16,7 @@ type Props = {
   profileHref: string;
 };
 
-/** Own home (install / next steps) vs public profile card. */
+/** Own home (workspace shell) vs public profile card. */
 export function UserHomeClient({ username, displayName, avatarUrl, profileHref }: Props) {
   const { user, loading } = useAuth();
   const [ownerId, setOwnerId] = useState<string | null | undefined>(undefined);
@@ -36,23 +36,19 @@ export function UserHomeClient({ username, displayName, avatarUrl, profileHref }
 
   if (loading || ownerId === undefined) {
     return (
-      <div className="relative min-h-screen bg-background">
-        <AuthHeader />
-        <div className="flex min-h-screen items-center justify-center">
-          <CircleNotch className="h-6 w-6 animate-spin text-stone-400" weight="bold" />
-        </div>
+      <div className="flex h-svh items-center justify-center bg-[#ebeae6] dark:bg-black">
+        <CircleNotch className="h-6 w-6 animate-spin text-stone-400" weight="bold" />
       </div>
     );
   }
 
   if (isOwner) {
     return (
-      <div className="relative min-h-screen bg-background">
-        <AuthHeader showProfile showCliToken />
-        <div className="flex min-h-screen items-center justify-center overflow-y-auto px-4 py-24">
+      <WorkspaceHome>
+        <div className="mx-auto flex min-h-full max-w-xl items-center justify-center py-6">
           <LoggedInHome />
         </div>
-      </div>
+      </WorkspaceHome>
     );
   }
 
