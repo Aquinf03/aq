@@ -1,4 +1,7 @@
-/** Job plans: cron, sweep, pipeline, resume, agents. Lives in jobs/plans/ (forks); state in artifacts/jobs/plans/. */
+/** Job plans: cron, sweep, pipeline, resume, agents.
+ * Authoring: `plans:` in recipe.yaml. Runtime state: artifacts/jobs/plans/.
+ * Legacy: jobs/plans/*.yaml still loaded if present.
+ */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
@@ -7,6 +10,7 @@ import { enqueueJob, waitForJob } from "./job.js"
 import { startAgent } from "../agent/spawn.js"
 import { assertTrain, isTrain } from "../core/schema.js"
 import { aqRoot } from "../core/root.js"
+import { readRecipeFile, type YamlValue } from "../core/recipe-yaml.js"
 
 export type JobPlan = {
   kind: "sweep" | "cron" | "resume" | "pipeline" | "agents"
@@ -18,6 +22,14 @@ export type JobPlan = {
   every?: number
   on?: string
   max?: number
+}
+
+export type ListedPlan = {
+  name: string
+  spec: JobPlan
+  /** Where it was declared. */
+  source: "recipe" | "file"
+  file?: string
 }
 
 type PlanState = { last?: string; count: number; retries: number }
@@ -65,58 +77,101 @@ function parsePlanYaml(text: string): JobPlan {
   return validatePlan(rec as unknown as JobPlan, "yaml")
 }
 
-function validatePlan(raw: JobPlan, src: string): JobPlan {
+function coerceSteps(raw: unknown): string[] | undefined {
+  if (raw == null) return undefined
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x).trim()).filter(Boolean)
+  }
+  return String(raw)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function validatePlan(raw: JobPlan & Record<string, unknown>, src: string): JobPlan {
   const kind = raw.kind
   if (kind !== "sweep" && kind !== "cron" && kind !== "resume" && kind !== "pipeline" && kind !== "agents") {
     throw new Error(`job plan: kind must be sweep, cron, resume, pipeline, or agents (${src})`)
   }
-  const steps = raw.steps
-    ? (Array.isArray(raw.steps)
-        ? raw.steps
-        : String(raw.steps)
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean))
-    : undefined
+  const steps = coerceSteps(raw.steps)
   if (kind === "agents") {
-    if (!raw.ask && !raw.run) throw new Error("job plan: agents need ask")
+    if (!raw.ask && !raw.run) throw new Error(`job plan: agents need ask (${src})`)
   } else if (kind !== "pipeline" && !raw.run) {
-    throw new Error("job plan: need run")
+    throw new Error(`job plan: need run (${src})`)
   }
-  if (kind === "pipeline" && !steps?.length) throw new Error("job plan: pipeline needs steps")
+  if (kind === "pipeline" && !steps?.length) throw new Error(`job plan: pipeline needs steps (${src})`)
   return {
     kind,
-    run: raw.run,
-    ask: raw.ask,
+    run: raw.run != null ? String(raw.run) : undefined,
+    ask: raw.ask != null ? String(raw.ask) : undefined,
     steps,
     agents: raw.agents != null ? Number(raw.agents) : undefined,
     n: raw.n != null ? Number(raw.n) : undefined,
     every: raw.every != null ? Number(raw.every) : undefined,
-    on: raw.on,
+    on: raw.on != null ? String(raw.on) : undefined,
     max: raw.max != null ? Number(raw.max) : undefined,
   }
 }
 
-export function listPlanFiles(train: string): { name: string; file: string }[] {
-  migrateLegacyPlans(train)
-  const dir = plansDir(train)
-  if (!existsSync(dir)) return []
-  const out: { name: string; file: string }[] = []
-  for (const f of readdirSync(dir)) {
-    if (f.startsWith(".")) continue
-    if (!f.endsWith(".yaml") && !f.endsWith(".yml") && !f.endsWith(".json")) continue
-    const name = f.replace(/\.(yaml|yml|json)$/, "")
-    out.push({ name, file: path.join(dir, f) })
+function plansFromRecipe(train: string): ListedPlan[] {
+  const recipe = readRecipeFile(train)
+  const block = recipe.plans
+  if (!block || typeof block !== "object" || Array.isArray(block)) return []
+  const out: ListedPlan[] = []
+  for (const [name, raw] of Object.entries(block as Record<string, YamlValue>)) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new Error(`recipe.yaml plans.${name}: expected a mapping`)
+    }
+    out.push({
+      name,
+      spec: validatePlan(raw as JobPlan & Record<string, unknown>, `recipe.yaml#plans.${name}`),
+      source: "recipe",
+    })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function readPlan(file: string): JobPlan {
+function plansFromFiles(train: string): ListedPlan[] {
+  migrateLegacyPlans(train)
+  const dir = plansDir(train)
+  if (!existsSync(dir)) return []
+  const out: ListedPlan[] = []
+  for (const f of readdirSync(dir)) {
+    if (f.startsWith(".")) continue
+    if (!f.endsWith(".yaml") && !f.endsWith(".yml") && !f.endsWith(".json")) continue
+    const name = f.replace(/\.(yaml|yml|json)$/, "")
+    const file = path.join(dir, f)
+    out.push({ name, spec: readPlanFile(file), source: "file", file })
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** Plans from recipe.yaml first; legacy jobs/plans/*.yaml fill names not already defined. */
+export function listPlans(train: string): ListedPlan[] {
+  const fromRecipe = plansFromRecipe(train)
+  const names = new Set(fromRecipe.map((p) => p.name))
+  const fromFiles = plansFromFiles(train).filter((p) => !names.has(p.name))
+  return [...fromRecipe, ...fromFiles].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** @deprecated use listPlans */
+export function listPlanFiles(train: string): { name: string; file: string }[] {
+  return listPlans(train)
+    .filter((p) => p.file)
+    .map((p) => ({ name: p.name, file: p.file! }))
+}
+
+export function readPlanFile(file: string): JobPlan {
   const text = readFileSync(file, "utf8")
   if (file.endsWith(".json")) {
-    return validatePlan(JSON.parse(text) as JobPlan, file)
+    return validatePlan(JSON.parse(text) as JobPlan & Record<string, unknown>, file)
   }
   return parsePlanYaml(text)
+}
+
+/** @deprecated use readPlanFile / listPlans */
+export function readPlan(file: string): JobPlan {
+  return readPlanFile(file)
 }
 
 function statePath(train: string, name: string): string {
@@ -297,7 +352,7 @@ async function tickOne(
 
 export function planHelp(): string {
   return [
-    "  aq job plan [dir]              list job plans (jobs/plans/*.yaml)",
+    "  aq job plan [dir]              list plans from recipe.yaml (plans:)",
     "  aq job plan tick [dir]         run due cron/resume plans",
     "  aq job plan run [dir] <name>   fire that plan now",
   ].join("\n")
@@ -310,31 +365,30 @@ export async function jobPlan(argv: string[]): Promise<void> {
     console.log(planHelp())
     return
   }
-  if (!sub || sub === "list") {
+  if (!sub || sub === "list" || (sub !== "tick" && sub !== "run" && isTrain(path.resolve(sub)))) {
     let trainDir = "."
     if (sub === "list") trainDir = argv[1] ?? "."
-    else if (argv[0] && isTrain(path.resolve(argv[0]))) trainDir = argv[0]
+    else if (sub && isTrain(path.resolve(sub))) trainDir = sub
     const train = assertTrain(trainDir)
-    const files = listPlanFiles(train)
-    if (!files.length) {
+    const plans = listPlans(train)
+    if (!plans.length) {
       console.log("no job plans")
       return
     }
-    for (const { name, file } of files) {
-      const spec = readPlan(file)
-      console.log(name + "  " + spec.kind + "  " + label(spec))
+    for (const { name, spec, source } of plans) {
+      const where = source === "recipe" ? "recipe.yaml" : "jobs/plans/"
+      console.log(name + "  " + spec.kind + "  " + label(spec) + "  (" + where + ")")
     }
     return
   }
   if (sub === "tick") {
     const train = assertTrain(argv[1] ?? ".")
-    const files = listPlanFiles(train)
-    if (!files.length) {
+    const plans = listPlans(train)
+    if (!plans.length) {
       console.log("no job plans")
       return
     }
-    for (const { name, file } of files) {
-      const spec = readPlan(file)
+    for (const { name, spec } of plans) {
       if (spec.kind === "sweep" || spec.kind === "pipeline") continue
       const lines = await tickOne(train, name, spec, false)
       for (const l of lines) console.log(l)
@@ -354,10 +408,9 @@ export async function jobPlan(argv: string[]): Promise<void> {
     } else {
       throw new Error("usage: aq job plan run [dir] <name>")
     }
-    const hit = listPlanFiles(train).find((x) => x.name === name)
+    const hit = listPlans(train).find((x) => x.name === name)
     if (!hit) throw new Error(`no job plan ${name}`)
-    const spec = readPlan(hit.file)
-    const lines = await tickOne(train, name, spec, true)
+    const lines = await tickOne(train, name, hit.spec, true)
     for (const l of lines) console.log(l)
     return
   }

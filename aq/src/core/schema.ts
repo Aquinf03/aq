@@ -12,13 +12,10 @@ export const REQUIRED = ["recipe.yaml"] as const
 export const OPTIONAL_IDENTITY = "experiment.md" as const
 
 export const OPTIONAL_DIRS = [
+  // Legacy optional slots — not created by init. Paths belong in recipe.yaml.
   "data",
-  "skills",
-  "tools",
-  "jobs",
   "evals",
   "artifacts",
-  "stages",
 ] as const
 
 function hasRecipe(root: string): boolean {

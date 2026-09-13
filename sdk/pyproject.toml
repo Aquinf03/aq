@@ -28,3 +28,6 @@ Docs = "https://aq.aquin.app/docs"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["aquin*"]
+
+[tool.setuptools.package-data]
+aquin = ["templates/*"]

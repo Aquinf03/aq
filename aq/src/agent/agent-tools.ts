@@ -27,7 +27,7 @@ export type AgentToolDef = {
 
 function nativeAqTools(): AgentToolDef[] {
   const verbs: [string, string][] = [
-    ["init", "Create a train subfolder (args = name, or aq-experiment). Does not dump into cwd. After this, pass that folder to aq_train / aq_status."],
+    ["init", "Create a run folder (aq-run or named): recipe.yaml + example.py + artifacts/. Paths live in the YAML."],
     ["help", "CLI help text."],
     ["status", "Jobs, last run, eval. If cwd is not a train, args MUST be the train folder."],
     ["train", "Fit. If cwd is not a train, args MUST be the train folder. Writes artifacts/checkpoints/last.json."],

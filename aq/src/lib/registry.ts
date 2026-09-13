@@ -148,7 +148,7 @@ export const BUILTINS: ToolCard[] = [
 
 export const CLI_VERBS: ToolCard[] = [
   { name: "aq_help", source: "cli", description: "CLI help text. Native aq help." },
-  { name: "aq_init", source: "cli", description: "Create a new train folder (aq-experiment or named); does not dump into cwd." },
+  { name: "aq_init", source: "cli", description: "Create a run folder (recipe.yaml + example.py + artifacts/); does not dump into cwd." },
   { name: "aq_status", source: "cli", description: "Jobs, job plans, last run, eval." },
   { name: "aq_train", source: "cli", description: "Fit. Writes artifacts/checkpoints/last.json." },
   { name: "aq_eval", source: "cli", description: "Score evals/. Human-owned gate." },

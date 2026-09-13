@@ -18,7 +18,8 @@ Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. Then `aq help` · `aq do
 
 ```bash
 aq/kernel/.venv/bin/pip install -e ./sdk
-cd tests/sdk-ridge && ../../aq/kernel/.venv/bin/python example.py
+python -m aquin init my-run   # or: aq init my-run
+cd my-run && python example.py
 ```
 
 See [`tests/sdk-ridge/example.py`](./tests/sdk-ridge/example.py) and [`tests/sdk-from-dict/example.py`](./tests/sdk-from-dict/example.py).

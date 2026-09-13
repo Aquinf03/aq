@@ -45,9 +45,9 @@ async function main(): Promise<void> {
     const root = resolveInitRoot(argv[1])
     const { created, skipped } = await init(root)
     const rel = path.relative(process.cwd(), root) || root
-    console.log("train")
+    console.log("run")
     console.log("  " + rel)
-    console.log("  rename this folder anytime — aq only needs recipe.yaml inside")
+    console.log("  recipe.yaml + example.py + artifacts/ — paths live in the YAML")
     if (created.length) {
       console.log("created")
       for (const f of created) console.log("  " + f)
@@ -57,9 +57,13 @@ async function main(): Promise<void> {
       for (const f of skipped) console.log("  " + f)
     }
     if (!created.length && skipped.length) {
-      console.log("skeleton already complete. grow it by editing files.")
+      console.log("already initialized. edit recipe.yaml / example.py.")
+    } else {
+      console.log("next")
+      console.log("  cd " + rel)
+      console.log("  point data.path in recipe.yaml at your file")
+      console.log("  python example.py   # or: aq train && aq eval")
     }
-    console.log("next:  cd " + rel)
     return
   }
 

@@ -1,25 +1,34 @@
 # aquin — Python SDK
 
-**Shape:** SDK + `recipe.yaml` + `artifacts/` folder.
+**Shape:** SDK + `recipe.yaml` + `artifacts/`. Paths (data, evals, …) live in the YAML — no slot forest.
 
 ```bash
-# from aqfw checkout
 pip install -e ./sdk
-# kernel deps (sklearn / torch / …) — same Python as the kernel:
+# kernel deps into the same Python:
 pip install -r aq/kernel/requirements.txt
-# recommended: install into the kernel venv
-aq/kernel/.venv/bin/pip install -e ./sdk
 ```
+
+## Init a run
+
+```bash
+python -m aquin init my-run
+cd my-run
+# edit recipe.yaml → data.path
+python example.py
+```
+
+Same scaffold via CLI: `aq init my-run`.
+
+## Use
 
 ```python
 from aquin import Aquin
 
-aq = Aquin("tests/sdk-ridge")  # or path to recipe.yaml / any tests/<train>
+aq = Aquin(".")  # directory with recipe.yaml
 aq.train()
 aq.eval()
-print(aq.status())
 ```
 
-Set `AQ_KERNEL` to `aq/kernel` if discovery fails.
+Examples: [`tests/sdk-ridge`](../tests/sdk-ridge/), [`tests/sdk-from-dict`](../tests/sdk-from-dict/).
 
-Design: [`internals/author/sdk-first.md`](../internals/author/sdk-first.md) · trains: [`tests/`](../tests/README.md) · minimal: [`tests/sdk-ridge`](../tests/sdk-ridge/).
+Set `AQ_KERNEL` to `aq/kernel` if discovery fails.

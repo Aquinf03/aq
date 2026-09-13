@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { assertTrain } from "../core/schema.js"
-import { listPlanFiles, listPlanLogFiles } from "../job/plans.js"
+import { listPlans, listPlanLogFiles } from "../job/plans.js"
 import { printSection, printTable } from "../lib/term-table.js"
 
 export async function status(argv: string[]): Promise<void> {
@@ -106,11 +106,14 @@ export async function status(argv: string[]): Promise<void> {
     printTable(["event", "step", "loss", "acc", "time"], rows)
   } else console.log("  (none)")
 
-  const plans = listPlanFiles(train)
+  const plans = listPlans(train)
   printSection(
     "job plans",
-    ["plan"],
-    plans.map(({ file }) => ["jobs/plans/" + path.basename(file)]),
+    ["plan", "source"],
+    plans.map(({ name, source }) => [
+      name,
+      source === "recipe" ? "recipe.yaml" : "jobs/plans/",
+    ]),
   )
 
   const logs = listPlanLogFiles(train)

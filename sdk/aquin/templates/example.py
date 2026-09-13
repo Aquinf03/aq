@@ -1,4 +1,4 @@
-"""SDK example — edit recipe.yaml, then run: python example.py"""
+"""Aquin SDK example — edit recipe.yaml, then run: python example.py"""
 
 from pathlib import Path
 
