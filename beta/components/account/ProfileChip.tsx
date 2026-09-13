@@ -206,10 +206,10 @@ export default function ProfileChip() {
     );
 
   const linkTextClass =
-    "text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 transition-colors hover:text-stone-900 hover:decoration-stone-500 dark:text-stone-300 dark:decoration-stone-600 dark:hover:text-stone-100 dark:hover:decoration-stone-400";
+    "text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 transition-colors hover:text-stone-900 hover:decoration-stone-500 dark:text-stone-300 dark:decoration-white/20 dark:hover:text-[#f5f5f3] dark:hover:decoration-white/50";
 
   const nameInputClass =
-    "w-full min-w-0 border-0 bg-transparent p-0 text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 outline-none transition-colors placeholder:text-stone-400 focus:text-stone-900 focus:decoration-stone-500 dark:text-stone-300 dark:decoration-stone-600 dark:placeholder:text-stone-500 dark:focus:text-stone-100 dark:focus:decoration-stone-400";
+    "w-full min-w-0 border-0 bg-transparent p-0 text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 outline-none transition-colors placeholder:text-stone-400 focus:text-stone-900 focus:decoration-stone-500 dark:text-stone-300 dark:decoration-white/20 dark:placeholder:text-stone-500 dark:focus:text-[#f5f5f3] dark:focus:decoration-white/40";
 
   return (
     <>
@@ -217,7 +217,7 @@ export default function ProfileChip() {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-stone-300/70 outline-none transition-shadow hover:ring-stone-400 data-[state=open]:ring-stone-500 dark:ring-stone-600 dark:hover:ring-stone-500 dark:data-[state=open]:ring-stone-400"
+            className="size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10 outline-none transition-shadow hover:ring-black/20 data-[state=open]:ring-black/30 dark:ring-white/10 dark:hover:ring-white/20 dark:data-[state=open]:ring-white/30"
             title={displayName}
           >
             {avatarThumb(36)}
@@ -227,10 +227,10 @@ export default function ProfileChip() {
           align="end"
           side="bottom"
           sideOffset={8}
-          className="w-[min(calc(100vw-2rem),20rem)] rounded-2xl border-stone-200 bg-white p-0 shadow-xl dark:border-stone-700 dark:bg-stone-900"
+          className="w-[min(calc(100vw-2rem),20rem)] rounded-2xl border-black/10 bg-white p-0 shadow-xl dark:border-white/10 dark:bg-black"
         >
           <PopoverHeader className="gap-0.5 px-5 pt-4 pb-2">
-            <PopoverTitle className="text-base font-semibold text-stone-900 font-host-grotesk tracking-[-0.02em] dark:text-stone-100">
+            <PopoverTitle className="text-base font-semibold text-stone-900 font-host-grotesk tracking-[-0.02em] dark:text-[#f5f5f3]">
               Profile
             </PopoverTitle>
             <PopoverDescription className="text-xs text-stone-400 dark:text-stone-500">
@@ -245,7 +245,7 @@ export default function ProfileChip() {
                   Appearance
                 </p>
                 <div
-                  className="grid grid-cols-2 gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 dark:border-stone-700 dark:bg-stone-950/60"
+                  className="grid grid-cols-2 gap-1 rounded-xl border border-black/10 bg-black/[0.03] p-1 dark:border-white/10 dark:bg-white/[0.06]"
                   role="group"
                   aria-label="Color theme"
                 >
@@ -255,8 +255,8 @@ export default function ProfileChip() {
                     className={cn(
                       "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
                       theme === "light"
-                        ? "bg-white text-stone-900 shadow-sm dark:bg-stone-800 dark:text-stone-100"
-                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200",
+                        ? "bg-white text-stone-900 shadow-sm dark:bg-white dark:text-black"
+                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-[#f5f5f3]",
                     )}
                     aria-pressed={theme === "light"}
                   >
@@ -269,8 +269,8 @@ export default function ProfileChip() {
                     className={cn(
                       "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
                       theme === "dark"
-                        ? "bg-white text-stone-900 shadow-sm dark:bg-stone-800 dark:text-stone-100"
-                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200",
+                        ? "bg-black text-white shadow-sm dark:bg-white dark:text-black"
+                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-[#f5f5f3]",
                     )}
                     aria-pressed={theme === "dark"}
                   >
@@ -363,7 +363,7 @@ export default function ProfileChip() {
               <button
                 type="button"
                 onClick={() => void handleSignOut()}
-                className={`${linkTextClass} hover:text-red-700 hover:decoration-red-300 dark:hover:text-red-400 dark:hover:decoration-red-500/50`}
+                className={`${linkTextClass} hover:text-red-700 hover:decoration-red-300 dark:hover:text-red-400 dark:hover:decoration-red-400/40`}
               >
                 Sign out
               </button>

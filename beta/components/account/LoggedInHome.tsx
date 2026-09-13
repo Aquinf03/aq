@@ -27,15 +27,15 @@ function CmdRow({
   onCopy: () => void;
 }) {
   return (
-    <div className="flex items-stretch gap-0 rounded-xl border-2 border-stone-200 dark:border-stone-700">
-      <code className="flex-1 min-w-0 self-center overflow-x-auto whitespace-nowrap px-3.5 py-2.5 text-[13px] leading-relaxed text-stone-800 select-all no-scrollbar dark:text-stone-200">
+    <div className="flex items-stretch gap-0 rounded-xl border-2 border-black/10 dark:border-white/10">
+      <code className="flex-1 min-w-0 self-center overflow-x-auto whitespace-nowrap px-3.5 py-2.5 text-[13px] leading-relaxed text-stone-800 select-all no-scrollbar dark:text-[#f5f5f3]">
         {cmd}
       </code>
-      <div className="w-0.5 shrink-0 self-stretch bg-stone-200 dark:bg-stone-700" aria-hidden />
+      <div className="w-0.5 shrink-0 self-stretch bg-black/10 dark:bg-white/10" aria-hidden />
       <button
         type="button"
         aria-label={copied ? "Copied" : `Copy ${cmd}`}
-        className="shrink-0 inline-flex items-center justify-center px-3 text-stone-500 hover:text-stone-800 transition-colors dark:text-stone-400 dark:hover:text-stone-100"
+        className="shrink-0 inline-flex items-center justify-center px-3 text-stone-500 hover:text-stone-900 transition-colors dark:text-stone-400 dark:hover:text-[#f5f5f3]"
         onClick={onCopy}
       >
         {copied ? (
@@ -80,7 +80,7 @@ export function LoggedInHome() {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col items-stretch gap-8">
-      <h2 className="font-host-grotesk text-center text-2xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100">
+      <h2 className="font-host-grotesk text-center text-2xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-[#f5f5f3]">
         {timeGreeting()}, {firstName(profileName, user?.email ?? "")}
       </h2>
 
@@ -111,24 +111,24 @@ export function LoggedInHome() {
               href={siteConfig.links.docs}
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4 transition-colors hover:decoration-stone-800 dark:text-stone-200 dark:decoration-stone-600 dark:hover:decoration-stone-300"
+              className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4 transition-colors hover:decoration-stone-800 dark:text-[#f5f5f3] dark:decoration-white/20 dark:hover:decoration-white/50"
             >
               Documentation
               <ArrowUpRight
-                className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800 dark:text-stone-500 dark:group-hover:text-stone-200"
+                className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800 dark:text-stone-500 dark:group-hover:text-[#f5f5f3]"
                 weight="bold"
               />
             </a>
-            <span className="text-stone-300 dark:text-stone-600" aria-hidden>
+            <span className="text-stone-300 dark:text-white/20" aria-hidden>
               ·
             </span>
             <a
               href="https://aquin.app/changelog"
-              className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4 transition-colors hover:decoration-stone-800 dark:text-stone-200 dark:decoration-stone-600 dark:hover:decoration-stone-300"
+              className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4 transition-colors hover:decoration-stone-800 dark:text-[#f5f5f3] dark:decoration-white/20 dark:hover:decoration-white/50"
             >
               Changelog
               <ArrowUpRight
-                className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800 dark:text-stone-500 dark:group-hover:text-stone-200"
+                className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800 dark:text-stone-500 dark:group-hover:text-[#f5f5f3]"
                 weight="bold"
               />
             </a>

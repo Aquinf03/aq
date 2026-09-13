@@ -290,7 +290,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
           {step === "desktop" && user && (
             <div className="space-y-6 text-center">
               <div>
-                <h1 className="font-host-grotesk text-2xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100">
+                <h1 className="font-host-grotesk text-2xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-[#f5f5f3]">
                   {isCli ? "Sign in for Aquin CLI" : "Sign in for CLI / desktop"}
                 </h1>
                 <p className="mt-2 text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500">
@@ -318,9 +318,9 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                     In the terminal where <span className="font-mono text-stone-700 dark:text-stone-300">aq login</span> is waiting,
                     paste the code or the full <span className="font-mono">aquin://</span> link.
                   </p>
-                  <div className="space-y-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white/80 dark:bg-stone-900/80 px-3 py-2.5">
+                  <div className="space-y-2 rounded-xl border border-stone-200 dark:border-white/10 bg-white/80 dark:bg-black/80 px-3 py-2.5">
                     <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">Code</p>
-                    <p className="break-all font-mono text-[11px] leading-relaxed text-stone-800 dark:text-stone-200 select-all">
+                    <p className="break-all font-mono text-[11px] leading-relaxed text-stone-800 dark:text-[#f5f5f3] select-all">
                       {code}
                     </p>
                     <button
@@ -333,7 +333,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                     </button>
                   </div>
                   {deepLink && (
-                    <div className="space-y-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white/80 dark:bg-stone-900/80 px-3 py-2.5">
+                    <div className="space-y-2 rounded-xl border border-stone-200 dark:border-white/10 bg-white/80 dark:bg-black/80 px-3 py-2.5">
                       <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">aquin:// link</p>
                       <p className="break-all font-mono text-[11px] text-stone-700 dark:text-stone-300 select-all">{deepLink}</p>
                       <button
@@ -377,7 +377,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
               <div className="relative mb-7 h-10 w-full">
                 <h1
                   className={cn(
-                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight transition-all duration-500 ease-out",
+                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-[#f5f5f3] leading-tight transition-all duration-500 ease-out",
                     step === "email"
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none -translate-y-2 opacity-0",
@@ -387,7 +387,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                 </h1>
                 <h1
                   className={cn(
-                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight transition-all duration-500 ease-out",
+                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-[#f5f5f3] leading-tight transition-all duration-500 ease-out",
                     step === "password"
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none translate-y-2 opacity-0",
@@ -447,7 +447,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                     onClick={resetForm}
                     aria-hidden={step === "email"}
                     className={cn(
-                      "shrink-0 overflow-hidden whitespace-nowrap text-xs font-host-grotesk text-stone-500 dark:text-stone-400 dark:text-stone-500 transition-all duration-500 ease-out hover:text-stone-900 dark:hover:text-stone-100 dark:text-stone-100",
+                      "shrink-0 overflow-hidden whitespace-nowrap text-xs font-host-grotesk text-stone-500 dark:text-stone-400 dark:text-stone-500 transition-all duration-500 ease-out hover:text-stone-900 dark:hover:text-[#f5f5f3] dark:text-[#f5f5f3]",
                       step === "password"
                         ? "max-w-[4rem] translate-x-0 pr-1 opacity-100"
                         : "pointer-events-none max-w-0 opacity-0",
@@ -480,7 +480,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-stone-400 dark:text-stone-500 transition-colors hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300"
+                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-stone-400 dark:text-stone-500 transition-colors hover:text-stone-700 dark:hover:text-[#f5f5f3] dark:text-stone-300"
                       >
                         {showPassword ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -490,7 +490,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                       <button
                         type="button"
                         onClick={handleForgotPassword}
-                        className="text-xs font-host-grotesk text-stone-400 dark:text-stone-500 transition-colors hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300"
+                        className="text-xs font-host-grotesk text-stone-400 dark:text-stone-500 transition-colors hover:text-stone-700 dark:hover:text-[#f5f5f3] dark:text-stone-300"
                       >
                         forgot password?
                       </button>
@@ -521,7 +521,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
           {step === "signup" && (
             <div className="space-y-7">
               <div>
-                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight">Create account</h1>
+                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-[#f5f5f3] leading-tight">Create account</h1>
                 <p className="text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500 mt-1.5 leading-relaxed">
                   Set up your Aquin account to get started.
                 </p>
@@ -530,8 +530,8 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
               <form className="space-y-3.5" onSubmit={handleSignupNext}>
                 <div>
                   <div className="flex items-center gap-2">
-                    <input type="email" value={email} disabled aria-label="Email" className="flex-1 px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 dark:text-stone-500 text-sm" />
-                    <button type="button" onClick={resetForm} className="text-xs font-host-grotesk text-stone-500 dark:text-stone-400 dark:text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 dark:text-stone-100 whitespace-nowrap transition-colors">
+                    <input type="email" value={email} disabled aria-label="Email" className="flex-1 px-4 py-3 rounded-xl border border-stone-200 dark:border-white/10 bg-stone-100 dark:bg-white/10 text-stone-500 dark:text-stone-400 dark:text-stone-500 text-sm" />
+                    <button type="button" onClick={resetForm} className="text-xs font-host-grotesk text-stone-500 dark:text-stone-400 dark:text-stone-500 hover:text-stone-900 dark:hover:text-[#f5f5f3] dark:text-[#f5f5f3] whitespace-nowrap transition-colors">
                       change
                     </button>
                   </div>
@@ -553,7 +553,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
             <div className="space-y-7">
               <div>
                 <p className="text-xs font-host-grotesk uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-3">Almost there</p>
-                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight">Choose a password</h1>
+                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-[#f5f5f3] leading-tight">Choose a password</h1>
                 <p className="text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500 mt-1.5">Secure your new Aquin account.</p>
               </div>
 
@@ -572,7 +572,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                       minLength={6}
                       autoFocus
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300 transition-colors">
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-[#f5f5f3] dark:text-stone-300 transition-colors">
                       {showPassword ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
@@ -594,7 +594,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                   {loading ? "Creating account…" : "Create account"}
                 </button>
 
-                <button type="button" onClick={() => setStep("signup")} className="w-full py-2 text-xs font-host-grotesk text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300 transition-colors">
+                <button type="button" onClick={() => setStep("signup")} className="w-full py-2 text-xs font-host-grotesk text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-[#f5f5f3] dark:text-stone-300 transition-colors">
                   &larr; back
                 </button>
               </form>

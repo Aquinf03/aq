@@ -61,11 +61,11 @@ export function UserHomeClient({ username, displayName, avatarUrl, profileHref }
       <AuthHeader showProfile={Boolean(user)} />
       <div className="flex min-h-screen items-center justify-center px-4 py-24">
         <div className="w-full max-w-sm space-y-5 text-center">
-          <div className="mx-auto size-20 overflow-hidden rounded-full ring-1 ring-stone-300/70 dark:ring-stone-600">
+          <div className="mx-auto size-20 overflow-hidden rounded-full ring-1 ring-black/10 dark:ring-white/10">
             <ProfileAvatar avatarUrl={avatarUrl} seed={username} size={80} />
           </div>
           <div className="space-y-1">
-            <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100">
+            <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-[#f5f5f3]">
               {displayName}
             </h1>
             <p className="font-host-grotesk text-sm text-stone-500 dark:text-stone-400">{profileHref}</p>
