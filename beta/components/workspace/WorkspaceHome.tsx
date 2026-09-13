@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight } from "@phosphor-icons/react";
+import { ArrowUpRight, FolderSimple } from "@phosphor-icons/react";
 import { AquinBrand } from "@/components/ui/AquinBrand";
 import { CliTokenDropdown } from "@/components/account/CliTokenSection";
 import ProfileChip from "@/components/account/ProfileChip";
@@ -13,6 +13,9 @@ type WorkspaceHomeProps = {
 
 const linkClass =
   "group inline-flex items-center gap-1.5 text-sm font-medium text-stone-600 transition-colors hover:text-stone-900 dark:text-stone-300 dark:hover:text-[#f5f5f3]";
+
+const actionClass =
+  "inline-flex items-center gap-2 text-sm font-medium text-stone-600 transition-colors hover:text-stone-900 dark:text-stone-300 dark:hover:text-[#f5f5f3]";
 
 /** Owner home chrome: brand + aq-token + docs top, profile bottom in sidebar. */
 export function WorkspaceHome({ children }: WorkspaceHomeProps) {
@@ -50,6 +53,10 @@ export function WorkspaceHome({ children }: WorkspaceHomeProps) {
                   />
                 </a>
               </div>
+              <button type="button" className={`${actionClass} mt-5 text-left`}>
+                <FolderSimple className="size-5 shrink-0" weight="regular" />
+                SSH Open folder
+              </button>
             </div>
           </div>
           <div className="mt-auto">

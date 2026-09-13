@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Copy, Check as CheckIcon, RefreshCw, KeyRound } from "lucide-react";
+import { ArrowsClockwise, Check, CircleNotch, Copy, Key } from "@phosphor-icons/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -255,7 +255,7 @@ function CliTokenPanel({
                 newKey ? "text-emerald-600 hover:text-emerald-800" : "text-amber-700 hover:text-amber-900"
               }`}
             >
-              {copied ? <CheckIcon className="size-3" /> : <Copy className="size-3" />}
+              {copied ? <Check className="size-3" weight="bold" /> : <Copy className="size-3" weight="bold" />}
             </button>
           </div>
           {newKey ? (
@@ -289,7 +289,7 @@ function CliTokenPanel({
               disabled={generating}
               className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold text-stone-500 hover:text-stone-800 disabled:opacity-40 transition-colors"
             >
-              {generating ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
+              {generating ? <CircleNotch className="size-3 animate-spin" weight="bold" /> : <ArrowsClockwise className="size-3" weight="bold" />}
               Regenerate
             </button>
           </div>
@@ -299,11 +299,7 @@ function CliTokenPanel({
               ? ` · Last used ${new Date(active.last_used_at).toLocaleDateString()}`
               : ""}
           </p>
-          {active.revealable === false ? (
-            <p className="text-[9px] text-stone-500 leading-relaxed">
-              Regenerate once to enable copy-back with your password.
-            </p>
-          ) : showRevealForm ? (
+          {active.revealable === false ? null : showRevealForm ? (
             <form onSubmit={revealToken} className="pt-1 space-y-2">
               <label className="block text-[9px] font-medium text-stone-500">Account password</label>
               <input
@@ -321,7 +317,7 @@ function CliTokenPanel({
                   disabled={revealing}
                   className="inline-flex items-center gap-1 rounded-lg bg-black px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-black/90 disabled:opacity-50"
                 >
-                  {revealing ? <Loader2 className="size-3 animate-spin" /> : <KeyRound className="size-3" />}
+                  {revealing ? <CircleNotch className="size-3 animate-spin" weight="bold" /> : <Key className="size-3" weight="bold" />}
                   Show token
                 </button>
                 <button
@@ -342,13 +338,12 @@ function CliTokenPanel({
               }}
               className="inline-flex items-center gap-1 text-[10px] font-semibold text-stone-600 hover:text-stone-900"
             >
-              <Copy className="size-3" />
+              <Copy className="size-3" weight="bold" />
               Copy token
             </button>
           )}
           <p className="text-[10px] text-stone-400 leading-relaxed pt-0.5">
             One active token per account. Copy again anytime with your password, or regenerate to rotate.
-            Teammates use their own login; on a shared GPU run <code className="font-mono">aquin switch</code>.
           </p>
         </div>
       ) : !visibleKey ? (
@@ -362,7 +357,7 @@ function CliTokenPanel({
             disabled={generating}
             className="inline-flex items-center gap-1.5 rounded-lg bg-black px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-black/90 disabled:opacity-50 transition-colors"
           >
-            {generating ? <Loader2 className="size-3.5 animate-spin" /> : <KeyRound className="size-3.5" />}
+            {generating ? <CircleNotch className="size-3.5 animate-spin" weight="bold" /> : <Key className="size-3.5" weight="bold" />}
             {generating ? "Generating…" : "Generate CLI token"}
           </button>
         </div>
