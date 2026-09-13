@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CaretDown } from "@phosphor-icons/react";
 import { Loader2, Copy, Check as CheckIcon, RefreshCw, KeyRound } from "lucide-react";
 import {
   DropdownMenu,
@@ -377,14 +376,14 @@ export function CliTokenDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex items-center gap-1 text-sm font-medium font-host-grotesk text-stone-600 outline-none transition-colors hover:text-stone-900 data-[state=open]:text-stone-900 dark:text-stone-300 dark:hover:text-[#f5f5f3] dark:data-[state=open]:text-[#f5f5f3]">
+      <DropdownMenuTrigger className="inline-flex w-full items-center justify-between gap-1 text-sm font-medium font-host-grotesk text-stone-600 outline-none transition-colors hover:text-stone-900 data-[state=open]:text-stone-900 dark:text-stone-300 dark:hover:text-[#f5f5f3] dark:data-[state=open]:text-[#f5f5f3]">
         <span>aq-token</span>
-        <CaretDown className="size-3.5 shrink-0" weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
+        side="bottom"
         sideOffset={8}
-        className="w-[min(calc(100vw-2rem),22rem)] rounded-xl border-black/10 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-black"
+        className="w-[var(--radix-dropdown-menu-trigger-width)] max-w-[var(--radix-dropdown-menu-trigger-width)] rounded-xl border-black/10 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-black"
         onCloseAutoFocus={e => e.preventDefault()}
       >
         <CliTokenPanel {...cli} />

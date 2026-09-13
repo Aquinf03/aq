@@ -15,9 +15,13 @@ export function WorkspaceHome({ children }: WorkspaceHomeProps) {
     <WorkspaceShell
       sidebar={
         <div className="flex h-full flex-col px-4 pb-3 pt-4">
-          <div className="flex flex-col items-start gap-3">
-            <AquinBrand size="sm" href="/" />
-            <CliTokenDropdown />
+          <div className="flex flex-col items-stretch gap-3">
+            <div className="flex items-center pr-9">
+              <AquinBrand size="sm" href="/" />
+            </div>
+            <div className="pt-2">
+              <CliTokenDropdown />
+            </div>
           </div>
           <div className="mt-auto">
             <ProfileChip variant="sidebar" />
