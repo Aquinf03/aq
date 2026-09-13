@@ -1,7 +1,7 @@
 # Aquin Framework
 
 **aq** is the CLI. The Python kernel ships inside the `aq` package.  
-**SDK shape:** `aquin` client + `recipe.yaml` + `artifacts/` folder.
+**SDK shape:** `recipe.yaml` (path map) + `artifacts/` (runtime). Author with **YAML and/or `aquin`** — both first-class.
 
 **Docs:** https://aq.aquin.app/docs · **Account / install:** https://aq.aquin.app  
 **SDK:** [`sdk/`](./sdk/README.md) · **Trains:** [`tests/`](./tests/README.md)
@@ -22,7 +22,7 @@ python -m aquin init my-run   # or: aq init my-run
 cd my-run && python example.py
 ```
 
-See [`tests/sdk-ridge/example.py`](./tests/sdk-ridge/example.py) and [`tests/sdk-from-dict/example.py`](./tests/sdk-from-dict/example.py).
+See [`tests/sdk-ridge/example.py`](./tests/sdk-ridge/example.py), [`tests/sdk-from-dict/example.py`](./tests/sdk-from-dict/example.py), [`tests/sdk-run-class/example.py`](./tests/sdk-run-class/example.py).
 
 ## From a checkout (CLI)
 
@@ -49,7 +49,7 @@ aq train && aq eval && aq status
 | `sdk/` | Python `aquin` SDK |
 | `tests/` | E2E trains (CLI + SDK) |
 | `web/` | Docs + auth app (`aq.aquin.app`) |
-| `internals/` | Builder checklists + author notes |
+| `internals/` | Builder checklists |
 
-- Publish: [`scripts/release.sh`](./scripts/release.sh) · [internals/author/release.md](./internals/author/release.md)
-- SDK design: [`internals/author/sdk-first.md`](./internals/author/sdk-first.md)
+- Publish: [`scripts/release.sh`](./scripts/release.sh)
+- SDK: [`sdk/README.md`](./sdk/README.md)

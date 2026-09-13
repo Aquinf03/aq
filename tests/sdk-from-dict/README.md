@@ -1,25 +1,22 @@
-# sdk-from-dict — SDK example
+# sdk-from-dict
 
-Shows `Aquin.from_dict(...)`: you build the recipe in Python; it still **writes `recipe.yaml`**, then trains into `artifacts/`.
+`Aquin.define(...)` (alias: `from_dict`) authors the run in Python and **writes `recipe.yaml` as the path map**, then trains into `artifacts/`.
 
-```text
-tests/sdk-from-dict/
+```
+sdk-from-dict/
+  example.py       # define + plan → recipe.yaml → train/eval
   data.csv
   evals/
-  example.py       # writes recipe.yaml, then train/eval
-  recipe.yaml      # created/updated by example.py
-  artifacts/       # created on train
+  recipe.yaml      # rewritten by example.py
+  artifacts/       # runtime
 ```
 
-## Run it
-
 ```bash
-aq/kernel/.venv/bin/pip install -e ./sdk
 cd tests/sdk-from-dict
 ../../aq/kernel/.venv/bin/python example.py
 ```
 
-## Pass bar
+## Expect
 
-- `example.py` writes `recipe.yaml`, trains, eval **pass**
-- Re-open with `Aquin("tests/sdk-from-dict")` works after the first run
+- path map written with `plans.pipe`
+- train + eval **pass**

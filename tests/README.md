@@ -1,8 +1,6 @@
 # tests
 
-Manual end-to-end **runs**. Each runnable folder has `recipe.yaml` (+ data / evals as needed). Training writes **`artifacts/`**.
-
-**Identity:** `recipe.yaml` is enough. `experiment.md` is optional.
+Manual end-to-end **runs**. Identity is the **path map** (`recipe.yaml`) + **`artifacts/`** runtime. Author with **YAML and/or SDK** — both first-class.
 
 | Surface | How |
 |---------|-----|
@@ -18,14 +16,15 @@ cd tests/sdk-ridge && ../../aq/kernel/.venv/bin/python example.py
 
 ---
 
-## SDK examples (code + YAML)
+## SDK examples (code → path map → artifacts)
 
 | Suite | What it shows |
 |-------|----------------|
-| [sdk-ridge](sdk-ridge/) | `example.py` + existing `recipe.yaml` |
-| [sdk-from-dict](sdk-from-dict/) | `example.py` builds YAML via `from_dict`, then trains |
+| [sdk-ridge](sdk-ridge/) | Open existing `recipe.yaml` with `Aquin(".")` |
+| [sdk-from-dict](sdk-from-dict/) | `Aquin.define` / `.plan` writes the path map, then trains |
+| [sdk-run-class](sdk-run-class/) | `Run` + `@schedule` / `@pipeline` → same path map |
 
-Other suites are science fixtures (CLI + optional `Aquin("tests/…")` in their README). The **canonical SDK samples** are the two folders above.
+Other suites are science fixtures (CLI + optional `Aquin("tests/…")`). Canonical SDK samples are the three folders above.
 
 ---
 

@@ -47,7 +47,7 @@ async function main(): Promise<void> {
     const rel = path.relative(process.cwd(), root) || root
     console.log("run")
     console.log("  " + rel)
-    console.log("  recipe.yaml + example.py + artifacts/ — paths live in the YAML")
+    console.log("  recipe.yaml + example.py + artifacts/ — YAML and/or SDK")
     if (created.length) {
       console.log("created")
       for (const f of created) console.log("  " + f)
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
     } else {
       console.log("next")
       console.log("  cd " + rel)
-      console.log("  point data.path in recipe.yaml at your file")
+      console.log("  edit recipe.yaml  (or Aquin.define in example.py)")
       console.log("  python example.py   # or: aq train && aq eval")
     }
     return

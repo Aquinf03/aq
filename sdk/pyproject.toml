@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "aquin"
 version = "0.1.0"
-description = "Aquin SDK — few lines over YAML + artifacts/ (sklearn, torch, … via aq kernel)"
+description = "Aquin SDK — Python authors; recipe.yaml path map; artifacts/ runtime"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

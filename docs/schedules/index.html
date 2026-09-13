@@ -73,7 +73,7 @@
 <span class="line"><span>    kind: pipeline</span></span>
 <span class="line"><span>    steps: [train, eval]</span></span></code></pre>
 </div>
-  <p class="notes">Legacy <code class="chip">jobs/plans/*.yaml</code> still loads for names not already defined in the recipe. Prefer YAML in the recipe. Init does not create jobs/plans/.</p>
+  <p class="notes">Author plans in YAML <em>or</em> via SDK (<code class="chip">aq.plan</code> / <code class="chip">@schedule</code>) — same <code class="chip">plans:</code> block. Legacy <code class="chip">jobs/plans/*.yaml</code> still loads for names not already in the recipe. Init does not create jobs/plans/.</p>
 </section>
 
 <section class="tool" id="aq-job-plan">

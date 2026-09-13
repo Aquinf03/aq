@@ -1,5 +1,5 @@
-# Run spec. Paths are relative to this file (or absolute).
-# Identity: this YAML + artifacts/ — no slot forest required.
+# Path map for this run (prefer Aquin.define / Run in example.py).
+# Runtime output lives under artifacts/ — not here.
 
 family: tabular
 method: linear
@@ -24,7 +24,7 @@ eval:
 # eval:
 #   metric: loss
 
-# --- job plans (optional; state under artifacts/jobs/plans/) ---
+# --- job plans (optional; or aq.plan / @schedule in SDK) ---
 # plans:
 #   nightly:
 #     kind: cron

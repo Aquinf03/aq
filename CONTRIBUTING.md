@@ -40,7 +40,7 @@ Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. After TypeScript edits:
 cd aq && npm run build
 ```
 
-User docs: https://aquinf03.github.io/aq. Author notes: [`internals/author/`](./internals/author/README.md).
+User docs: https://aquinf03.github.io/aq · [`docs/`](./docs/) · SDK: [`sdk/README.md`](./sdk/README.md).
 
 ## PR requirements
 
@@ -98,7 +98,7 @@ aq status
 # read artifacts/inspect.md
 ```
 
-Pick the train that proves what you changed. Catalog: [`internals/author/tests-catalog.md`](./internals/author/tests-catalog.md) and [`tests/README.md`](./tests/README.md).
+Pick the train that proves what you changed. Index: [`tests/README.md`](./tests/README.md).
 
 | Change type | Expectation |
 |-------------|-------------|
@@ -139,7 +139,7 @@ Why is this needed? Link issues: Fixes #123
 ## Types of contributions
 
 **Code:** bug fixes, features, performance, refactors  
-**Docs:** static HTML under `docs/` (GitHub Pages), author notes in `internals/author/`, clarifications  
+**Docs:** static HTML under `docs/` (GitHub Pages), SDK README, clarifications  
 **Tests:** new or tighter trains under `tests/`  
 **Issues:** clear bug reports and focused feature proposals  
 
@@ -163,8 +163,8 @@ Public issues for vulnerabilities will be **closed immediately**. You must email
 
 ## Questions
 
-- Usage / how-to: https://aquinf03.github.io/aq
-- Architecture / release: [`internals/author/`](./internals/author/README.md)
+- Usage / how-to: https://aquinf03.github.io/aq · [`docs/`](./docs/)
+- SDK: [`sdk/README.md`](./sdk/README.md)
 - Security: [`SECURITY.md`](./SECURITY.md)
 - Contact: aquin@aquin.app
 

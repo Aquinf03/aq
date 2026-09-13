@@ -45,7 +45,7 @@
 <a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
     </aside>
     <main class="docs-main"><h1>Recipe</h1>
-<p class="lead">recipe.yaml is the full train API for built-in methods — paths, method, eval, optional plans:. You do not write Python unless you drop a custom method. The kernel reads the recipe; aq does not override it.</p>
+<p class="lead">recipe.yaml is the durable <strong>path map</strong> for a run — method, data paths, eval gate, optional plans:. Edit it by hand <em>or</em> author with the SDK (<code class="chip">Aquin.define</code> / <code class="chip">Run</code>); both rewrite/read the same file. The kernel and CLI consume the map; they do not care which surface wrote it.</p>
 <div class="prereq"><span class="prereq-label">Prerequisite</span>A train folder with recipe.yaml · kernel deps: pip install -r aq/kernel/requirements.txt</div>
 <section class="tool" id="recipeyaml--tabular">
   <h3 class="tool-cmd">recipe.yaml · tabular</h3>
@@ -121,7 +121,7 @@
 <section class="tool" id="recipeyaml--plans">
   <h3 class="tool-cmd">recipe.yaml · plans</h3>
   
-  <p class="tool-desc">Optional job plans (cron, sweep, resume, pipeline, agents). Authoring lives here — not jobs/plans/ from init. Runtime state under artifacts/jobs/plans/. See Plans &amp; stages.</p>
+  <p class="tool-desc">Optional job plans (cron, sweep, resume, pipeline, agents). Author in YAML under <code class="chip">plans:</code> <em>or</em> via <code class="chip">aq.plan(...)</code> / <code class="chip">@schedule</code> — same block. Runtime state under artifacts/jobs/plans/. See Plans &amp; stages.</p>
   
   <div class="codeblock" data-shell="0">
   <div class="codeblock-bar">

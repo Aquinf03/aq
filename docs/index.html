@@ -65,36 +65,54 @@
   <p class="lead">Flow: edit the recipe (and data paths), train/eval via SDK or CLI, artifacts land on disk. Accounts live at <code class="chip">aq.aquin.app</code> — identity and tokens only. <a href="https://aq.aquin.app/">Sign in</a>.</p>
 
   <h2>SDK (few lines)</h2>
+  <p class="lead"><strong>YAML and SDK are both optional authoring surfaces</strong> for the same path map. Edit <code class="chip">recipe.yaml</code> by hand, or use <code class="chip">Aquin.define</code> / <code class="chip">Run</code> (which rewrite that file). <code class="chip">artifacts/</code> is always runtime.</p>
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>shell</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
   <pre><code><span class="line"><span class="prompt">$</span><span>python -m aquin init my-run</span></span>
-<span class="line"><span class="prompt">$</span><span>cd my-run &amp;&amp; python example.py</span></span></code></pre>
+<span class="line"><span class="prompt">$</span><span>cd my-run &amp;&amp; python example.py</span></span>
+<span class="line"><span class="prompt">$</span><span># or: aq train &amp;&amp; aq eval</span></span></code></pre>
 </div>
   <div class="codeblock" data-shell="0">
   <div class="codeblock-bar">
-    <span>python</span>
+    <span>python · YAML-first</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
   <pre><code><span class="line"><span>from aquin import Aquin</span></span>
-<span class="line"><span>aq = Aquin(".")</span></span>
+<span class="line"><span>aq = Aquin(".")  # reads recipe.yaml</span></span>
 <span class="line"><span>aq.train()</span></span>
 <span class="line"><span>aq.eval()</span></span></code></pre>
 </div>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>python · SDK-first</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>from aquin import Aquin</span></span>
+<span class="line"><span>aq = Aquin.define(</span></span>
+<span class="line"><span>    family="tabular", method="linear",</span></span>
+<span class="line"><span>    data={"path": "data.csv", "target": "y"},</span></span>
+<span class="line"><span>    eval={"metric": "mse"},</span></span>
+<span class="line"><span>    config_path="recipe.yaml",</span></span>
+<span class="line"><span>)</span></span>
+<span class="line"><span>aq.plan("nightly", kind="cron", every=60, run="train")</span></span>
+<span class="line"><span>aq.train()</span></span></code></pre>
+</div>
+  <p class="lead">Plans: edit <code class="chip">plans:</code> in YAML <em>or</em> call <code class="chip">aq.plan(...)</code> / <code class="chip">@schedule</code>. CLI reads the same map.</p>
 
   <h2>What init creates</h2>
-  <p class="lead"><code class="chip">aq init</code> / <code class="chip">python -m aquin init</code> scaffolds only identity + a sample — not a slot forest. Put file paths in <code class="chip">recipe.yaml</code>. Job plans go under a <code class="chip">plans:</code> block in that same file.</p>
+  <p class="lead"><code class="chip">aq init</code> / <code class="chip">python -m aquin init</code> scaffolds a seed path map + sample. Author by editing YAML, using the SDK, or both.</p>
   <div class="codeblock" data-shell="0">
   <div class="codeblock-bar">
     <span>run folder</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
   <pre><code><span class="line"><span>my-run/</span></span>
-<span class="line"><span>  recipe.yaml              REQUIRED — paths, method, eval, optional plans:</span></span>
-<span class="line"><span>  example.py               SDK sample</span></span>
-<span class="line"><span>  artifacts/               runtime output (created empty; filled on train)</span></span></code></pre>
+<span class="line"><span>  recipe.yaml              path map — edit by hand and/or via SDK</span></span>
+<span class="line"><span>  example.py               opens YAML by default; define path commented</span></span>
+<span class="line"><span>  artifacts/               runtime (checkpoints, metrics, plan logs)</span></span></code></pre>
 </div>
   <p class="lead">Optional later: your own data file, eval probes, tools/skills packs, nested <code class="chip">stages/</code>. Queue state may still use <code class="chip">jobs/</code>; plan run logs live under <code class="chip">artifacts/jobs/plans/</code>. Full layout: <a href="train/">Train folder</a>. Plans: <a href="schedules/">Plans &amp; stages</a>.</p>
 

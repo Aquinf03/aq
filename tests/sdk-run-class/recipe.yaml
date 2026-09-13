@@ -12,3 +12,7 @@ plans:
   pipe:
     kind: pipeline
     steps: [train, eval]
+  nightly:
+    kind: cron
+    every: 60
+    run: train

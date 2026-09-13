@@ -1,17 +1,17 @@
 # sdk-ridge — SDK example
 
-Same idea as a YAML fixture: this folder is a run. **`example.py` is the SDK you write**; `recipe.yaml` is the config.
+Open an existing **path map** (`recipe.yaml`) with the client. Runtime → `artifacts/`.
 
 ```text
 tests/sdk-ridge/
-  recipe.yaml      # config
+  recipe.yaml      # path map
   data.csv
   evals/
-  example.py       # SDK
+  example.py       # Aquin(".")
   artifacts/       # created when you run
 ```
 
-No `experiment.md`. No slot forest.
+For SDK that *writes* the path map, see [`sdk-from-dict`](../sdk-from-dict/) or [`sdk-run-class`](../sdk-run-class/).
 
 ## Run it
 
