@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Avvvatars from "avvvatars-react";
-import { CircleNotch } from "@phosphor-icons/react";
+import { CircleNotch, Moon, Sun } from "@phosphor-icons/react";
 import {
   Popover,
   PopoverContent,
@@ -14,7 +14,9 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useTheme } from "@/contexts/ThemeContext";
 import { userProfileHref, userProfilePath, validateUsername } from "@/lib/username";
+import { cn } from "@/lib/utils";
 
 interface Profile {
   name: string | null;
@@ -46,6 +48,7 @@ function ProfileUrlLink({
 
 export default function ProfileChip() {
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [open, setOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -203,10 +206,10 @@ export default function ProfileChip() {
     );
 
   const linkTextClass =
-    "text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 transition-colors hover:text-stone-900 hover:decoration-stone-500";
+    "text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 transition-colors hover:text-stone-900 hover:decoration-stone-500 dark:text-stone-300 dark:decoration-stone-600 dark:hover:text-stone-100 dark:hover:decoration-stone-400";
 
   const nameInputClass =
-    "w-full min-w-0 border-0 bg-transparent p-0 text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 outline-none transition-colors placeholder:text-stone-400 focus:text-stone-900 focus:decoration-stone-500";
+    "w-full min-w-0 border-0 bg-transparent p-0 text-sm text-stone-600 underline underline-offset-[3px] decoration-stone-300 outline-none transition-colors placeholder:text-stone-400 focus:text-stone-900 focus:decoration-stone-500 dark:text-stone-300 dark:decoration-stone-600 dark:placeholder:text-stone-500 dark:focus:text-stone-100 dark:focus:decoration-stone-400";
 
   return (
     <>
@@ -214,7 +217,7 @@ export default function ProfileChip() {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-stone-300/70 outline-none transition-shadow hover:ring-stone-400 data-[state=open]:ring-stone-500"
+            className="size-9 shrink-0 overflow-hidden rounded-full ring-1 ring-stone-300/70 outline-none transition-shadow hover:ring-stone-400 data-[state=open]:ring-stone-500 dark:ring-stone-600 dark:hover:ring-stone-500 dark:data-[state=open]:ring-stone-400"
             title={displayName}
           >
             {avatarThumb(36)}
@@ -224,19 +227,59 @@ export default function ProfileChip() {
           align="end"
           side="bottom"
           sideOffset={8}
-          className="w-[min(calc(100vw-2rem),20rem)] rounded-2xl border-stone-200 bg-white p-0 shadow-xl"
+          className="w-[min(calc(100vw-2rem),20rem)] rounded-2xl border-stone-200 bg-white p-0 shadow-xl dark:border-stone-700 dark:bg-stone-900"
         >
           <PopoverHeader className="gap-0.5 px-5 pt-4 pb-2">
-            <PopoverTitle className="text-base font-semibold text-stone-900 font-host-grotesk tracking-[-0.02em]">
+            <PopoverTitle className="text-base font-semibold text-stone-900 font-host-grotesk tracking-[-0.02em] dark:text-stone-100">
               Profile
             </PopoverTitle>
-            <PopoverDescription className="text-xs text-stone-400">
+            <PopoverDescription className="text-xs text-stone-400 dark:text-stone-500">
               Manage your Aquin account
             </PopoverDescription>
           </PopoverHeader>
 
           <div className="max-h-[min(70vh,560px)] overflow-y-auto px-5 pb-5 pt-2 no-scrollbar">
             <div className="flex flex-col items-start gap-2.5">
+              <div className="mb-1 w-full">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">
+                  Appearance
+                </p>
+                <div
+                  className="grid grid-cols-2 gap-1 rounded-xl border border-stone-200 bg-stone-50 p-1 dark:border-stone-700 dark:bg-stone-950/60"
+                  role="group"
+                  aria-label="Color theme"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setTheme("light")}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      theme === "light"
+                        ? "bg-white text-stone-900 shadow-sm dark:bg-stone-800 dark:text-stone-100"
+                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200",
+                    )}
+                    aria-pressed={theme === "light"}
+                  >
+                    <Sun className="size-3.5" weight="bold" />
+                    Light
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme("dark")}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      theme === "dark"
+                        ? "bg-white text-stone-900 shadow-sm dark:bg-stone-800 dark:text-stone-100"
+                        : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200",
+                    )}
+                    aria-pressed={theme === "dark"}
+                  >
+                    <Moon className="size-3.5" weight="bold" />
+                    Dark
+                  </button>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -278,7 +321,7 @@ export default function ProfileChip() {
 
               <div className="relative w-full">
                 <div className="flex items-baseline gap-0.5">
-                  <span className="shrink-0 text-sm text-stone-400">@</span>
+                  <span className="shrink-0 text-sm text-stone-400 dark:text-stone-500">@</span>
                   <input
                     value={tempUsername}
                     onChange={e => {
@@ -304,7 +347,7 @@ export default function ProfileChip() {
                   />
                 ) : null}
                 {usernameError ? (
-                  <p className="mt-1 text-[11px] text-red-600">{usernameError}</p>
+                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{usernameError}</p>
                 ) : null}
               </div>
 
@@ -320,7 +363,7 @@ export default function ProfileChip() {
               <button
                 type="button"
                 onClick={() => void handleSignOut()}
-                className={`${linkTextClass} hover:text-red-700 hover:decoration-red-300`}
+                className={`${linkTextClass} hover:text-red-700 hover:decoration-red-300 dark:hover:text-red-400 dark:hover:decoration-red-500/50`}
               >
                 Sign out
               </button>

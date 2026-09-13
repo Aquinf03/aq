@@ -377,14 +377,14 @@ export function CliTokenDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex items-center gap-1 text-sm font-medium font-host-grotesk text-stone-600 outline-none transition-colors hover:text-stone-900 data-[state=open]:text-stone-900">
+      <DropdownMenuTrigger className="inline-flex items-center gap-1 text-sm font-medium font-host-grotesk text-stone-600 outline-none transition-colors hover:text-stone-900 data-[state=open]:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100 dark:data-[state=open]:text-stone-100">
         <span>aq-token</span>
         <CaretDown className="size-3.5 shrink-0" weight="bold" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
         sideOffset={8}
-        className="w-[min(calc(100vw-2rem),22rem)] rounded-xl border-stone-200 bg-white p-3 shadow-lg"
+        className="w-[min(calc(100vw-2rem),22rem)] rounded-xl border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900"
         onCloseAutoFocus={e => e.preventDefault()}
       >
         <CliTokenPanel {...cli} />

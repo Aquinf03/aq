@@ -83,16 +83,16 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#f5f5f3]">
+    <div className="relative min-h-screen bg-background">
       <AuthHeader showProfile />
 
       <div className="flex min-h-screen items-center justify-center px-4 py-24">
         <div className="w-full max-w-sm space-y-7">
           <div className="text-center">
-            <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900">
+            <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100">
               Reset password
             </h1>
-            <p className="text-sm text-stone-500 mt-2">Enter your new password below</p>
+            <p className="text-sm text-stone-500 mt-2 dark:text-stone-400">Enter your new password below</p>
           </div>
 
           <form className="space-y-3.5" onSubmit={handleResetPassword}>

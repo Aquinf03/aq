@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Roboto, Cardo, Host_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ThemeScript } from "@/components/ThemeScript";
 import { cn, constructMetadata } from "@/lib/utils";
 import { siteConfig } from "@/lib/config";
 
@@ -29,9 +31,10 @@ export const metadata: Metadata = constructMetadata({
 });
 
 export const viewport: Viewport = {
-  colorScheme: "light",
+  colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f5f5f3" },
+    { media: "(prefers-color-scheme: dark)", color: "#1c1917" },
   ],
 };
 
@@ -42,12 +45,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body
         className={cn(
-          `${roboto.variable} ${cardo.variable} ${hostGrotesk.variable} min-h-screen bg-background overflow-x-hidden antialiased w-full mx-auto scroll-smooth font-host-grotesk`,
+          `${roboto.variable} ${cardo.variable} ${hostGrotesk.variable} min-h-screen bg-background text-foreground overflow-x-hidden antialiased w-full mx-auto scroll-smooth font-host-grotesk`,
         )}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

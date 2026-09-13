@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen w-full bg-[#f5f5f3] font-sans text-stone-900">
+    <div className="min-h-screen w-full bg-background font-sans text-foreground">
       <AuthPortal />
     </div>
   );

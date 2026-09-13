@@ -276,11 +276,11 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-[#f5f5f3]",
+          "flex items-center justify-center bg-background",
           embedded ? "min-h-[40vh] py-16" : "min-h-screen",
         )}
       >
-        <CircleNotch className="h-6 w-6 animate-spin text-stone-400" weight="bold" />
+        <CircleNotch className="h-6 w-6 animate-spin text-stone-400 dark:text-stone-500" weight="bold" />
       </div>
     );
   }
@@ -290,10 +290,10 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
           {step === "desktop" && user && (
             <div className="space-y-6 text-center">
               <div>
-                <h1 className="font-host-grotesk text-2xl font-semibold tracking-[-0.03em] text-stone-900">
+                <h1 className="font-host-grotesk text-2xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100">
                   {isCli ? "Sign in for Aquin CLI" : "Sign in for CLI / desktop"}
                 </h1>
-                <p className="mt-2 text-sm text-stone-500">
+                <p className="mt-2 text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500">
                   {isCli
                     ? "Copy the code and paste it into the terminal where aq login is waiting."
                     : "Copy the code for the CLI, or open the desktop app with the button below."}
@@ -302,7 +302,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
 
               {desktopPhase === "minting" && (
                 <div className="flex justify-center py-2">
-                  <CircleNotch className="h-5 w-5 animate-spin text-stone-400" weight="bold" />
+                  <CircleNotch className="h-5 w-5 animate-spin text-stone-400 dark:text-stone-500" weight="bold" />
                 </div>
               )}
 
@@ -314,13 +314,13 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
 
               {desktopPhase === "ready" && code && (
                 <div className="space-y-3 text-left">
-                  <p className="text-center text-sm text-stone-500">
-                    In the terminal where <span className="font-mono text-stone-700">aq login</span> is waiting,
+                  <p className="text-center text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500">
+                    In the terminal where <span className="font-mono text-stone-700 dark:text-stone-300">aq login</span> is waiting,
                     paste the code or the full <span className="font-mono">aquin://</span> link.
                   </p>
-                  <div className="space-y-2 rounded-xl border border-stone-200 bg-white/80 px-3 py-2.5">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Code</p>
-                    <p className="break-all font-mono text-[11px] leading-relaxed text-stone-800 select-all">
+                  <div className="space-y-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white/80 dark:bg-stone-900/80 px-3 py-2.5">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">Code</p>
+                    <p className="break-all font-mono text-[11px] leading-relaxed text-stone-800 dark:text-stone-200 select-all">
                       {code}
                     </p>
                     <button
@@ -333,9 +333,9 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                     </button>
                   </div>
                   {deepLink && (
-                    <div className="space-y-2 rounded-xl border border-stone-200 bg-white/80 px-3 py-2.5">
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">aquin:// link</p>
-                      <p className="break-all font-mono text-[11px] text-stone-700 select-all">{deepLink}</p>
+                    <div className="space-y-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white/80 dark:bg-stone-900/80 px-3 py-2.5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400 dark:text-stone-500">aquin:// link</p>
+                      <p className="break-all font-mono text-[11px] text-stone-700 dark:text-stone-300 select-all">{deepLink}</p>
                       <button
                         type="button"
                         className={secondaryBtnCls}
@@ -365,7 +365,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
               <button
                 type="button"
                 onClick={() => router.replace("/")}
-                className="block w-full text-xs text-stone-400 hover:text-stone-600"
+                className="block w-full text-xs text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 dark:text-stone-300"
               >
                 &larr; Back
               </button>
@@ -377,7 +377,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
               <div className="relative mb-7 h-10 w-full">
                 <h1
                   className={cn(
-                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 leading-tight transition-all duration-500 ease-out",
+                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight transition-all duration-500 ease-out",
                     step === "email"
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none -translate-y-2 opacity-0",
@@ -387,7 +387,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                 </h1>
                 <h1
                   className={cn(
-                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 leading-tight transition-all duration-500 ease-out",
+                    "font-host-grotesk absolute inset-x-0 top-0 text-center text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight transition-all duration-500 ease-out",
                     step === "password"
                       ? "translate-y-0 opacity-100"
                       : "pointer-events-none translate-y-2 opacity-0",
@@ -398,7 +398,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
               </div>
 
               {viewDesktop && step === "email" && (
-                <p className="mb-7 text-center text-sm text-stone-500">
+                <p className="mb-7 text-center text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500">
                   Use your aquin.app account, then paste the code into aq login.
                 </p>
               )}
@@ -417,7 +417,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                     onChange={(e) => setEmail(e.target.value)}
                     className={cn(
                       inputInnerCls,
-                      step === "password" && "cursor-default text-stone-500",
+                      step === "password" && "cursor-default text-stone-500 dark:text-stone-400 dark:text-stone-500",
                     )}
                     placeholder="you@example.com"
                     aria-label="Email"
@@ -447,7 +447,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                     onClick={resetForm}
                     aria-hidden={step === "email"}
                     className={cn(
-                      "shrink-0 overflow-hidden whitespace-nowrap text-xs font-host-grotesk text-stone-500 transition-all duration-500 ease-out hover:text-stone-900",
+                      "shrink-0 overflow-hidden whitespace-nowrap text-xs font-host-grotesk text-stone-500 dark:text-stone-400 dark:text-stone-500 transition-all duration-500 ease-out hover:text-stone-900 dark:hover:text-stone-100 dark:text-stone-100",
                       step === "password"
                         ? "max-w-[4rem] translate-x-0 pr-1 opacity-100"
                         : "pointer-events-none max-w-0 opacity-0",
@@ -480,7 +480,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-stone-400 transition-colors hover:text-stone-700"
+                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-stone-400 dark:text-stone-500 transition-colors hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300"
                       >
                         {showPassword ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -490,7 +490,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                       <button
                         type="button"
                         onClick={handleForgotPassword}
-                        className="text-xs font-host-grotesk text-stone-400 transition-colors hover:text-stone-700"
+                        className="text-xs font-host-grotesk text-stone-400 dark:text-stone-500 transition-colors hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300"
                       >
                         forgot password?
                       </button>
@@ -521,8 +521,8 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
           {step === "signup" && (
             <div className="space-y-7">
               <div>
-                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 leading-tight">Create account</h1>
-                <p className="text-sm text-stone-500 mt-1.5 leading-relaxed">
+                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight">Create account</h1>
+                <p className="text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500 mt-1.5 leading-relaxed">
                   Set up your Aquin account to get started.
                 </p>
               </div>
@@ -530,8 +530,8 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
               <form className="space-y-3.5" onSubmit={handleSignupNext}>
                 <div>
                   <div className="flex items-center gap-2">
-                    <input type="email" value={email} disabled aria-label="Email" className="flex-1 px-4 py-3 rounded-xl border border-stone-200 bg-stone-100 text-stone-500 text-sm" />
-                    <button type="button" onClick={resetForm} className="text-xs font-host-grotesk text-stone-500 hover:text-stone-900 whitespace-nowrap transition-colors">
+                    <input type="email" value={email} disabled aria-label="Email" className="flex-1 px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 dark:text-stone-500 text-sm" />
+                    <button type="button" onClick={resetForm} className="text-xs font-host-grotesk text-stone-500 dark:text-stone-400 dark:text-stone-500 hover:text-stone-900 dark:hover:text-stone-100 dark:text-stone-100 whitespace-nowrap transition-colors">
                       change
                     </button>
                   </div>
@@ -552,9 +552,9 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
           {step === "signup-password" && (
             <div className="space-y-7">
               <div>
-                <p className="text-xs font-host-grotesk uppercase tracking-widest text-stone-400 mb-3">Almost there</p>
-                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 leading-tight">Choose a password</h1>
-                <p className="text-sm text-stone-500 mt-1.5">Secure your new Aquin account.</p>
+                <p className="text-xs font-host-grotesk uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-3">Almost there</p>
+                <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100 leading-tight">Choose a password</h1>
+                <p className="text-sm text-stone-500 dark:text-stone-400 dark:text-stone-500 mt-1.5">Secure your new Aquin account.</p>
               </div>
 
               <form className="space-y-3.5" onSubmit={handleSignUp}>
@@ -572,11 +572,11 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                       minLength={6}
                       autoFocus
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-stone-400 hover:text-stone-700 transition-colors">
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-4 flex items-center text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300 transition-colors">
                       {showPassword ? <EyeSlash className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <p className="text-xs font-host-grotesk text-stone-400 mt-1.5">min. 6 characters</p>
+                  <p className="text-xs font-host-grotesk text-stone-400 dark:text-stone-500 mt-1.5">min. 6 characters</p>
                 </div>
 
                 {message && (
@@ -594,7 +594,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                   {loading ? "Creating account…" : "Create account"}
                 </button>
 
-                <button type="button" onClick={() => setStep("signup")} className="w-full py-2 text-xs font-host-grotesk text-stone-400 hover:text-stone-700 transition-colors">
+                <button type="button" onClick={() => setStep("signup")} className="w-full py-2 text-xs font-host-grotesk text-stone-400 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-200 dark:text-stone-300 transition-colors">
                   &larr; back
                 </button>
               </form>
@@ -608,7 +608,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#f5f5f3]">
+    <div className="relative min-h-screen bg-background">
       <AuthHeader showProfile={Boolean(user && step === "desktop")} />
       <div className="flex min-h-screen items-center justify-center overflow-y-auto px-4 py-24">
         {body}
@@ -623,11 +623,11 @@ export default function AuthPortal({ embedded = false }: AuthPortalProps) {
       fallback={
         <div
           className={cn(
-            "flex items-center justify-center bg-[#f5f5f3]",
+            "flex items-center justify-center bg-background",
             embedded ? "min-h-[40vh] py-16" : "min-h-screen",
           )}
         >
-          <CircleNotch className="h-6 w-6 animate-spin text-stone-400" weight="bold" />
+          <CircleNotch className="h-6 w-6 animate-spin text-stone-400 dark:text-stone-500" weight="bold" />
         </div>
       }
     >

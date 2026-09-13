@@ -36,7 +36,7 @@ export function UserHomeClient({ username, displayName, avatarUrl, profileHref }
 
   if (loading || ownerId === undefined) {
     return (
-      <div className="relative min-h-screen bg-[#f5f5f3]">
+      <div className="relative min-h-screen bg-background">
         <AuthHeader />
         <div className="flex min-h-screen items-center justify-center">
           <CircleNotch className="h-6 w-6 animate-spin text-stone-400" weight="bold" />
@@ -47,7 +47,7 @@ export function UserHomeClient({ username, displayName, avatarUrl, profileHref }
 
   if (isOwner) {
     return (
-      <div className="relative min-h-screen bg-[#f5f5f3]">
+      <div className="relative min-h-screen bg-background">
         <AuthHeader showProfile showCliToken />
         <div className="flex min-h-screen items-center justify-center overflow-y-auto px-4 py-24">
           <LoggedInHome />
@@ -57,18 +57,18 @@ export function UserHomeClient({ username, displayName, avatarUrl, profileHref }
   }
 
   return (
-    <div className="relative min-h-screen bg-[#f5f5f3]">
+    <div className="relative min-h-screen bg-background">
       <AuthHeader showProfile={Boolean(user)} />
       <div className="flex min-h-screen items-center justify-center px-4 py-24">
         <div className="w-full max-w-sm space-y-5 text-center">
-          <div className="mx-auto size-20 overflow-hidden rounded-full ring-1 ring-stone-300/70">
+          <div className="mx-auto size-20 overflow-hidden rounded-full ring-1 ring-stone-300/70 dark:ring-stone-600">
             <ProfileAvatar avatarUrl={avatarUrl} seed={username} size={80} />
           </div>
           <div className="space-y-1">
-            <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900">
+            <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900 dark:text-stone-100">
               {displayName}
             </h1>
-            <p className="font-host-grotesk text-sm text-stone-500">{profileHref}</p>
+            <p className="font-host-grotesk text-sm text-stone-500 dark:text-stone-400">{profileHref}</p>
           </div>
         </div>
       </div>
