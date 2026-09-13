@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { AuthHeader } from "@/components/AuthHeader";
-import { ProfileAvatar } from "@/components/account/ProfileAvatar";
+import { UserHomeClient } from "@/components/account/UserHomeClient";
 import { getSupabaseService } from "@/lib/supabase/service";
 import { constructMetadata } from "@/lib/utils";
 import { normalizeUsername, userProfileHref, validateUsername } from "@/lib/username";
@@ -58,11 +57,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const titleName = profile.name?.trim() || profile.username;
   return constructMetadata({
     title: titleName,
-    description: `Aquin profile for @${profile.username}`,
+    description: `Aquin home for @${profile.username}`,
   });
 }
 
-export default async function UserProfilePage({ params }: PageProps) {
+export default async function UserHomePage({ params }: PageProps) {
   const { username: raw } = await params;
   const profile = await loadProfile(raw);
   if (!profile) notFound();
@@ -72,25 +71,11 @@ export default async function UserProfilePage({ params }: PageProps) {
   const origin = await requestOrigin();
 
   return (
-    <div className="relative min-h-screen bg-[#f5f5f3]">
-      <AuthHeader />
-
-      <div className="flex min-h-screen items-center justify-center px-4 py-24">
-        <div className="w-full max-w-sm space-y-5 text-center">
-          <div className="mx-auto size-20 overflow-hidden rounded-full ring-1 ring-stone-300/70">
-            <ProfileAvatar avatarUrl={profile.avatar_url} seed={username} size={80} />
-          </div>
-
-          <div className="space-y-1">
-            <h1 className="font-host-grotesk text-3xl font-semibold tracking-[-0.03em] text-stone-900">
-              {displayName}
-            </h1>
-            <p className="font-host-grotesk text-sm text-stone-500">
-              {userProfileHref(username, origin)}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+    <UserHomeClient
+      username={username}
+      displayName={displayName}
+      avatarUrl={profile.avatar_url}
+      profileHref={userProfileHref(username, origin)}
+    />
   );
 }

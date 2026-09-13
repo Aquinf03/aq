@@ -4,12 +4,11 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Check, CircleNotch, Copy, ArrowUpRight, Eye, EyeSlash } from "@phosphor-icons/react";
+import { Check, CircleNotch, Copy, Eye, EyeSlash } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthHeader } from "@/components/AuthHeader";
 import { cn } from "@/lib/utils";
-import { firstName, timeGreeting } from "@/lib/greeting";
 import {
   ghostBtnCls,
   inputCls,
@@ -22,9 +21,9 @@ import {
   primaryBtnCls,
   secondaryBtnCls,
 } from "@/lib/auth-ui";
-import { siteConfig } from "@/lib/config";
+import { resolveUserHomePath } from "@/lib/resolveUserHome";
 
-type AuthStep = "email" | "password" | "signup" | "signup-password" | "ready" | "desktop";
+type AuthStep = "email" | "password" | "signup" | "signup-password" | "desktop";
 type DesktopPhase = "minting" | "ready" | "error";
 
 type AuthPortalProps = {
@@ -32,46 +31,7 @@ type AuthPortalProps = {
   embedded?: boolean;
 };
 
-const INSTALL_CMD = "curl -fsSL https://aq.aquin.app/framework/install.sh | bash";
-
-const NEXT_CMDS = [
-  { id: "login", label: "Sign in", cmd: "aq login" },
-  { id: "doctor", label: "Check your setup", cmd: "aq doctor" },
-  { id: "init", label: "Start a train", cmd: "aq init my-train" },
-] as const;
-
-type CopyKey = "install" | (typeof NEXT_CMDS)[number]["id"];
-
-function CmdRow({
-  cmd,
-  copied,
-  onCopy,
-}: {
-  cmd: string;
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  return (
-    <div className="flex items-stretch gap-0 rounded-xl border-2 border-stone-200">
-      <code className="flex-1 min-w-0 self-center overflow-x-auto whitespace-nowrap px-3.5 py-2.5 text-[13px] leading-relaxed text-stone-800 select-all no-scrollbar">
-        {cmd}
-      </code>
-      <div className="w-0.5 shrink-0 self-stretch bg-stone-200" aria-hidden />
-      <button
-        type="button"
-        aria-label={copied ? "Copied" : `Copy ${cmd}`}
-        className="shrink-0 inline-flex items-center justify-center px-3 text-stone-500 hover:text-stone-800 transition-colors"
-        onClick={onCopy}
-      >
-        {copied ? (
-          <Check className="h-3.5 w-3.5" weight="bold" />
-        ) : (
-          <Copy className="h-3.5 w-3.5" weight="bold" />
-        )}
-      </button>
-    </div>
-  );
-}
+type CopyKey = "code" | "link";
 
 function codeFromDeepLink(link: string): string | null {
   try {
@@ -102,9 +62,10 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
   const [desktopError, setDesktopError] = useState<string | null>(null);
   const [deepLink, setDeepLink] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
-  const [copied, setCopied] = useState<CopyKey | "code" | "link" | null>(null);
-  const [profileName, setProfileName] = useState<string | null>(null);
+  const [copied, setCopied] = useState<CopyKey | null>(null);
+  const [homeRedirecting, setHomeRedirecting] = useState(false);
   const minted = useRef(false);
+  const homeNav = useRef(false);
 
   const desktopQuery = useMemo(() => {
     const q = new URLSearchParams();
@@ -113,9 +74,28 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
     return `/?${q.toString()}`;
   }, [client]);
 
+  const goHome = useCallback(
+    async (userId: string) => {
+      if (homeNav.current) return;
+      homeNav.current = true;
+      setHomeRedirecting(true);
+      const path = await resolveUserHomePath(userId);
+      if (path) {
+        router.replace(path);
+        return;
+      }
+      homeNav.current = false;
+      setHomeRedirecting(false);
+      setMessage({ type: "error", text: "Could not open your home. Try again." });
+    },
+    [router],
+  );
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
+      homeNav.current = false;
+      setHomeRedirecting(false);
       if (viewDesktop) setStep("email");
       return;
     }
@@ -124,21 +104,8 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
       setStep("desktop");
       return;
     }
-    setStep("ready");
-  }, [user, authLoading, viewDesktop]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setProfileName(null);
-      return;
-    }
-    void supabase
-      .from("profiles")
-      .select("name")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setProfileName(data?.name ?? null));
-  }, [user?.id, supabase]);
+    void goHome(user.id);
+  }, [user, authLoading, viewDesktop, goHome]);
 
   useEffect(() => {
     if (step !== "password") return;
@@ -218,7 +185,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
         router.replace(desktopQuery);
         return;
       }
-      setStep("ready");
+      await goHome(data.user.id);
     } catch (err) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "An error occurred" });
     } finally {
@@ -259,7 +226,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
           router.replace(desktopQuery);
           return;
         }
-        setStep("ready");
+        await goHome(data.user.id);
       }
     } catch (err) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "An error occurred" });
@@ -295,7 +262,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
     setMessage(null);
   };
 
-  const copyText = async (which: CopyKey | "code" | "link", text: string) => {
+  const copyText = async (which: CopyKey, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(which);
@@ -305,7 +272,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || homeRedirecting) {
     return (
       <div
         className={cn(
@@ -319,71 +286,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
   }
 
   const body = (
-        <div className={cn("w-full", step === "ready" ? "max-w-xl" : "max-w-md", embedded && "mx-auto")}>
-          {step === "ready" && (
-            <div className="flex flex-col items-stretch gap-8">
-              <h2 className="font-host-grotesk text-center text-2xl font-semibold tracking-[-0.03em] text-stone-900">
-                {timeGreeting()}, {firstName(profileName, user?.email ?? email)}
-              </h2>
-
-              <div className="font-roboto space-y-5 text-left">
-                <div className="space-y-2">
-                  <p className="text-sm font-normal text-stone-500">Install the CLI</p>
-                  <CmdRow
-                    cmd={INSTALL_CMD}
-                    copied={copied === "install"}
-                    onCopy={() => void copyText("install", INSTALL_CMD)}
-                  />
-                </div>
-
-                {NEXT_CMDS.map(({ id, label, cmd }) => (
-                  <div key={id} className="space-y-2">
-                    <p className="text-sm font-normal text-stone-500">{label}</p>
-                    <CmdRow
-                      cmd={cmd}
-                      copied={copied === id}
-                      onCopy={() => void copyText(id, cmd)}
-                    />
-                  </div>
-                ))}
-
-                <div className="pt-2">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <a
-                      href={siteConfig.links.docs}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4 transition-colors hover:decoration-stone-800"
-                    >
-                      Documentation
-                      <ArrowUpRight
-                        className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800"
-                        weight="bold"
-                      />
-                    </a>
-                    <span className="text-stone-300" aria-hidden>
-                      ·
-                    </span>
-                    <a
-                      href="https://aquin.app/changelog"
-                      className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4 transition-colors hover:decoration-stone-800"
-                    >
-                      Changelog
-                      <ArrowUpRight
-                        className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800"
-                        weight="bold"
-                      />
-                    </a>
-                  </div>
-                  <p className="mt-1.5 text-xs text-stone-400">
-                    Guides, CLI reference, and how trains work. Release notes for each{" "}
-                    <span className="font-mono">aq</span> version.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
+        <div className={cn("w-full max-w-md", embedded && "mx-auto")}>
           {step === "desktop" && user && (
             <div className="space-y-6 text-center">
               <div>
@@ -706,10 +609,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
 
   return (
     <div className="relative min-h-screen bg-[#f5f5f3]">
-      <AuthHeader
-        showProfile={Boolean(user && (step === "ready" || step === "desktop"))}
-        showCliToken={Boolean(user && step === "ready")}
-      />
+      <AuthHeader showProfile={Boolean(user && step === "desktop")} />
       <div className="flex min-h-screen items-center justify-center overflow-y-auto px-4 py-24">
         {body}
       </div>

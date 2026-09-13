@@ -1,4 +1,4 @@
-/** Username rules for aq.aquin.app/user/<username>. */
+/** Username rules for aq.aquin.app/<username> (logged-in home + public profile). */
 
 const USERNAME_RE = /^[a-z][a-z0-9_-]{2,29}$/;
 
@@ -36,6 +36,7 @@ export const RESERVED_USERNAMES = new Set([
   "me",
   "new",
   "edit",
+  "changelog",
 ]);
 
 export function normalizeUsername(raw: string): string {
@@ -59,11 +60,12 @@ export function validateUsername(raw: string): { ok: true; username: string } | 
   return { ok: true, username };
 }
 
+/** Home / public profile path: /{username} */
 export function userProfilePath(username: string): string {
-  return `/user/${normalizeUsername(username)}`;
+  return `/${normalizeUsername(username)}`;
 }
 
-/** Host + path for display (localhost:3000/user/x or aq.aquin.app/user/x). */
+/** Host + path for display (localhost:3000/x or aq.aquin.app/x). */
 export function userProfileHref(username: string, origin?: string | null): string {
   const path = userProfilePath(username);
   if (!origin) return path;

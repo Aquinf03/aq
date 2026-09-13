@@ -46,6 +46,11 @@ const nextConfig: NextConfig = {
         destination: "https://aquinf03.github.io/aq",
         permanent: true,
       },
+      {
+        source: "/user/:username",
+        destination: "/:username",
+        permanent: true,
+      },
     ];
   },
 };

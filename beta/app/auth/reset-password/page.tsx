@@ -60,7 +60,16 @@ export default function ResetPasswordPage() {
         text: "Password updated successfully! Redirecting...",
       });
 
-      setTimeout(() => {
+      setTimeout(async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          const { resolveUserHomePath } = await import("@/lib/resolveUserHome");
+          const path = await resolveUserHomePath(session.user.id);
+          router.push(path || "/");
+          return;
+        }
         router.push("/");
       }, 2000);
     } catch (error) {
