@@ -1,15 +1,20 @@
 "use client";
 
+import { ArrowUpRight } from "@phosphor-icons/react";
 import { AquinBrand } from "@/components/ui/AquinBrand";
 import { CliTokenDropdown } from "@/components/account/CliTokenSection";
 import ProfileChip from "@/components/account/ProfileChip";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
+import { siteConfig } from "@/lib/config";
 
 type WorkspaceHomeProps = {
   children: React.ReactNode;
 };
 
-/** Owner home chrome: brand + aq-token top, profile bottom in sidebar. */
+const linkClass =
+  "group inline-flex items-center gap-1.5 text-sm font-medium text-stone-600 transition-colors hover:text-stone-900 dark:text-stone-300 dark:hover:text-[#f5f5f3]";
+
+/** Owner home chrome: brand + aq-token + docs top, profile bottom in sidebar. */
 export function WorkspaceHome({ children }: WorkspaceHomeProps) {
   return (
     <WorkspaceShell
@@ -19,8 +24,32 @@ export function WorkspaceHome({ children }: WorkspaceHomeProps) {
             <div className="flex items-center pr-9">
               <AquinBrand size="sm" href="/" />
             </div>
-            <div className="pt-2">
+            <div className="flex flex-col items-stretch gap-2 pt-2">
               <CliTokenDropdown />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <a
+                  href={siteConfig.links.docs}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkClass}
+                >
+                  Documentation
+                  <ArrowUpRight
+                    className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800 dark:text-stone-500 dark:group-hover:text-[#f5f5f3]"
+                    weight="bold"
+                  />
+                </a>
+                <span className="text-stone-300 dark:text-white/20" aria-hidden>
+                  ·
+                </span>
+                <a href={siteConfig.links.changelog} className={linkClass}>
+                  Changelog
+                  <ArrowUpRight
+                    className="h-3.5 w-3.5 text-stone-400 transition-colors group-hover:text-stone-800 dark:text-stone-500 dark:group-hover:text-[#f5f5f3]"
+                    weight="bold"
+                  />
+                </a>
+              </div>
             </div>
           </div>
           <div className="mt-auto">

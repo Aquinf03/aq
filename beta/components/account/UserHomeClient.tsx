@@ -2,7 +2,6 @@
 
 import { CircleNotch } from "@phosphor-icons/react";
 import { AuthHeader } from "@/components/AuthHeader";
-import { LoggedInHome } from "@/components/account/LoggedInHome";
 import { ProfileAvatar } from "@/components/account/ProfileAvatar";
 import { WorkspaceHome } from "@/components/workspace/WorkspaceHome";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,13 +42,7 @@ export function UserHomeClient({ username, displayName, avatarUrl, profileHref }
   }
 
   if (isOwner) {
-    return (
-      <WorkspaceHome>
-        <div className="mx-auto flex min-h-full max-w-xl items-center justify-center py-6">
-          <LoggedInHome />
-        </div>
-      </WorkspaceHome>
-    );
+    return <WorkspaceHome>{null}</WorkspaceHome>;
   }
 
   return (

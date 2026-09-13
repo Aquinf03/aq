@@ -66,7 +66,7 @@ export function WorkspaceShell({ sidebar, children, mainHeader, className }: Wor
             collapsed ? "px-1 sm:px-1.5" : "pr-1 pl-0.5 sm:pr-1.5 sm:pl-1",
           )}
         >
-          <div className="flex h-[22px] shrink-0 items-center sm:h-[30px]">
+          <div className="flex h-[28px] shrink-0 items-center sm:h-[36px]">
             {collapsed ? (
               <button
                 type="button"
@@ -94,18 +94,17 @@ export function WorkspaceShell({ sidebar, children, mainHeader, className }: Wor
       {collapsed ? (
         <div
           className={cn(
-            "absolute z-40 flex transition-[width] duration-300 ease-out",
-            "top-[22px] bottom-1 left-0 sm:top-[30px] sm:bottom-1.5",
-            peeking ? "w-[calc(0.25rem+240px)] sm:w-[calc(0.375rem+240px)]" : "w-3",
+            "absolute z-40 transition-[width] duration-300 ease-out",
+            "top-[28px] bottom-1 left-0 sm:top-[36px] sm:bottom-1.5",
+            peeking ? "w-[240px]" : "w-3",
           )}
           onMouseEnter={() => setPeeking(true)}
           onMouseLeave={() => setPeeking(false)}
         >
-          <div className="w-3 shrink-0" aria-hidden />
           <aside
             className={cn(
-              "flex h-full w-[240px] flex-col overflow-hidden rounded-[1.35rem] border-2 border-black/10 bg-stone-100 shadow-lg transition-transform duration-300 ease-out dark:border-white/10 dark:bg-black",
-              peeking ? "translate-x-0" : "-translate-x-[calc(100%+0.75rem)]",
+              "absolute inset-y-0 left-0 flex w-[240px] flex-col overflow-hidden rounded-l-none rounded-r-[1.35rem] border-2 border-l-0 border-black/10 bg-stone-100 shadow-lg transition-transform duration-300 ease-out dark:border-white/10 dark:bg-black",
+              peeking ? "translate-x-0" : "-translate-x-full",
             )}
           >
             {sidebarBody}
