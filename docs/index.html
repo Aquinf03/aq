@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Getting started with aq · aq Docs</title>
-  <meta name="description" content="What Aquin is: developer environment and framework. Train folders, aq CLI, Python kernel, and the in-train agent." />
+  <meta name="description" content="What Aquin is: developer environment and framework. SDK + recipe.yaml + artifacts/, aq CLI, Python kernel, and the in-train agent." />
   <link rel="icon" href="assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -42,11 +42,11 @@
 <a class="nav-link" href="jobs/">Jobs</a>
 <a class="nav-link" href="agent/">Agent</a>
 <a class="nav-link" href="skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="schedules/">Schedules &amp; stages</a></nav>
+<a class="nav-link" href="schedules/">Plans &amp; stages</a></nav>
     </aside>
     <main class="docs-main"><article>
   <h1 class="hero">Getting started</h1>
-  <p class="lead">Aquin is a <strong>developer environment and framework</strong> for building and checking models. The unit of work is a directory. You grow that folder, run <code class="chip">aq</code> against it, and keep enough on disk that you (or someone else) can fork, resume, and audit what happened. Disk is the source of truth. The UI is a view. The Unix is the product.</p>
+  <p class="lead">Aquin is a <strong>developer environment and framework</strong> for building and checking models. The shape is <strong>SDK + <code class="chip">recipe.yaml</code> + <code class="chip">artifacts/</code></strong>. Paths to data and evals live in the YAML. You run <code class="chip">aquin</code> or <code class="chip">aq</code> against that folder and keep enough on disk to fork, resume, and audit. Disk is the source of truth. The UI is a view.</p>
 
   <h2>How the pieces fit</h2>
   <div class="table-wrap mb">
@@ -54,69 +54,73 @@
       <thead><tr><th>Name</th><th>What it is</th></tr></thead>
       <tbody>
         <tr><td class="mono">Aquin</td><td>The product: developer environment and framework.</td></tr>
+<tr><td class="mono">aquin</td><td>Python SDK (<code class="chip">pip install -e ./sdk</code>). Few-line client over the same kernel.</td></tr>
 <tr><td class="mono">aq</td><td>The CLI you type (TypeScript). Quiet, cwd-based, like git.</td></tr>
-<tr><td class="mono">Kernel</td><td>Python under aq/kernel/. Fit, eval, serve, hash. Talks to the CLI through files.</td></tr>
-<tr><td class="mono">Train</td><td>A directory with instructions.md + recipe.yaml. The real unit of work.</td></tr>
+<tr><td class="mono">Kernel</td><td>Python under aq/kernel/. Fit, eval, serve, hash. Talks through files.</td></tr>
+<tr><td class="mono">Run</td><td>A directory with <code class="chip">recipe.yaml</code> (+ <code class="chip">artifacts/</code> once you train). Optional brief: experiment.md.</td></tr>
 <tr><td class="mono">Agent</td><td>Lives inside that Unix: same cwd, same files, same verbs. Not a side chat.</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="lead">Flow is always the same shape: you work in a train folder, the CLI routes verbs, the kernel does the numeric work, artifacts land back on disk. Accounts and docs live at <code class="chip">aq.aquin.app</code>. Auth is identity and tokens only — it does not own trains. <a href="https://aq.aquin.app/">Sign in</a>.</p>
+  <p class="lead">Flow: edit the recipe (and data paths), train/eval via SDK or CLI, artifacts land on disk. Accounts live at <code class="chip">aq.aquin.app</code> — identity and tokens only. <a href="https://aq.aquin.app/">Sign in</a>.</p>
 
-  <h2>The directory system</h2>
-  <p class="lead">A <strong>train</strong> is any folder with both <code class="chip">instructions.md</code> (what this is for) and <code class="chip">recipe.yaml</code> (the full train API for built-ins). <code class="chip">aq init</code> scaffolds the rest. Convention over registration: drop a file in the right slot and it exists. No central registry.</p>
-  <div class="codeblock" data-shell="0">
+  <h2>SDK (few lines)</h2>
+  <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
-    <span>train folder</span>
+    <span>shell</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span>my-train/</span></span>
-<span class="line"><span>  instructions.md          REQUIRED - what this train is for</span></span>
-<span class="line"><span>  recipe.yaml              REQUIRED - kernel spec (aq does not override)</span></span>
-<span class="line"><span>  train.ts                 OPTIONAL - placeholder; aq does not read yet</span></span>
-<span class="line"><span> </span></span>
-<span class="line"><span>  data/                    your datasets (path from recipe)</span></span>
-<span class="line"><span>  evals/                   user probes (.csv / .jsonl) - no bundled zoo</span></span>
-<span class="line"><span>  methods/                 optional train-local fit adapters (override kernel)</span></span>
-<span class="line"><span>  tools/                   scripts: tools/&lt;name&gt;.{py,ts,js,sh}</span></span>
-<span class="line"><span>  skills/                  agent skills (+ optional MCP)</span></span>
-<span class="line"><span>  memory/                  agent memory markdown</span></span>
-<span class="line"><span>  sandbox/                 scratch for agent / tools</span></span>
-<span class="line"><span>  connections/             connection defs (slot)</span></span>
-<span class="line"><span>  schedules/               yaml/json schedules</span></span>
-<span class="line"><span>  stages/                  nested trains (each is itself a train)</span></span>
-<span class="line"><span>  jobs/                    SYSTEM - process queue state</span></span>
-<span class="line"><span>  artifacts/               SYSTEM - checkpoints, metrics, runs, chats, …</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>python -m aquin init my-run</span></span>
+<span class="line"><span class="prompt">$</span><span>cd my-run &amp;&amp; python example.py</span></span></code></pre>
 </div>
-  <p class="lead"><code class="chip">data/</code> and <code class="chip">evals/</code> are yours. <code class="chip">methods/</code>, <code class="chip">tools/</code>, <code class="chip">skills/</code>, <code class="chip">schedules/</code>, and <code class="chip">stages/</code> extend the train locally. <code class="chip">jobs/</code> and <code class="chip">artifacts/</code> are system-owned. Forking copies the science and skips runtime state so a variant starts clean. Full layout: <a href="train/">Train folder</a>.</p>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>python</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>from aquin import Aquin</span></span>
+<span class="line"><span>aq = Aquin(".")</span></span>
+<span class="line"><span>aq.train()</span></span>
+<span class="line"><span>aq.eval()</span></span></code></pre>
+</div>
+
+  <h2>What init creates</h2>
+  <p class="lead"><code class="chip">aq init</code> / <code class="chip">python -m aquin init</code> scaffolds only identity + a sample — not a slot forest. Put file paths in <code class="chip">recipe.yaml</code>. Job plans go under a <code class="chip">plans:</code> block in that same file.</p>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>run folder</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>my-run/</span></span>
+<span class="line"><span>  recipe.yaml              REQUIRED — paths, method, eval, optional plans:</span></span>
+<span class="line"><span>  example.py               SDK sample</span></span>
+<span class="line"><span>  artifacts/               runtime output (created empty; filled on train)</span></span></code></pre>
+</div>
+  <p class="lead">Optional later: your own data file, eval probes, tools/skills packs, nested <code class="chip">stages/</code>. Queue state may still use <code class="chip">jobs/</code>; plan run logs live under <code class="chip">artifacts/jobs/plans/</code>. Full layout: <a href="train/">Train folder</a>. Plans: <a href="schedules/">Plans &amp; stages</a>.</p>
 
   <h2>CLI</h2>
-  <p class="lead"><code class="chip">aq</code> is the face. Cwd is the workspace. Help is short. Verbs do one thing and compose: <code class="chip">aq train</code> fits, <code class="chip">aq eval</code> scores, <code class="chip">aq serve</code> generates, <code class="chip">aq status</code> / <code class="chip">aq diff</code> read history, <code class="chip">aq job run</code> files long work with resource asks, <code class="chip">aq fork</code> branches a train.</p>
-  <p class="lead">On a TTY, bare <code class="chip">aq</code> opens the agent. Without a TTY it prints help. Account tokens live under <code class="chip">~/.aquin</code>; provider keys for the agent under <code class="chip">~/.aq</code>. Reference: <a href="cli/">CLI</a>.</p>
+  <p class="lead"><code class="chip">aq</code> is the face. Cwd is the workspace. Verbs compose: <code class="chip">aq train</code>, <code class="chip">aq eval</code>, <code class="chip">aq serve</code>, <code class="chip">aq status</code>, <code class="chip">aq job run</code>, <code class="chip">aq job plan</code> (from <code class="chip">plans:</code> in the recipe). Reference: <a href="cli/">CLI</a>.</p>
 
   <h2>Kernel (Python)</h2>
-  <p class="lead">The kernel is the programmatic engine. TypeScript and Python do not share memory. They talk through files:</p>
+  <p class="lead">TypeScript and Python talk through files:</p>
   <ol class="lead-list">
     <li>CLI writes <code class="chip">artifacts/request.json</code></li>
-    <li>Spawns <code class="chip">kernel/run.py</code> on the train path</li>
+    <li>Spawns <code class="chip">kernel/run.py</code> on the run path</li>
     <li>Kernel runs the op (<code class="chip">hash</code>, <code class="chip">train</code>, <code class="chip">eval</code>, <code class="chip">checkpoint</code>, <code class="chip">serve</code>)</li>
-    <li>Writes <code class="chip">artifacts/result.json</code> and appends <code class="chip">metrics.jsonl</code>; live steps stream on stderr</li>
+    <li>Writes <code class="chip">artifacts/result.json</code> and appends <code class="chip">metrics.jsonl</code></li>
   </ol>
-  <p class="lead">For built-ins you do not write Python. <code class="chip">recipe.yaml</code> is the API. Custom fits go in <code class="chip">methods/&lt;name&gt;.py</code> with <code class="chip">fit(src, rec)</code>. See <a href="recipe/">Recipe</a> and <a href="methods/tabular/">Methods</a>.</p>
-
-  <h2>Agent</h2>
-  <p class="lead">The agent is not a chat toy with a private filesystem. It is a resident of the train: same cwd, same <code class="chip">recipe.yaml</code>, same tools. Humans own the eval gate. Surfaces: interactive <code class="chip">aq</code> / <code class="chip">aq agent</code>, one-shot <code class="chip">aq ask</code>, resume via <code class="chip">aq chat</code>, workers via <code class="chip">aq spawn</code>. Details: <a href="agent/">Agent</a> and <a href="skills/">Skills, tools &amp; MCP</a>.</p>
+  <p class="lead">For built-ins you do not write Python. <code class="chip">recipe.yaml</code> is the API. See <a href="recipe/">Recipe</a>.</p>
 
   <h2>What “working” means</h2>
-  <p class="lead">A stranger should be able to open a train, point the recipe at their data, set their gate, run train then eval, fail, inspect, edit one file, fork, and run again. Long work files as <code class="chip">aq job run</code>. There is no preset eval zoo. You write the probes.</p>
+  <p class="lead">A stranger should point <code class="chip">data.path</code> at their file, set the gate, run train then eval, fail, inspect, edit one key, and run again. Long work files as <code class="chip">aq job run</code>. Cron/pipelines declare in <code class="chip">plans:</code>. No preset eval zoo — you write the probes.</p>
 
   <h2>Where to go next</h2>
   <ul class="next-list">
-    <li><a href="install/">Install</a><span class="dot"> · </span>curl release or checkout link, doctor, login, providers</li>
-<li><a href="train/">Train folder</a><span class="dot"> · </span>slots, artifacts, fork, checkout</li>
-<li><a href="recipe/">Recipe</a><span class="dot"> · </span>tabular, transformers, LLM, guard</li>
+    <li><a href="install/">Install</a><span class="dot"> · </span>curl release or checkout link, doctor, login</li>
+<li><a href="train/">Train folder</a><span class="dot"> · </span>init scaffold, artifacts, fork</li>
+<li><a href="recipe/">Recipe</a><span class="dot"> · </span>tabular, transformers, LLM, plans, guard</li>
+<li><a href="schedules/">Plans &amp; stages</a><span class="dot"> · </span><code class="chip">plans:</code> in YAML</li>
 <li><a href="cli/">CLI</a><span class="dot"> · </span>every verb</li>
-<li><a href="jobs/">Jobs</a><span class="dot"> · </span>detached work with resource asks</li>
   </ul>
 </article></main>
   </div>

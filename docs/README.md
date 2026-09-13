@@ -1,11 +1,7 @@
 # Static aq docs (GitHub Pages)
 
-HTML mirror of the product docs. Same stone / `#f5f5f3` chrome as `web/app/docs`.
+HTML under `docs/` is the public product docs (same stone chrome as the old web docs).
 
-**Regenerate** (after editing `web/lib/docs/sections`):
-
-```bash
-node --experimental-strip-types scripts/build-static-docs.mjs
-```
+The previous TypeScript source (`web/lib/docs`) was cleared; **edit these HTML files directly** for now. Prefer keeping pages consistent with SDK-first: `recipe.yaml` + `example.py` + `artifacts/`, and `plans:` in the recipe.
 
 Point GitHub Pages at the `/docs` folder on your default branch.

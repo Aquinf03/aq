@@ -36,8 +36,9 @@ cd aq && npm install && npm link
 
 ```bash
 aq init my-train && cd my-train
-# edit recipe.yaml + data
+# edit recipe.yaml → data.path (optional: plans:)
 aq train && aq eval && aq status
+# aq job plan          # lists plans: from recipe.yaml
 ```
 
 ## Layout

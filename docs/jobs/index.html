@@ -42,7 +42,7 @@
 <a class="nav-link active" href="../jobs/">Jobs</a>
 <a class="nav-link" href="../agent/">Agent</a>
 <a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="../schedules/">Schedules &amp; stages</a></nav>
+<a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
     </aside>
     <main class="docs-main"><h1>Jobs</h1>
 <p class="lead">Local process queue under jobs/. Resource asks (--cpu, --ram, --disk, --gpu) are against the host, not a different product SKU. Survives disconnects; checkout restores the snapshotted tree.</p>
@@ -115,6 +115,19 @@
   <pre><code><span class="line"><span class="prompt">$</span><span>aq job tree &lt;id&gt;</span></span></code></pre>
 </div>
   
+</section>
+<section class="tool" id="aq-job-plan">
+  <h3 class="tool-cmd">aq job plan</h3>
+  <p class="tool-desc">Cron / sweep / pipeline / resume / agents from <code class="chip">plans:</code> in recipe.yaml. State under artifacts/jobs/plans/. Alias: aq schedule. Details: <a href="../schedules/">Plans &amp; stages</a>.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>example</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq job plan</span></span>
+<span class="line"><span class="prompt">$</span><span>aq job plan tick</span></span>
+<span class="line"><span class="prompt">$</span><span>aq job plan run nightly</span></span></code></pre>
+</div>
 </section>
 </main>
   </div>

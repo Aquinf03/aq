@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Schedules &amp; stages · aq Docs</title>
-  <meta name="description" content="Schedules compose aq verbs (cron, sweep, resume, pipeline, agents). Stages are nested full trains under stages/&lt;name&gt;/ - each with its own instructions.md and recipe.yaml." />
+  <title>Plans &amp; stages · aq Docs</title>
+  <meta name="description" content="Declare job plans under plans: in recipe.yaml (cron, sweep, resume, pipeline, agents). Runtime state under artifacts/jobs/plans/. Stages remain nested folders for now." />
   <link rel="icon" href="../assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -42,73 +42,68 @@
 <a class="nav-link" href="../jobs/">Jobs</a>
 <a class="nav-link" href="../agent/">Agent</a>
 <a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link active" href="../schedules/">Schedules &amp; stages</a></nav>
+<a class="nav-link active" href="../schedules/">Plans &amp; stages</a></nav>
     </aside>
-    <main class="docs-main"><h1>Schedules &amp; stages</h1>
-<p class="lead">Schedules compose aq verbs (cron, sweep, resume, pipeline, agents). Stages are nested full trains under stages/&lt;name&gt;/ - each with its own instructions.md and recipe.yaml.</p>
-<div class="prereq"><span class="prereq-label">Prerequisite</span>A train folder</div>
-<section class="tool" id="aq-schedule">
-  <h3 class="tool-cmd">aq schedule</h3>
-  
-  <p class="tool-desc">List schedules under schedules/. tick runs due cron/resume entries; run fires one now.</p>
-  
+    <main class="docs-main"><h1>Plans &amp; stages</h1>
+<p class="lead">Job plans (cron, sweep, resume, pipeline, agents) are authored under <code class="chip">plans:</code> in <code class="chip">recipe.yaml</code>. Runtime state and logs live under <code class="chip">artifacts/jobs/plans/</code>. Stages are still nested full runs under <code class="chip">stages/&lt;name&gt;/</code>.</p>
+<div class="prereq"><span class="prereq-label">Prerequisite</span>A run folder with recipe.yaml</div>
+
+<section class="tool" id="plans-in-recipe">
+  <h3 class="tool-cmd">recipe.yaml · plans</h3>
+  <p class="tool-desc">Declare named plans next to the method. <code class="chip">run</code> is a verb (train, eval, hash, tool:name, stage:name). Pipelines use <code class="chip">steps</code>.</p>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>example</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>family: tabular</span></span>
+<span class="line"><span>method: linear</span></span>
+<span class="line"><span>data:</span></span>
+<span class="line"><span>  path: data.csv</span></span>
+<span class="line"><span>  target: y</span></span>
+<span class="line"><span>eval:</span></span>
+<span class="line"><span>  metric: mse</span></span>
+<span class="line"><span> </span></span>
+<span class="line"><span>plans:</span></span>
+<span class="line"><span>  nightly:</span></span>
+<span class="line"><span>    kind: cron</span></span>
+<span class="line"><span>    every: 60</span></span>
+<span class="line"><span>    run: train</span></span>
+<span class="line"><span>  pipe:</span></span>
+<span class="line"><span>    kind: pipeline</span></span>
+<span class="line"><span>    steps: [train, eval]</span></span></code></pre>
+</div>
+  <p class="notes">Legacy <code class="chip">jobs/plans/*.yaml</code> still loads for names not already defined in the recipe. Prefer YAML in the recipe. Init does not create jobs/plans/.</p>
+</section>
+
+<section class="tool" id="aq-job-plan">
+  <h3 class="tool-cmd">aq job plan</h3>
+  <p class="tool-desc">List plans from recipe.yaml. tick runs due cron/resume entries; run fires one now. <code class="chip">aq schedule</code> is an alias.</p>
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq schedule</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq job plan</span></span>
+<span class="line"><span class="prompt">$</span><span>aq job plan tick</span></span>
+<span class="line"><span class="prompt">$</span><span>aq job plan run nightly</span></span>
+<span class="line"><span class="prompt">$</span><span>aq schedule run nightly</span></span></code></pre>
 </div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq schedule tick</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq schedule run nightly</span></span></code></pre>
-</div>
-  
 </section>
+
 <section class="tool" id="aq-stage">
   <h3 class="tool-cmd">aq stage</h3>
-  
-  <p class="tool-desc">List, scaffold, train, or eval nested trains under stages/.</p>
-  
+  <p class="tool-desc">List, scaffold, train, or eval nested runs under stages/. (Folding stages into a YAML <code class="chip">stages:</code> segment is still TODO.)</p>
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq stage init prep</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq stage init prep</span></span>
+<span class="line"><span class="prompt">$</span><span>aq stage prep</span></span>
+<span class="line"><span class="prompt">$</span><span>aq stage eval prep</span></span>
+<span class="line"><span class="prompt">$</span><span>aq stage</span></span></code></pre>
 </div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq stage prep</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq stage eval prep</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq stage</span></span></code></pre>
-</div>
-  
 </section>
 </main>
   </div>

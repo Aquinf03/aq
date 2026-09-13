@@ -139,7 +139,7 @@ Why is this needed? Link issues: Fixes #123
 ## Types of contributions
 
 **Code:** bug fixes, features, performance, refactors  
-**Docs:** HTML docs under `web/app/docs/` (+ `web/lib/docs/`), examples, clarifications  
+**Docs:** static HTML under `docs/` (GitHub Pages), author notes in `internals/author/`, clarifications  
 **Tests:** new or tighter trains under `tests/`  
 **Issues:** clear bug reports and focused feature proposals  
 

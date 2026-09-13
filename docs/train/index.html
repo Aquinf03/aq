@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Train folder · aq Docs</title>
-  <meta name="description" content="A train is a directory. If it has instructions.md and recipe.yaml, aq treats it as a real unit of work. aq init scaffolds the layout; disk is the source of truth." />
+  <meta name="description" content="A run is recipe.yaml (+ artifacts/ once you train). aq init / aquin init scaffolds recipe.yaml + example.py + artifacts/. Paths and plans live in the YAML." />
   <link rel="icon" href="../assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -42,21 +42,21 @@
 <a class="nav-link" href="../jobs/">Jobs</a>
 <a class="nav-link" href="../agent/">Agent</a>
 <a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="../schedules/">Schedules &amp; stages</a></nav>
+<a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
     </aside>
     <main class="docs-main"><h1>Train folder</h1>
-<p class="lead">A train is a directory. If it has instructions.md and recipe.yaml, aq treats it as a real unit of work. aq init scaffolds the layout; disk is the source of truth.</p>
-<div class="prereq"><span class="prereq-label">Prerequisite</span>aq installed · run aq init from a writable directory (not inside the aq package tree)</div>
+<p class="lead">A run is a directory with <code class="chip">recipe.yaml</code>. Training writes <code class="chip">artifacts/</code>. Init scaffolds only that identity — not a skills/tools/jobs/stages forest. Disk is still the source of truth.</p>
+<div class="prereq"><span class="prereq-label">Prerequisite</span>aq installed · run aq init (or python -m aquin init) from a writable directory (not inside the aq package tree)</div>
 <section class="tool" id="aq-init-dir">
-  <h3 class="tool-cmd">aq init [dir]</h3>
+  <h3 class="tool-cmd">aq init [name]</h3>
   
-  <p class="tool-desc">Create a skeleton train from aq/templates/. Writes instructions.md, recipe.yaml, optional train.ts, and empty slots (data, evals, methods, tools, skills, memory, sandbox, connections, schedules, stages, jobs, artifacts) with .keep files.</p>
+  <p class="tool-desc">Create a new run folder (default name aq-run, or -newN if taken). Writes recipe.yaml, example.py, and an empty artifacts/ template. Same scaffold: python -m aquin init [name].</p>
   <div class="table-wrap mb">
   <table>
     <thead><tr><th>Flag</th><th>Description</th></tr></thead>
     <tbody><tr>
-  <td class="flag">[dir]</td>
-  <td>Target directory. Defaults to cwd.</td>
+  <td class="flag">[name]</td>
+  <td>Folder name. Bare aq init uses aq-run.</td>
 </tr></tbody>
   </table>
 </div>
@@ -65,16 +65,13 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq init my-train</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq init my-run</span></span>
+<span class="line"><span class="prompt">$</span><span>cd my-run</span></span>
+<span class="line"><span class="prompt">$</span><span># edit recipe.yaml → data.path, then:</span></span>
+<span class="line"><span class="prompt">$</span><span>python example.py</span></span>
+<span class="line"><span class="prompt">$</span><span># or: aq train &amp;&amp; aq eval</span></span></code></pre>
 </div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>cd my-train</span></span></code></pre>
-</div>
-  <p class="notes">Creates instructions.md, recipe.yaml, optional train.ts, and empty slots (data, evals, methods, tools, skills, memory, sandbox, connections, schedules, stages, jobs, artifacts) with .keep files. Default template recipe is LLM LoRA. Change recipe.yaml for tabular or transformers. Refuses to init inside the aq package tree.</p>
+  <p class="notes">Default recipe is tabular/linear. Swap family/method in YAML for LLM, transformers, etc. Paths (data, eval probes, models) are keys in recipe.yaml — relative to the recipe file or absolute. Refuses to init inside the aq package tree.</p>
 </section>
 <section class="tool" id="aq-fork-dest">
   <h3 class="tool-cmd">aq fork &lt;dest&gt;</h3>
@@ -165,7 +162,7 @@
 <section class="tool" id="aq-status">
   <h3 class="tool-cmd">aq status</h3>
   
-  <p class="tool-desc">Show jobs, last run, last eval, recent metrics, and schedules for this train.</p>
+  <p class="tool-desc">Show jobs, last run, last eval, recent metrics, and job plans (from recipe.yaml) for this run.</p>
   
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
@@ -177,47 +174,38 @@
   
 </section>
 <h2>Canonical layout after aq init</h2>
-<p class="lead">aq init copies templates and creates optional slots with .keep files. A directory is a train when it has both instructions.md and recipe.yaml.</p>
+<p class="lead">Init writes three things. A directory is a run when it has recipe.yaml. Optional experiment.md is a human brief only.</p>
 <div class="codeblock" data-shell="0">
   <div class="codeblock-bar">
     <span>layout</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span>my-train/</span></span>
-<span class="line"><span>  instructions.md          REQUIRED - what this train is for</span></span>
-<span class="line"><span>  recipe.yaml              REQUIRED - kernel spec (aq does not override)</span></span>
-<span class="line"><span>  train.ts                 OPTIONAL - placeholder; aq does not read yet</span></span>
+  <pre><code><span class="line"><span>my-run/</span></span>
+<span class="line"><span>  recipe.yaml              REQUIRED — method, data paths, eval, optional plans:</span></span>
+<span class="line"><span>  example.py               SDK sample (from init)</span></span>
+<span class="line"><span>  artifacts/               runtime — checkpoints, metrics, runs, plan logs</span></span>
 <span class="line"><span> </span></span>
-<span class="line"><span>  data/                    your datasets (path from recipe)</span></span>
-<span class="line"><span>  evals/                   user probes (.csv / .jsonl) - no bundled zoo</span></span>
-<span class="line"><span>  methods/                 optional train-local fit adapters (override kernel)</span></span>
-<span class="line"><span>  tools/                   scripts: tools/&lt;name&gt;.{py,ts,js,sh}</span></span>
-<span class="line"><span>  skills/                  agent skills (+ optional MCP)</span></span>
-<span class="line"><span>  memory/                  agent memory markdown</span></span>
-<span class="line"><span>  sandbox/                 scratch for agent / tools</span></span>
-<span class="line"><span>  connections/             connection defs (slot)</span></span>
-<span class="line"><span>  schedules/               yaml/json schedules</span></span>
-<span class="line"><span>  stages/                  nested trains (each is itself a train)</span></span>
-<span class="line"><span>  jobs/                    SYSTEM - process queue state</span></span>
-<span class="line"><span>  artifacts/               SYSTEM - checkpoints, metrics, runs, chats, …</span></span></code></pre>
+<span class="line"><span>  # optional — you add as needed (not from init)</span></span>
+<span class="line"><span>  data.csv / data.jsonl    referenced by recipe.data.path</span></span>
+<span class="line"><span>  evals/                   probes if you use folder-style aq eval</span></span>
+<span class="line"><span>  tools/ skills/           packs when you need real code / agent skills</span></span>
+<span class="line"><span>  stages/                  nested runs (still folder-based for now)</span></span>
+<span class="line"><span>  jobs/                    process queue state (runtime; not authoring)</span></span></code></pre>
 </div>
-<h2>What each slot is for</h2>
+<h2>What each piece is for</h2>
 <div class="table-wrap mb">
   <table class="plain">
-    <thead><tr><th>Slot</th><th>Who uses it</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Path / key</th><th>Who uses it</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr><td class="mono">instructions.md</td><td>human / agent</td><td>Brief: what this train proves and what success looks like.</td></tr>
-<tr><td class="mono">recipe.yaml</td><td>kernel</td><td>Full train API for built-ins. CLI does not invent hyperparameters.</td></tr>
-<tr><td class="mono">data/</td><td>kernel</td><td>Datasets; recipe.data.path often points here.</td></tr>
-<tr><td class="mono">evals/</td><td>aq eval</td><td>One file per probe. Gate via eval.min_score.</td></tr>
-<tr><td class="mono">methods/</td><td>kernel loader</td><td>{name}.py wins over kernel/methods/{name}.py.</td></tr>
-<tr><td class="mono">tools/</td><td>aq tool / agent</td><td>Executable helpers with AQ_TRAIN set.</td></tr>
-<tr><td class="mono">skills/</td><td>agent</td><td>SKILL.md / run scripts / mcp.json.</td></tr>
-<tr><td class="mono">memory/</td><td>agent</td><td>Searchable markdown notes.</td></tr>
-<tr><td class="mono">schedules/</td><td>aq schedule</td><td>cron, sweep, resume, pipeline, agents.</td></tr>
-<tr><td class="mono">stages/</td><td>aq stage</td><td>Nested full trains.</td></tr>
-<tr><td class="mono">jobs/</td><td>job system</td><td>Do not hand-edit casually. Fork skips this.</td></tr>
-<tr><td class="mono">artifacts/</td><td>everything</td><td>System output. Fork skips this; regenerable but valuable.</td></tr>
+      <tr><td class="mono">recipe.yaml</td><td>kernel / CLI / SDK</td><td>Identity. Paths, method, eval gate, optional plans:.</td></tr>
+<tr><td class="mono">example.py</td><td>you</td><td>Few-line aquin client from init.</td></tr>
+<tr><td class="mono">data.path</td><td>kernel</td><td>File path in YAML (relative to recipe or absolute).</td></tr>
+<tr><td class="mono">plans:</td><td>aq job plan</td><td>cron / sweep / pipeline / resume / agents — in the recipe.</td></tr>
+<tr><td class="mono">evals/</td><td>aq eval</td><td>Optional probes on disk; gate via eval.min_score.</td></tr>
+<tr><td class="mono">tools/ skills/</td><td>aq tool / agent</td><td>Optional packs — not scaffolded by init.</td></tr>
+<tr><td class="mono">stages/</td><td>aq stage</td><td>Nested full runs (YAML stages: still TODO).</td></tr>
+<tr><td class="mono">jobs/</td><td>job system</td><td>Queue state. Fork skips this.</td></tr>
+<tr><td class="mono">artifacts/</td><td>everything</td><td>System output. Fork skips this.</td></tr>
     </tbody>
   </table>
 </div>
@@ -245,13 +233,13 @@
 <span class="line"><span>  serve.json               last serve output</span></span>
 <span class="line"><span>  chats/&lt;id&gt;/              agent chat sessions</span></span>
 <span class="line"><span>  agents/&lt;id&gt;/             spawned worker agents</span></span>
-<span class="line"><span>  schedules/               schedule run logs</span></span></code></pre>
+<span class="line"><span>  jobs/plans/              plan state + run logs</span></span></code></pre>
 </div>
 <h2>Mental tests</h2>
 <ol class="lead-list">
   <li>Can I copy the folder to another machine and run aq status?</li>
   <li>Can I fork, change one recipe key, and compare with aq diff?</li>
-  <li>Can a stranger read instructions.md and know the gate?</li>
+  <li>Can a stranger read recipe.yaml and know the data path and gate?</li>
   <li>If artifacts/ is deleted, can I retrain from recipe + data alone?</li>
 </ol></main>
   </div>

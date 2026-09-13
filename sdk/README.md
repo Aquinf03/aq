@@ -31,4 +31,6 @@ aq.eval()
 
 Examples: [`tests/sdk-ridge`](../tests/sdk-ridge/), [`tests/sdk-from-dict`](../tests/sdk-from-dict/).
 
+Optional **job plans** live under `plans:` in `recipe.yaml` (not a `jobs/plans/` tree from init). Runtime logs: `artifacts/jobs/plans/`. See product docs → Plans & stages.
+
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.
