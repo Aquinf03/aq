@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# desktop / python
+desktop/ssh-service/.venv/
+**/__pycache__/
+*.pyc
+

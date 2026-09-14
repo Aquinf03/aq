@@ -1,15 +1,19 @@
 {
-  "name": "web",
+  "name": "aquin-beta",
   "version": "0.1.0",
   "private": true,
-  "description": "Aquin auth — Supabase login, CLI tokens, desktop handoff, and SDK API",
+  "description": "Aquin desktop workspace — Electron control plane + AsyncSSH to user machines",
+  "main": "desktop/electron/main.cjs",
   "scripts": {
     "prebuild": "node scripts/sync-framework-content.mjs",
-    "dev": "next dev",
+    "dev": "electron .",
+    "start": "electron .",
+    "desktop": "electron .",
     "build": "next build",
-    "start": "next start",
     "lint": "eslint",
-    "backfill:usernames": "tsx --env-file=.env scripts/backfill-usernames.ts"
+    "backfill:usernames": "tsx --env-file=.env scripts/backfill-usernames.ts",
+    "ui:dev": "next dev --hostname localhost --port 3000",
+    "ui:start": "next start --hostname localhost --port 3000"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -34,6 +38,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^37.2.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
