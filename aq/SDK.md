@@ -63,6 +63,6 @@ aq.eval()
 
 Optional class style: `Run` → same `recipe.yaml`.
 
-Examples: [`tests/sdk-ridge`](../tests/sdk-ridge/) (YAML-first), [`tests/sdk-from-dict`](../tests/sdk-from-dict/) / [`tests/sdk-run-class`](../tests/sdk-run-class/) (SDK-first).
+Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.

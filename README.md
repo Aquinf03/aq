@@ -4,7 +4,7 @@
 **SDK shape:** `recipe.yaml` (path map) + `artifacts/` (runtime). Author with **YAML and/or `aquin`** — both first-class.
 
 **Docs:** https://aq.aquin.app/docs · **Account / install:** https://aq.aquin.app  
-**SDK:** [`aq/aquin`](./aq/SDK.md) · **Trains:** [`tests/`](./tests/README.md)
+**SDK:** [`aq/aquin`](./aq/SDK.md) · **Trains:** [`scripts/tests/`](./scripts/tests/README.md)
 
 ## Published build install
 
@@ -22,7 +22,7 @@ python -m aquin init my-run   # or: aq init my-run
 cd my-run && python example.py
 ```
 
-See [`tests/sdk-ridge/example.py`](./tests/sdk-ridge/example.py), [`tests/sdk-from-dict/example.py`](./tests/sdk-from-dict/example.py), [`tests/sdk-run-class/example.py`](./tests/sdk-run-class/example.py).
+See [`scripts/tests/sdk-ridge/example.py`](./scripts/tests/sdk-ridge/example.py), [`scripts/tests/sdk-from-dict/example.py`](./scripts/tests/sdk-from-dict/example.py), [`scripts/tests/sdk-run-class/example.py`](./scripts/tests/sdk-run-class/example.py).
 
 ## From a checkout (CLI)
 
@@ -45,9 +45,9 @@ aq train && aq eval && aq status
 | Path | Role |
 |------|------|
 | `aq/` | CLI + Python kernel + `aquin` SDK (`aq/aquin`, `pip install -e ./aq`) |
-| `tests/` | E2E trains (CLI + SDK) |
+| `scripts/tests/` | E2E trains (CLI + SDK) |
 | `web/` | Docs + auth app (`aq.aquin.app`) |
 | `internals/` | Builder checklists |
 
-- Publish: [`scripts/release.sh`](./scripts/release.sh)
+- Publish: [`scripts/helpers/release.sh`](./scripts/helpers/release.sh)
 - SDK: [`aq/SDK.md`](./aq/SDK.md)

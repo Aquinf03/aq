@@ -48,7 +48,7 @@ Before you open a pull request:
 
 1. **Keep PRs focused:** one logical change per PR. Split large work.
 2. **Describe the why:** use the [PR description template](#pr-description-template). Vague titles like "Fixed bug" will be sent back.
-3. **Exercise the change:** for CLI/kernel behavior, run a relevant train under [`tests/`](./tests/) (see [Testing](#testing)). Say what you ran.
+3. **Exercise the change:** for CLI/kernel behavior, run a relevant train under [`scripts/tests/`](./scripts/tests/) (see [Testing](#testing)). Say what you ran.
 4. **Discuss big changes first:** open an issue for new methods, protocol changes, or anything that reshapes the train directory contract.
 5. **Do not commit secrets or junk:** never add `.env`, API keys, tokens, or local artifacts that contain credentials. Also ignore (do not commit) heavy artifacts, caches, and anything unused or unnecessary for runtime or build-time (model weights, checkpoints, `node_modules/`, `.venv/`, build outputs, train `artifacts/` from local runs, and similar).
 
@@ -63,12 +63,12 @@ Changes that touch the train contract or the TS ↔ Python bridge are reviewed m
 | Kernel entry / engine | `aq/kernel/run.py`, `aq/kernel/engine/` |
 | Protocol (recipe, metrics, methods) | `aq/kernel/protocol/` |
 | Training methods | `aq/kernel/methods/` |
-| Install / release | `install.sh`, `scripts/release.sh`, `web/public/framework/` |
+| Install / release | `install.sh`, `scripts/helpers/release.sh`, `web/public/framework/` |
 
 For these areas, please:
 
 - Link an issue that states the user-visible problem and expected behavior
-- Include a **minimal reproduction** (often a tiny train under `tests/` or steps against an existing one)
+- Include a **minimal reproduction** (often a tiny train under `scripts/tests/` or steps against an existing one)
 - Explain root cause and why the fix is correct
 - Note at least one failure mode you considered
 
@@ -85,25 +85,25 @@ AI-assisted contributions are welcome. You are accountable for every line you su
 
 ## Testing
 
-This repo does **not** use a single unit-test suite as the primary gate. Coverage lives as **manual end-to-end trains** in [`tests/`](./tests/).
+This repo does **not** use a single unit-test suite as the primary gate. Coverage lives as **manual end-to-end trains** in [`scripts/tests/`](./scripts/tests/).
 
 Each folder is a train (plus a README). Typical loop:
 
 ```bash
 cd aq && npm run build   # if you changed TypeScript
-cd ../tests/linear-regression   # or another relevant train
+cd ../scripts/tests/linear-regression   # or another relevant train
 aq train
 aq eval
 aq status
 # read artifacts/inspect.md
 ```
 
-Pick the train that proves what you changed. Index: [`tests/README.md`](./tests/README.md).
+Pick the train that proves what you changed. Index: [`scripts/tests/README.md`](./scripts/tests/README.md).
 
 | Change type | Expectation |
 |-------------|-------------|
 | Bug fix | Reproduce with a train (or add/adjust one), then show it passes |
-| New method / recipe knob | Add or extend a `tests/` train that exercises it |
+| New method / recipe knob | Add or extend a `scripts/tests/` train that exercises it |
 | Docs only | No train run required |
 | Refactor | Existing relevant trains still work; say which ones you ran |
 
@@ -123,7 +123,7 @@ Why is this needed? Link issues: Fixes #123
 - Breaking changes or deprecations, if any
 
 ## Testing
-- Trains run: e.g. `tests/linear-regression` (`aq train` / `aq eval`)
+- Trains run: e.g. `scripts/tests/linear-regression` (`aq train` / `aq eval`)
 - Commands / edge cases checked
 - AI assistance used? (yes/no; short note if yes)
 ```
@@ -140,7 +140,7 @@ Why is this needed? Link issues: Fixes #123
 
 **Code:** bug fixes, features, performance, refactors  
 **Docs:** static HTML under `docs/` (GitHub Pages), SDK README, clarifications  
-**Tests:** new or tighter trains under `tests/`  
+**Tests:** new or tighter trains under `scripts/tests/`  
 **Issues:** clear bug reports and focused feature proposals  
 
 All of these help. Docs and reproduction cases are as valuable as features.
