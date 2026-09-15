@@ -11,7 +11,10 @@
     "dist",
     "kernel",
     "assets",
-    "scripts"
+    "scripts",
+    "aquin",
+    "pyproject.toml",
+    "SDK.md"
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-job-wait.mjs",

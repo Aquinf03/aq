@@ -18,7 +18,7 @@ export { type ChatMsg }
 const MAX_ROUNDS = 16
 
 const ACT =
-  /\b(train|eval|fork|fix|generate|init|write|change|run|serve|spawn)\b/i
+  /\b(train|eval|status|generate|init|write|change|run|serve|spawn)\b/i
 const GO =
   /\b(yeah|yep|yes|ok|okay|sure|fine|go ahead|go on|do it|do that|try it|train it|build it|fix it|proceed|please do|let'?s go|ship it|run it|learn from)\b/i
 const WISH =
@@ -78,7 +78,7 @@ function aqVerb(name: string, args: string): string {
 function toolKind(name: string, args: string): "create" | "run" | "other" {
   const v = aqVerb(name, args)
   if (v === "init" || name === "write" || name === "edit" || name === "mkdir") return "create"
-  if (v === "train" || v === "eval" || v === "fork" || v === "serve") return "run"
+  if (v === "train" || v === "eval" || v === "serve") return "run"
   return "other"
 }
 
@@ -137,7 +137,7 @@ export async function runTurn(
         const ran = kinds.includes("run")
         if (kind === "run" && (created || ran)) {
           result =
-            "paused for the human: finish this step in chat and wait. Do not train/eval/fork in the same breath as creating files, and do not chain train then eval. Ask what they want next."
+            "paused for the human: finish this step in chat and wait. Do not train/eval in the same breath as creating files, and do not chain train then eval. Ask what they want next."
           failed = true
           paused = true
           progress.push(`${call.name} paused`)

@@ -16,7 +16,7 @@ For SDK that *writes* the path map, see [`sdk-from-dict`](../sdk-from-dict/) or 
 ## Run it
 
 ```bash
-aq/kernel/.venv/bin/pip install -e ./sdk
+aq/kernel/.venv/bin/pip install -e ./aq
 cd tests/sdk-ridge
 ../../aq/kernel/.venv/bin/python example.py
 ```

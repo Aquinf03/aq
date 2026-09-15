@@ -3,7 +3,7 @@ import { existsSync } from "node:fs"
 import path from "node:path"
 import { assertTrain } from "../core/schema.js"
 
-/** Runtime output. Do not copy into the fork. */
+/** Copy a run tree for internal use (e.g. spawn). Not a CLI verb. */
 export const FORK_SKIP = new Set(["jobs", "artifacts", "node_modules", ".git"])
 
 export type ForkPlan = {
@@ -28,7 +28,7 @@ export async function fork(plan: ForkPlan): Promise<{ src: string; dest: string 
       const rel = path.relative(src, file)
       if (!rel || rel === ".") return true
       const parts = rel.split(path.sep)
-      if (parts[0] === "jobs") return parts[1] === "plans"
+      if (parts[0] === "jobs") return false
       return !parts.some((p) => FORK_SKIP.has(p))
     },
   })
@@ -38,22 +38,5 @@ export async function fork(plan: ForkPlan): Promise<{ src: string; dest: string 
     await writeFile(path.join(dir, ".keep"), "", "utf8")
   }
 
-  return { src, dest }
-}
-
-/** `aq fork <name>` copies cwd. `aq fork <src> <name>` copies src. */
-export function parseForkArgs(argv: string[]): ForkPlan {
-  const rest = argv.filter((a) => !a.startsWith("-"))
-  let src: string
-  let dest: string
-  if (rest.length === 1) {
-    src = "."
-    dest = rest[0]!
-  } else if (rest.length === 2) {
-    src = rest[0]!
-    dest = rest[1]!
-  } else {
-    throw new Error("usage: aq fork <new-dir>   or  aq fork <src> <new-dir>")
-  }
   return { src, dest }
 }

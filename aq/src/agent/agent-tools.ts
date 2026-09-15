@@ -1,4 +1,4 @@
-/** Builtin agent tools. Train tools stay files in tools/. */
+/** Builtin agent tools. */
 
 import { spawnSync } from "node:child_process"
 import path from "node:path"
@@ -10,7 +10,6 @@ import { cpAt, editFileAt, mkdirAt, mvAt, rmAt, writeFileAt } from "../lib/files
 import { searchSkills, skillsDigest } from "../lib/skill.js"
 import { activateSkill, callMcpTool, extraTools, runSkillCode } from "../lib/skill-runtime.js"
 import { childTrains, isTrain, trainInArgv } from "../core/schema.js"
-import { runToolCaptured } from "../handle/tool.js"
 import { enqueueJob, waitForPid } from "../job/job.js"
 import { agentLog, cancelAgent, formatAgents, startAgent } from "./spawn.js"
 import { webFetch, webSearch } from "../lib/web.js"
@@ -29,18 +28,15 @@ function nativeAqTools(): AgentToolDef[] {
   const verbs: [string, string][] = [
     ["init", "Create a run folder (aq-run or named): recipe.yaml + example.py + artifacts/. Paths live in the YAML."],
     ["help", "CLI help text."],
-    ["status", "Jobs, last run, eval. If cwd is not a train, args MUST be the train folder."],
+    ["status", "Last run, eval, metrics. If cwd is not a train, args MUST be the train folder."],
     ["train", "Fit. If cwd is not a train, args MUST be the train folder. Writes artifacts/checkpoints/last.json."],
     ["eval", "Score evals/. If cwd is not a train, args starts with the train folder. Humans own the gate."],
     ["checkpoint", "List or keep a checkpoint. If cwd is not a train, pass the train folder in args."],
     ["serve", "Run last checkpoint: LLM completion, VLM (+ --image), vision classify, CLIP score, or tabular predict."],
     ["data", "Hash recipe data.path. Extra args after data."],
-    ["job", "Run, list, log, cancel jobs; job plan for cron/sweeps/pipelines."],
-    ["fork", "Copy this train to try a variant without mutating the original."],
-    ["checkout", "Restore a run tree. args is id and optional dest."],
     ["diff", "Compare run records."],
-    ["stage", "Nested trains."],
     ["plot", "Generate charts from artifacts: loss/lr (metrics), job status (jobs), run comparison (runs), or all. Writes artifacts/plots/*.png. Use when the user asks for a graph, chart, or plot."],
+    ["spawn", "Worker agents: spawn agent / list / log / cancel."],
     ["provider", "List or set model providers."],
     ["update", "Install the latest aq release (same as curl install.sh | bash)."],
     ["version", "Print framework version."],
@@ -293,7 +289,7 @@ export const AGENT_TOOLS: AgentToolDef[] = [
   {
     name: "spawn",
     description:
-      "Start a worker aq agent on this train. It runs in the background as a job (artifacts/agents/<id>/). Use spawn_list and spawn_log to follow. kill true = cheapest-disproof critic, not a cheerleader.",
+      "Start a worker aq agent on this train (same as `aq spawn agent`). Runs in the background as a job (artifacts/agents/<id>/). Use spawn_list and spawn_log to follow. kill true = cheapest-disproof critic, not a cheerleader.",
     parameters: {
       type: "object",
       properties: {
@@ -325,18 +321,6 @@ export const AGENT_TOOLS: AgentToolDef[] = [
       type: "object",
       properties: { id: { type: "string", description: "agent id" } },
       required: ["id"],
-    },
-  },
-  {
-    name: "tool",
-    description: "Run tools/<name> in this train. Same as aq tool.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "filename stem in tools/" },
-        args: { type: "string", description: "optional extra argv, space-separated" },
-      },
-      required: ["name"],
     },
   },
   {
@@ -372,12 +356,7 @@ const ALLOW = new Set([
   "checkpoint",
   "serve",
   "data",
-  "job",
-  "fork",
-  "checkout",
   "diff",
-  "tool",
-  "stage",
   "plot",
   "provider",
   "spawn",
@@ -489,10 +468,6 @@ export async function runAgentTool(train: string, name: string, rawArgs: string)
     const hits = searchSkills(train, q)
     return hits.length ? hits.map((h) => `${h.name}: ${h.blurb}`).join("\n") : "no skills"
   }
-  if (name === "tool") {
-    const extra = typeof args.args === "string" ? args.args.trim().split(/\s+/).filter(Boolean) : []
-    return runToolCaptured(train, jsonArg(args, "name"), extra)
-  }
   if (name === "plot") {
     const kind = typeof args.kind === "string" && args.kind.trim() ? args.kind.trim() : "all"
     return runAq(train, ["plot", kind])
@@ -558,12 +533,10 @@ export async function runDetached(train: string, command: string): Promise<strin
   const id = await enqueueJob(train, ["sh", "-c", command])
   const spec = await waitForPid(train, id)
   const lines = [
-    `job ${id}`,
+    `detached ${id}`,
     `status ${spec.status}`,
     spec.pid != null ? `pid ${spec.pid}` : "",
     `log jobs/${id}/log`,
-    "survives this prompt. aq job log " + id,
-    "stop: aq job cancel " + id,
   ]
   return lines.filter(Boolean).join("\n")
 }

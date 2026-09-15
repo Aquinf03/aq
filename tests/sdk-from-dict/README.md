@@ -4,7 +4,7 @@
 
 ```
 sdk-from-dict/
-  example.py       # define + plan → recipe.yaml → train/eval
+  example.py       # define → recipe.yaml → train/eval
   data.csv
   evals/
   recipe.yaml      # rewritten by example.py
@@ -18,5 +18,5 @@ cd tests/sdk-from-dict
 
 ## Expect
 
-- path map written with `plans.pipe`
+- path map rewritten from `define(...)`
 - train + eval **pass**

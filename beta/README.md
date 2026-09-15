@@ -1,6 +1,6 @@
 # Aquin beta — desktop app
 
-Electron control plane for the AQ workspace. The UI is still React/Next (rendered inside Electron only). Remote compute is **your** VM/machine over **AsyncSSH** — AQ does not host GPUs.
+Electron control plane for the AQ workspace. UI is **Vite + React** (same components). Local `/api` and `/auth` still run via Next route handlers (proxied) so account/keys behavior is unchanged. Remote compute is **your** VM over **AsyncSSH** — AQ does not host GPUs.
 
 ## Setup
 
@@ -25,27 +25,34 @@ npm start
 Electron starts:
 
 1. Python AsyncSSH sidecar  
-2. Next.js UI on `localhost:3000` (internal — not a public web product)  
-3. The desktop window  
+2. Next API on `localhost:3001` (internal)  
+3. Vite UI on `localhost:3000` (proxies `/api` + `/auth` → 3001)  
+4. The desktop window  
+
+### macOS icon
+
+Dock / window icon: `desktop/resources/icon.icns` (+ `AppIcon.appiconset` source).
 
 ### SSH Open folder
 
-Sidebar → **SSH Open folder** → connect (key / agent / password) → browse → open. First connect can bootstrap `~/.aquin` on the remote (optional `install.sh`).
+Sidebar → **SSH Open folder** → connect → browse → open.
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `app/`, `components/` | UI (Next), only loaded in Electron |
+| `src/`, `components/`, `app/globals.css` | Vite UI |
+| `app/api/`, `app/auth/callback` | API (Next process) |
 | `desktop/electron/` | Electron main, preload, SSH bridge |
 | `desktop/ssh-service/` | Python AsyncSSH JSON-RPC |
-| `lib/desktop.ts` | `window.aquinDesktop` helpers |
+| `desktop/resources/` | macOS app icons |
 
 ## Env (optional)
 
-- `AQUIN_UI_PORT` — UI port (default `3000`)
-- `AQUIN_DESKTOP_URL` — skip spawning Next; load this URL instead
-- `AQUIN_PYTHON` — Python binary (defaults to `desktop/ssh-service/.venv/bin/python` when present)
+- `AQUIN_UI_PORT` — Vite UI port (default `3000`)
+- `AQUIN_API_PORT` — Next API port (default `3001`)
+- `AQUIN_DESKTOP_URL` — skip spawning servers; load this URL instead
+- `AQUIN_PYTHON` — Python binary (defaults to ssh-service venv)
 
 ## SSH RPC
 

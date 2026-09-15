@@ -1,7 +1,9 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { siteConfig } from "./config";
-import { Metadata } from "next";
+
+/** Loose metadata shape (Next Metadata-compatible without importing `next`). */
+type MetadataLike = Record<string, unknown>;
 
 /** Shared OG image for every web page (Aquin home brand art). */
 export const OG_IMAGE = "/og/home.jpg";
@@ -12,8 +14,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function publicEnv(name: string): string | undefined {
+  if (typeof process !== "undefined" && process.env?.[name]) return process.env[name];
+  try {
+    // Vite
+    const env = (import.meta as ImportMeta & { env?: Record<string, string> }).env;
+    return env?.[name];
+  } catch {
+    return undefined;
+  }
+}
+
 export function absoluteUrl(path: string) {
-  return `${process.env.NEXT_PUBLIC_APP_URL || siteConfig.url}${path}`;
+  return `${publicEnv("NEXT_PUBLIC_APP_URL") || siteConfig.url}${path}`;
 }
 
 export function constructMetadata({
@@ -25,8 +38,8 @@ export function constructMetadata({
   title?: string;
   description?: string;
   image?: string;
-  [key: string]: Metadata[keyof Metadata];
-}): Metadata {
+  [key: string]: unknown;
+}): MetadataLike {
   return {
     title: {
       template: "%s | " + siteConfig.name,

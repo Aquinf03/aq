@@ -29,7 +29,7 @@ Expect:
 - eval: `mse`, small score, **pass**
 - inspect: `lambda: 1`, both `x` and `z` nonzero
 
-Optional: `aq fork` this run, set `method: linear`, train the copy, compare inspect. Linear may split collinear weights more wildly; ridge should stay finite.
+Optional: copy this run, set `method: linear`, train the copy, compare inspect. Linear may split collinear weights more wildly; ridge should stay finite.
 
 ---
 
@@ -56,7 +56,7 @@ aq ask tests/ridge -y "Train ridge, then aq eval. Report mse and pass/fail. Read
 Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
 
 ```bash
-aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+aq/kernel/.venv/bin/pip install -e ./aq   # once per checkout
 AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
 from aquin import Aquin
 aq = Aquin("tests/ridge")

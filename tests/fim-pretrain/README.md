@@ -44,7 +44,7 @@ aq ask tests/fim-pretrain -y "Train, then aq eval. Report pass/fail. Read inspec
 Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
 
 ```bash
-aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+aq/kernel/.venv/bin/pip install -e ./aq   # once per checkout
 AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
 from aquin import Aquin
 aq = Aquin("tests/fim-pretrain")

@@ -39,13 +39,11 @@
 <a class="nav-link nested" href="../methods/custom/">Custom</a>
 <a class="nav-link" href="../eval/">Eval &amp; inspect</a>
 <a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link" href="../jobs/">Jobs</a>
 <a class="nav-link" href="../agent/">Agent</a>
-<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
+<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a></nav>
     </aside>
     <main class="docs-main"><h1>Recipe</h1>
-<p class="lead">recipe.yaml is the durable <strong>path map</strong> for a run — method, data paths, eval gate, optional plans:. Edit it by hand <em>or</em> author with the SDK (<code class="chip">Aquin.define</code> / <code class="chip">Run</code>); both rewrite/read the same file. The kernel and CLI consume the map; they do not care which surface wrote it.</p>
+  <p class="lead">recipe.yaml is the durable <strong>path map</strong> for a run — method, data paths, eval gate. Edit it by hand <em>or</em> author with the SDK (<code class="chip">Aquin.define</code> / <code class="chip">Run</code>); both rewrite/read the same file. The kernel and CLI consume the map; they do not care which surface wrote it.</p>
 <div class="prereq"><span class="prereq-label">Prerequisite</span>A train folder with recipe.yaml · kernel deps: pip install -r aq/kernel/requirements.txt</div>
 <section class="tool" id="recipeyaml--tabular">
   <h3 class="tool-cmd">recipe.yaml · tabular</h3>
@@ -115,27 +113,6 @@
 <span class="line"><span>  target: label</span></span>
 <span class="line"><span>eval:</span></span>
 <span class="line"><span>  metric: accuracy</span></span></code></pre>
-</div>
-  
-</section>
-<section class="tool" id="recipeyaml--plans">
-  <h3 class="tool-cmd">recipe.yaml · plans</h3>
-  
-  <p class="tool-desc">Optional job plans (cron, sweep, resume, pipeline, agents). Author in YAML under <code class="chip">plans:</code> <em>or</em> via <code class="chip">aq.plan(...)</code> / <code class="chip">@schedule</code> — same block. Runtime state under artifacts/jobs/plans/. See Plans &amp; stages.</p>
-  
-  <div class="codeblock" data-shell="0">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span>plans:</span></span>
-<span class="line"><span>  nightly:</span></span>
-<span class="line"><span>    kind: cron</span></span>
-<span class="line"><span>    every: 60</span></span>
-<span class="line"><span>    run: train</span></span>
-<span class="line"><span>  pipe:</span></span>
-<span class="line"><span>    kind: pipeline</span></span>
-<span class="line"><span>    steps: [train, eval]</span></span></code></pre>
 </div>
   
 </section>

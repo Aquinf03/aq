@@ -54,7 +54,7 @@ aq ask tests/decision-trees -y "Train the tree, then aq eval. Report mse and pas
 Identity is **`recipe.yaml` + `artifacts/`** (created on train). `experiment.md` is optional.
 
 ```bash
-aq/kernel/.venv/bin/pip install -e ./sdk   # once per checkout
+aq/kernel/.venv/bin/pip install -e ./aq   # once per checkout
 AQ_KERNEL=$PWD/aq/kernel aq/kernel/.venv/bin/python <<'PY'
 from aquin import Aquin
 aq = Aquin("tests/decision-trees")

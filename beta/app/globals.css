@@ -191,6 +191,16 @@
   .scrollbar-hover:hover::-webkit-scrollbar-thumb {
     background: rgb(168 162 158 / 0.55);
   }
+
+  /* Electron: draggable titlebar regions (macOS hiddenInset). */
+  .aquin-drag {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .aquin-no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
 }
 
 .docs-chrome-header {

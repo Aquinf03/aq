@@ -1,10 +1,8 @@
-/** Live tool index. No registration file. tools/ plus builtins, searchable. */
+/** Live tool index. Builtins + CLI verbs + skills, searchable. */
 
-import { readFileSync } from "node:fs"
 import { listSkills, skillBlurb } from "./skill.js"
-import { listTools, resolveTool } from "../handle/tool.js"
 
-export type ToolSource = "builtin" | "train" | "cli" | "skill"
+export type ToolSource = "builtin" | "cli" | "skill"
 
 export type ToolCard = {
   name: string
@@ -32,7 +30,7 @@ export const BUILTINS: ToolCard[] = [
   {
     name: "tools_search",
     source: "builtin",
-    description: "Search the tool registry (builtins, tools/, aq commands, skills).",
+    description: "Search the tool registry (builtins, aq commands, skills).",
   },
   {
     name: "ls",
@@ -62,7 +60,7 @@ export const BUILTINS: ToolCard[] = [
   {
     name: "write",
     source: "builtin",
-    description: "Create or overwrite a file in the train (tools/, skills/, recipe, ...).",
+    description: "Create or overwrite a file in the train (recipe, skills, …).",
   },
   {
     name: "edit",
@@ -107,12 +105,7 @@ export const BUILTINS: ToolCard[] = [
   {
     name: "aq",
     source: "builtin",
-    description: "Run an aq CLI subcommand in this train (status, train, eval, job, fork, ...).",
-  },
-  {
-    name: "tool",
-    source: "builtin",
-    description: "Run a file in tools/<name> (py/ts/js/sh). Same as aq tool.",
+    description: "Run an aq CLI subcommand in this train (status, train, eval, job, spawn, …).",
   },
   {
     name: "skill_load",
@@ -137,7 +130,7 @@ export const BUILTINS: ToolCard[] = [
   {
     name: "spawn",
     source: "builtin",
-    description: "Start a worker aq agent on this train.",
+    description: "Start a worker aq agent (`aq spawn agent`).",
   },
   {
     name: "spawn_list",
@@ -149,40 +142,16 @@ export const BUILTINS: ToolCard[] = [
 export const CLI_VERBS: ToolCard[] = [
   { name: "aq_help", source: "cli", description: "CLI help text. Native aq help." },
   { name: "aq_init", source: "cli", description: "Create a run folder (recipe.yaml + example.py + artifacts/); does not dump into cwd." },
-  { name: "aq_status", source: "cli", description: "Jobs, job plans, last run, eval." },
+  { name: "aq_status", source: "cli", description: "Last run, eval, metrics." },
   { name: "aq_train", source: "cli", description: "Fit. Writes artifacts/checkpoints/last.json." },
   { name: "aq_eval", source: "cli", description: "Score evals/. Human-owned gate." },
   { name: "aq_checkpoint", source: "cli", description: "List or keep a checkpoint." },
   { name: "aq_data", source: "cli", description: "Hash recipe data.path." },
-  { name: "aq_job", source: "cli", description: "Run/list/log jobs; job plan for cron/sweeps/pipelines." },
-  { name: "aq_fork", source: "cli", description: "Copy this train; skip jobs/ runs and artifacts/." },
-  { name: "aq_checkout", source: "cli", description: "Restore a run tree." },
   { name: "aq_diff", source: "cli", description: "Compare run records." },
-  { name: "aq_spawn", source: "cli", description: "Start/list/log/cancel worker agents." },
-  { name: "aq_stage", source: "cli", description: "Nested trains." },
+  { name: "aq_spawn", source: "cli", description: "spawn agent / list / log / cancel worker agents." },
   { name: "aq_plot", source: "cli", description: "Charts from artifacts (metrics, jobs, runs). Same as plot tool." },
   { name: "aq_provider", source: "cli", description: "List or set model providers." },
 ]
-
-function blurb(file: string): string {
-  const head = readFileSync(file, "utf8").slice(0, 1200)
-  const lines = head.split("\n").slice(0, 24)
-  for (const line of lines) {
-    const t = line.trim()
-    if (!t) continue
-    const m = t.match(/^(#|\/\/|--)\s+(.+)/) || t.match(/^"""\s*(.+)/) || t.match(/^'''\s*(.+)/)
-    if (m?.[2]) return m[2].slice(0, 200)
-    if (m?.[1] && t.startsWith('"""')) return m[1].slice(0, 200)
-  }
-  return "train tool"
-}
-
-export function trainTools(train: string): ToolCard[] {
-  return listTools(train).map((name) => {
-    const p = resolveTool(train, name)
-    return { name, source: "train" as const, description: blurb(p), path: p }
-  })
-}
 
 export function catalog(train: string): ToolCard[] {
   const skills = listSkills(train).map((name) => ({
@@ -190,17 +159,11 @@ export function catalog(train: string): ToolCard[] {
     source: "skill" as const,
     description: skillBlurb(train, name) || `skills/${name}. skill_load to use.`,
   }))
-  return [...BUILTINS, ...trainTools(train), ...CLI_VERBS, ...skills]
+  return [...BUILTINS, ...CLI_VERBS, ...skills]
 }
 
-export function toolsDigest(train: string): string {
-  const tools = trainTools(train)
-  if (!tools.length) return ""
-  const lines = [`tools (${tools.length}): use tool`]
-  for (const t of tools.slice(0, 12)) {
-    lines.push(`- ${t.name}: ${t.description}`)
-  }
-  return lines.join("\n")
+export function toolsDigest(_train: string): string {
+  return ""
 }
 
 function score(query: string, card: ToolCard): number {

@@ -39,35 +39,13 @@
 <a class="nav-link nested" href="../methods/custom/">Custom</a>
 <a class="nav-link" href="../eval/">Eval &amp; inspect</a>
 <a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link" href="../jobs/">Jobs</a>
 <a class="nav-link" href="../agent/">Agent</a>
-<a class="nav-link active" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
+<a class="nav-link active" href="../skills/">Skills, tools &amp; MCP</a></nav>
     </aside>
     <main class="docs-main"><h1>Skills, tools &amp; MCP</h1>
 <p class="lead">Convention over registration. Drop a file in the right folder and it exists. Tools are scripts; skills are agent playbooks (optional MCP); memory is markdown the agent can search.</p>
 <div class="prereq"><span class="prereq-label">Prerequisite</span>A train folder</div>
-<section class="tool" id="aq-tool-name">
-  <h3 class="tool-cmd">aq tool &lt;name&gt;</h3>
-  
-  <p class="tool-desc">Run tools/&lt;name&gt;.{py,ts,js,sh} with cwd = train and AQ_TRAIN set.</p>
-  
-  <div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq tool</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq tool summarize -- --limit 10</span></span></code></pre>
-</div>
-  
-</section>
+<p class="notes"><code class="chip">aq tool</code> was removed. Optional <code class="chip">tools/</code> scripts are no longer a CLI surface — use the agent, jobs, or run scripts directly.</p>
 <section class="tool" id="skills">
   <h3 class="tool-cmd">skills/</h3>
   

@@ -1,26 +1,10 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { assertTrain } from "../core/schema.js"
-import { listPlans, listPlanLogFiles } from "../job/plans.js"
-import { printSection, printTable } from "../lib/term-table.js"
+import { printTable } from "../lib/term-table.js"
 
 export async function status(argv: string[]): Promise<void> {
   const train = assertTrain(argv[0] ?? ".")
-  const jobs = path.join(train, "jobs")
-  const jobRows: unknown[][] = []
-  if (existsSync(jobs)) {
-    for (const id of readdirSync(jobs).sort()) {
-      if (id.startsWith(".") || id === "plans") continue
-      const specPath = path.join(jobs, id, "spec.json")
-      if (!existsSync(specPath)) continue
-      const spec = JSON.parse(readFileSync(specPath, "utf8")) as {
-        status?: string
-        command?: string[]
-      }
-      jobRows.push([id, spec.status ?? "?", (spec.command ?? []).join(" ")])
-    }
-  }
-  printSection("jobs", ["id", "status", "command"], jobRows)
 
   const last = path.join(train, "artifacts", "runs", "last.json")
   console.log("run")
@@ -105,21 +89,4 @@ export async function status(argv: string[]): Promise<void> {
     }
     printTable(["event", "step", "loss", "acc", "time"], rows)
   } else console.log("  (none)")
-
-  const plans = listPlans(train)
-  printSection(
-    "job plans",
-    ["plan", "source"],
-    plans.map(({ name, source }) => [
-      name,
-      source === "recipe" ? "recipe.yaml" : "jobs/plans/",
-    ]),
-  )
-
-  const logs = listPlanLogFiles(train)
-  printSection(
-    "job plan logs",
-    ["log"],
-    logs.map((f) => ["artifacts/jobs/plans/" + f]),
-  )
 }

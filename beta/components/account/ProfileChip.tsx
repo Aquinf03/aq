@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { useTheme } from "@/contexts/ThemeContext";
 import { validateUsername } from "@/lib/username";
+import { morphMenuTriggerClass, morphPopoverContentClass } from "@/lib/morphMenu";
 import { cn } from "@/lib/utils";
 
 interface Profile {
@@ -203,7 +204,10 @@ export default function ProfileChip({
           {isSidebar ? (
             <button
               type="button"
-              className="flex w-full items-center gap-2.5 rounded-md bg-black/5 px-2 py-1.5 text-left outline-none transition-colors hover:bg-black/[0.07] data-[state=open]:bg-black/[0.07] dark:bg-white/5 dark:hover:bg-white/[0.08] dark:data-[state=open]:bg-white/[0.08]"
+              className={cn(
+                morphMenuTriggerClass({ openEdge: "top" }),
+                "gap-2.5 data-[state=open]:bg-white dark:data-[state=open]:bg-[#0a0a0a]",
+              )}
             >
               <span className="size-8 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10 dark:ring-white/10">
                 {avatarThumb(32)}
@@ -235,12 +239,14 @@ export default function ProfileChip({
         <PopoverContent
           align={isSidebar ? "start" : popoverAlign}
           side={isSidebar ? "top" : popoverSide}
-          sideOffset={8}
+          sideOffset={isSidebar ? 0 : 8}
           className={cn(
-            "rounded-xl border-black/10 bg-white p-0 shadow-lg dark:border-white/10 dark:bg-black",
             isSidebar
-              ? "w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)]"
-              : "w-[min(calc(100vw-2rem),20rem)]",
+              ? cn(
+                  morphPopoverContentClass({ openEdge: "top" }),
+                  "w-[var(--radix-popover-trigger-width)] max-w-[var(--radix-popover-trigger-width)]",
+                )
+              : "w-[min(calc(100vw-2rem),20rem)] p-0",
           )}
         >
           <div

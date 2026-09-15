@@ -8,7 +8,3 @@ data:
 eval:
   metric: mse
   min_score: 0.01
-plans:
-  pipe:
-    kind: pipeline
-    steps: [train, eval]

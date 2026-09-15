@@ -2,7 +2,7 @@
 
 import { startMcp, type McpClient, type McpToolInfo } from "./mcp.js"
 import { loadSkill } from "./skill.js"
-import { runFileCaptured } from "../handle/tool.js"
+import { runFileCaptured } from "./run-file.js"
 
 export type ExtraTool = {
   name: string

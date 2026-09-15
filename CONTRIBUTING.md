@@ -40,7 +40,7 @@ Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. After TypeScript edits:
 cd aq && npm run build
 ```
 
-User docs: https://aquinf03.github.io/aq · [`docs/`](./docs/) · SDK: [`sdk/README.md`](./sdk/README.md).
+User docs: https://aquinf03.github.io/aq · [`docs/`](./docs/) · SDK: [`aq/SDK.md`](./aq/SDK.md).
 
 ## PR requirements
 
@@ -164,7 +164,7 @@ Public issues for vulnerabilities will be **closed immediately**. You must email
 ## Questions
 
 - Usage / how-to: https://aquinf03.github.io/aq · [`docs/`](./docs/)
-- SDK: [`sdk/README.md`](./sdk/README.md)
+- SDK: [`aq/SDK.md`](./aq/SDK.md)
 - Security: [`SECURITY.md`](./SECURITY.md)
 - Contact: aquin@aquin.app
 

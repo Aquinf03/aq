@@ -3,134 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Jobs · aq Docs</title>
-  <meta name="description" content="Local process queue under jobs/. Resource asks (--cpu, --ram, --disk, --gpu) are against the host, not a different product SKU. Survives disconnects; checkout restores the snapshotted tree." />
+  <title>Jobs removed · aq Docs</title>
+  <meta name="description" content="aq job was removed. Use train/eval or spawn agent." />
   <link rel="icon" href="../assets/favicon.ico" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../assets/docs.css" />
 </head>
 <body>
-  <header class="docs-header">
-    <div class="docs-header-inner">
-      <a class="brand" href="../" title="Aquin Labs">
-        <img src="../assets/mainlogo2.png" alt="" width="22" height="22" />
-        <span>Aquin<span class="brand-gap">Labs</span></span>
-      </a>
-      <div class="header-actions">
-        <a class="header-link" href="https://aquin.app/changelog" rel="noopener">Changelog</a>
-        <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
-      </div>
-    </div>
-  </header>
   <div class="docs-frame">
-    <aside class="docs-sidebar" aria-label="Documentation">
-      <nav><a class="nav-link" href="https://aquinf03.github.io/aq" rel="noopener">Live docs</a>
-<a class="nav-link" href="../">Getting started</a>
-<a class="nav-link" href="../install/">Install</a>
-<a class="nav-link" href="../train/">Train folder</a>
-<a class="nav-link" href="../recipe/">Recipe</a>
-<a class="nav-link" href="../cli/">CLI reference</a>
-<p class="nav-section">Methods</p>
-<a class="nav-link nested" href="../methods/tabular/">Tabular</a>
-<a class="nav-link nested" href="../methods/transformers/">Transformers</a>
-<a class="nav-link nested" href="../methods/llm/">LLM / LoRA</a>
-<a class="nav-link nested" href="../methods/custom/">Custom</a>
-<a class="nav-link" href="../eval/">Eval &amp; inspect</a>
-<a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link active" href="../jobs/">Jobs</a>
-<a class="nav-link" href="../agent/">Agent</a>
-<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
-    </aside>
-    <main class="docs-main"><h1>Jobs</h1>
-<p class="lead">Local process queue under jobs/. Resource asks (--cpu, --ram, --disk, --gpu) are against the host, not a different product SKU. Survives disconnects; checkout restores the snapshotted tree.</p>
-<div class="prereq"><span class="prereq-label">Prerequisite</span>A train folder</div>
-<section class="tool" id="aq-job-run----cmd">
-  <h3 class="tool-cmd">aq job run -- &lt;cmd&gt;</h3>
-  
-  <p class="tool-desc">Enqueue a command (often aq train) with resource asks.</p>
-  <div class="table-wrap mb">
-  <table>
-    <thead><tr><th>Flag</th><th>Description</th></tr></thead>
-    <tbody><tr>
-  <td class="flag">--cpu N</td>
-  <td>CPU ask.</td>
-</tr>
-<tr>
-  <td class="flag">--ram SIZE</td>
-  <td>RAM ask (e.g. 8G).</td>
-</tr>
-<tr>
-  <td class="flag">--disk SIZE</td>
-  <td>Disk ask.</td>
-</tr>
-<tr>
-  <td class="flag">--gpu N</td>
-  <td>GPU ask.</td>
-</tr></tbody>
-  </table>
-</div>
-  <div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
+    <main class="docs-main"><article>
+  <h1 class="hero">Jobs removed</h1>
+  <p class="lead"><code class="chip">aq job</code>, <code class="chip">aq schedule</code>, and <code class="chip">aq checkout</code> are gone. Use <code class="chip">aq train</code> / <code class="chip">aq eval</code> directly, or <code class="chip">aq spawn agent</code> for background workers.</p>
+  <p class="lead"><a href="../">Getting started</a></p>
+</article></main>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job run --cpu 4 --ram 8G -- aq train</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job list</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job log &lt;id&gt;</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job cancel &lt;id&gt;</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job resume &lt;id&gt;</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job tree &lt;id&gt;</span></span></code></pre>
-</div>
-  
-</section>
-<section class="tool" id="aq-job-plan">
-  <h3 class="tool-cmd">aq job plan</h3>
-  <p class="tool-desc">Cron / sweep / pipeline / resume / agents from <code class="chip">plans:</code> in recipe.yaml. State under artifacts/jobs/plans/. Alias: aq schedule. Details: <a href="../schedules/">Plans &amp; stages</a>.</p>
-  <div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job plan</span></span>
-<span class="line"><span class="prompt">$</span><span>aq job plan tick</span></span>
-<span class="line"><span class="prompt">$</span><span>aq job plan run nightly</span></span></code></pre>
-</div>
-</section>
-</main>
-  </div>
-  <script src="../assets/docs.js"></script>
 </body>
 </html>

@@ -8,7 +8,7 @@ Manual end-to-end **runs**. Identity is the **path map** (`recipe.yaml`) + **`ar
 | **SDK** | Python in the folder — see [`sdk-ridge/example.py`](sdk-ridge/example.py) |
 
 ```bash
-aq/kernel/.venv/bin/pip install -e ./sdk
+aq/kernel/.venv/bin/pip install -e ./aq
 cd aq && npm run build && cd ..
 
 cd tests/sdk-ridge && ../../aq/kernel/.venv/bin/python example.py
@@ -21,8 +21,8 @@ cd tests/sdk-ridge && ../../aq/kernel/.venv/bin/python example.py
 | Suite | What it shows |
 |-------|----------------|
 | [sdk-ridge](sdk-ridge/) | Open existing `recipe.yaml` with `Aquin(".")` |
-| [sdk-from-dict](sdk-from-dict/) | `Aquin.define` / `.plan` writes the path map, then trains |
-| [sdk-run-class](sdk-run-class/) | `Run` + `@schedule` / `@pipeline` → same path map |
+| [sdk-from-dict](sdk-from-dict/) | `Aquin.define` writes the path map, then trains |
+| [sdk-run-class](sdk-run-class/) | `Run` class → same path map |
 
 Other suites are science fixtures (CLI + optional `Aquin("tests/…")`). Canonical SDK samples are the three folders above.
 

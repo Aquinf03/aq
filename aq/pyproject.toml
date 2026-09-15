@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aquin"
+version = "0.1.0"
+description = "Aquin SDK — Python authors; recipe.yaml path map; artifacts/ runtime"
+readme = "SDK.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Aquin Labs" }]
+dependencies = [
+  # Kernel deps are installed separately into aq/kernel/.venv or the active env.
+  # sklearn path needs scikit-learn; install: pip install -r aq/kernel/requirements.txt
+]
+
+[project.optional-dependencies]
+kernel = [
+  "scikit-learn>=1.4.0",
+  "joblib>=1.3.0",
+]
+
+[project.urls]
+Homepage = "https://aq.aquin.app"
+Docs = "https://aq.aquin.app/docs"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aquin*"]
+
+[tool.setuptools.package-data]
+aquin = ["templates/*"]

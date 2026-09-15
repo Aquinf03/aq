@@ -7,6 +7,8 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { morphMenuContentClass, morphMenuTriggerClass } from "@/lib/morphMenu";
+import { cn } from "@/lib/utils";
 
 interface ApiKey {
   id: string;
@@ -371,14 +373,15 @@ export function CliTokenDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex w-full items-center justify-between gap-1 text-sm font-medium font-host-grotesk text-stone-600 outline-none transition-colors hover:text-stone-900 data-[state=open]:text-stone-900 dark:text-stone-300 dark:hover:text-[#f5f5f3] dark:data-[state=open]:text-[#f5f5f3]">
-        <span>aq-token</span>
+      <DropdownMenuTrigger className={morphMenuTriggerClass()}>
+        <Key className="size-[18px] shrink-0" weight="regular" />
+        aq-token
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
         side="bottom"
-        sideOffset={8}
-        className="w-[var(--radix-dropdown-menu-trigger-width)] max-w-[var(--radix-dropdown-menu-trigger-width)] rounded-xl border-black/10 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-black"
+        sideOffset={0}
+        className={cn(morphMenuContentClass(), "p-3")}
         onCloseAutoFocus={e => e.preventDefault()}
       >
         <CliTokenPanel {...cli} />

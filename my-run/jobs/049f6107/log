@@ -1,0 +1,22 @@
+  key         value                          
+  ──────────  ───────────────────────────────
+  op          eval                           
+  method      linear                         
+  family      tabular                        
+  checkpoint  artifacts/checkpoints/last.json
+  probe              metric  score  result
+  ─────────────────  ──────  ─────  ──────
+  evals/holdout.csv  mse         0  pass  
+  done
+  key   value
+  ────  ─────
+  mse       0
+  time  678ms
+eval
+  mse
+  0.0
+  pass
+  artifacts/checkpoints/last.json
+  artifacts/metrics.jsonl
+  artifacts/runs/20260915T124228-dcf50320.json
+  evals/holdout.csv  0.0

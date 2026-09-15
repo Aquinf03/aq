@@ -1,17 +1,12 @@
 #!/usr/bin/env node
 
 import path from "node:path"
-import { checkout, parseCheckoutArgs } from "./handle/checkout.js"
-import { fork, parseForkArgs } from "./handle/fork.js"
 import { init, resolveInitRoot } from "./handle/init.js"
 import { diffRuns } from "./handle/diff.js"
 import { data } from "./handle/data.js"
 import { plot } from "./handle/plot.js"
-import { job } from "./job/job.js"
 import { checkpoint, evalCmd, serve, train } from "./handle/step.js"
 import { status } from "./handle/status.js"
-import { stage } from "./handle/stage.js"
-import { tool } from "./handle/tool.js"
 import { runAgent } from "./agent/agent.js"
 import { ask } from "./agent/ask.js"
 import { chatCmd } from "./agent/chat.js"
@@ -67,22 +62,6 @@ async function main(): Promise<void> {
     return
   }
 
-  if (cmd === "fork") {
-    const plan = parseForkArgs(argv.slice(1))
-    const out = await fork(plan)
-    const relSrc = path.relative(process.cwd(), out.src) || out.src
-    const relDest = path.relative(process.cwd(), out.dest) || out.dest
-    console.log("forked")
-    console.log("  " + relSrc)
-    console.log("  -> " + relDest)
-    return
-  }
-
-  if (cmd === "job") {
-    await job(argv.slice(1))
-    return
-  }
-
   if (cmd === "data") {
     await data(argv.slice(1))
     return
@@ -108,16 +87,6 @@ async function main(): Promise<void> {
     return
   }
 
-  if (cmd === "tool") {
-    await tool(argv.slice(1))
-    return
-  }
-
-  if (cmd === "stage") {
-    await stage(argv.slice(1))
-    return
-  }
-
   if (cmd === "diff") {
     await diffRuns(argv.slice(1))
     return
@@ -125,11 +94,6 @@ async function main(): Promise<void> {
 
   if (cmd === "status") {
     await status(argv.slice(1))
-    return
-  }
-
-  if (cmd === "schedule") {
-    await job(["plan", ...argv.slice(1)])
     return
   }
 
@@ -175,16 +139,6 @@ async function main(): Promise<void> {
 
   if (cmd === "chat") {
     await chatCmd(argv.slice(1))
-    return
-  }
-
-  if (cmd === "checkout") {
-    const { dir, id, dest } = parseCheckoutArgs(argv.slice(1))
-    const out = await checkout(dir, id, dest)
-    const rel = path.relative(process.cwd(), out.dest) || out.dest
-    console.log("checked out")
-    console.log("  " + out.id)
-    console.log("  -> " + rel)
     return
   }
 

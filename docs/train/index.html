@@ -39,10 +39,8 @@
 <a class="nav-link nested" href="../methods/custom/">Custom</a>
 <a class="nav-link" href="../eval/">Eval &amp; inspect</a>
 <a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link" href="../jobs/">Jobs</a>
 <a class="nav-link" href="../agent/">Agent</a>
-<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
+<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a></nav>
     </aside>
     <main class="docs-main"><h1>Train folder</h1>
 <p class="lead">A run is a directory with <code class="chip">recipe.yaml</code>. Training writes <code class="chip">artifacts/</code>. Init scaffolds only that identity — not a skills/tools/jobs/stages forest. Disk is still the source of truth.</p>
@@ -73,70 +71,6 @@
 </div>
   <p class="notes">Default recipe is tabular/linear. Swap family/method in YAML for LLM, transformers, etc. Paths (data, eval probes, models) are keys in recipe.yaml — relative to the recipe file or absolute. Refuses to init inside the aq package tree.</p>
 </section>
-<section class="tool" id="aq-fork-dest">
-  <h3 class="tool-cmd">aq fork &lt;dest&gt;</h3>
-  
-  <p class="tool-desc">Copy a train to try a variant. Skips jobs/ and artifacts/, then recreates empty ones so the child starts clean.</p>
-  <div class="table-wrap mb">
-  <table>
-    <thead><tr><th>Flag</th><th>Description</th></tr></thead>
-    <tbody><tr>
-  <td class="flag">aq fork &lt;src&gt; &lt;dest&gt;</td>
-  <td>Copy a train that is not cwd.</td>
-</tr></tbody>
-  </table>
-</div>
-  <div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq fork ../clinic-ridge</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>cd ../clinic-ridge</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq train</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq eval</span></span></code></pre>
-</div>
-  
-</section>
-<section class="tool" id="aq-checkout-id-dest">
-  <h3 class="tool-cmd">aq checkout &lt;id&gt; [dest]</h3>
-  
-  <p class="tool-desc">Restore a job's captured tree/ into cwd (or a new dest). Time-travel a workspace snapshotted at enqueue.</p>
-  
-  <div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq job run --cpu 4 --ram 8G -- aq train</span></span></code></pre>
-</div>
-<div class="codeblock" data-shell="1">
-  <div class="codeblock-bar">
-    <span>example</span>
-    <button type="button" class="copy-btn">Copy</button>
-  </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq checkout &lt;job-id&gt; recovered-train</span></span></code></pre>
-</div>
-  
-</section>
 <section class="tool" id="aq-data-hash---snapshot">
   <h3 class="tool-cmd">aq data hash [--snapshot]</h3>
   
@@ -162,7 +96,7 @@
 <section class="tool" id="aq-status">
   <h3 class="tool-cmd">aq status</h3>
   
-  <p class="tool-desc">Show jobs, last run, last eval, recent metrics, and job plans (from recipe.yaml) for this run.</p>
+  <p class="tool-desc">Show last run, last eval, and recent metrics for this run.</p>
   
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
@@ -181,36 +115,31 @@
     <button type="button" class="copy-btn">Copy</button>
   </div>
   <pre><code><span class="line"><span>my-run/</span></span>
-<span class="line"><span>  recipe.yaml              REQUIRED — method, data paths, eval, optional plans:</span></span>
+<span class="line"><span>  recipe.yaml              REQUIRED — method, data paths, eval</span></span>
 <span class="line"><span>  example.py               SDK sample (from init)</span></span>
-<span class="line"><span>  artifacts/               runtime — checkpoints, metrics, runs, plan logs</span></span>
+<span class="line"><span>  artifacts/               runtime — checkpoints, metrics, runs</span></span>
 <span class="line"><span> </span></span>
 <span class="line"><span>  # optional — you add as needed (not from init)</span></span>
 <span class="line"><span>  data.csv / data.jsonl    referenced by recipe.data.path</span></span>
 <span class="line"><span>  evals/                   probes if you use folder-style aq eval</span></span>
-<span class="line"><span>  tools/ skills/           packs when you need real code / agent skills</span></span>
-<span class="line"><span>  stages/                  nested runs (still folder-based for now)</span></span>
-<span class="line"><span>  jobs/                    process queue state (runtime; not authoring)</span></span></code></pre>
+<span class="line"><span>  tools/ skills/           packs when you need real code / agent skills</span></span></code></pre>
 </div>
 <h2>What each piece is for</h2>
 <div class="table-wrap mb">
   <table class="plain">
     <thead><tr><th>Path / key</th><th>Who uses it</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr><td class="mono">recipe.yaml</td><td>kernel / CLI / SDK</td><td>Identity. Paths, method, eval gate, optional plans:.</td></tr>
+      <tr><td class="mono">recipe.yaml</td><td>kernel / CLI / SDK</td><td>Identity. Paths, method, eval gate.</td></tr>
 <tr><td class="mono">example.py</td><td>you</td><td>Few-line aquin client from init.</td></tr>
 <tr><td class="mono">data.path</td><td>kernel</td><td>File path in YAML (relative to recipe or absolute).</td></tr>
-<tr><td class="mono">plans:</td><td>aq job plan</td><td>cron / sweep / pipeline / resume / agents — in the recipe.</td></tr>
 <tr><td class="mono">evals/</td><td>aq eval</td><td>Optional probes on disk; gate via eval.min_score.</td></tr>
-<tr><td class="mono">tools/ skills/</td><td>aq tool / agent</td><td>Optional packs — not scaffolded by init.</td></tr>
-<tr><td class="mono">stages/</td><td>aq stage</td><td>Nested full runs (YAML stages: still TODO).</td></tr>
-<tr><td class="mono">jobs/</td><td>job system</td><td>Queue state. Fork skips this.</td></tr>
-<tr><td class="mono">artifacts/</td><td>everything</td><td>System output. Fork skips this.</td></tr>
+<tr><td class="mono">skills/</td><td>agent</td><td>Optional skill packs — not scaffolded by init.</td></tr>
+<tr><td class="mono">artifacts/</td><td>everything</td><td>System output.</td></tr>
     </tbody>
   </table>
 </div>
 <h2>Artifacts after real work</h2>
-<p class="lead">Everything under artifacts/ is system-owned output. Forking skips jobs/ and artifacts/ so the child starts clean.</p>
+<p class="lead">Everything under artifacts/ is system-owned output.</p>
 <div class="codeblock" data-shell="0">
   <div class="codeblock-bar">
     <span>artifacts</span>
@@ -238,7 +167,7 @@
 <h2>Mental tests</h2>
 <ol class="lead-list">
   <li>Can I copy the folder to another machine and run aq status?</li>
-  <li>Can I fork, change one recipe key, and compare with aq diff?</li>
+  <li>Can I copy the run, change one recipe key, and compare with aq diff?</li>
   <li>Can a stranger read recipe.yaml and know the data path and gate?</li>
   <li>If artifacts/ is deleted, can I retrain from recipe + data alone?</li>
 </ol></main>

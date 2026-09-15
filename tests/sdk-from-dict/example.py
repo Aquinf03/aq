@@ -1,4 +1,4 @@
-"""SDK example — build the path map from code (define + plans), then train.
+"""SDK example — build the path map from code (define), then train.
 
   cd tests/sdk-from-dict
   ../../aq/kernel/.venv/bin/python example.py
@@ -18,10 +18,8 @@ aq = Aquin.define(
     config_path=HERE / "recipe.yaml",
     artifacts=HERE / "artifacts",
 )
-aq.plan("pipe", kind="pipeline", steps=["train", "eval"])
 
 aq.train()
 print(aq.eval())
 print("path map", aq.config_path)
-print("plans", aq.plans())
 print(aq.status())

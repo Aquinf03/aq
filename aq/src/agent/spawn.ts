@@ -154,7 +154,7 @@ export function spawnHelp(): string {
   return [
     "aq spawn",
     "",
-    "  aq spawn run [dir] [--name NAME] [--kill] -- <prompt>",
+    "  aq spawn agent [dir] [--name NAME] [--kill] -- <prompt>",
     "  aq spawn list [dir]",
     "  aq spawn log [dir] <id>",
     "  aq spawn cancel [dir] <id>",
@@ -190,7 +190,8 @@ export async function spawnCmd(argv: string[]): Promise<void> {
     console.log("  " + spec.id)
     return
   }
-  if (sub === "run") {
+  if (sub === "agent") {
+    // was: aq spawn run
     const rest = argv.slice(1)
     let dir = "."
     let name: string | undefined
@@ -226,7 +227,7 @@ export async function spawnCmd(argv: string[]): Promise<void> {
       console.log("  " + spec.id + "  " + spec.status + "  " + spec.name)
       return
     }
-    throw new Error("usage: aq spawn run [dir] [--name NAME] [--kill] -- <prompt>")
+    throw new Error("usage: aq spawn agent [dir] [--name NAME] [--kill] -- <prompt>")
   }
   throw new Error(`unknown spawn command: ${sub}\n${spawnHelp()}`)
 }

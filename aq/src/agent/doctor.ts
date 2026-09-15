@@ -1,12 +1,11 @@
 /** Health check for the CLI, train, skills, MCP, and agent deps. */
 
-import { existsSync, accessSync, constants, readdirSync } from "node:fs"
+import { existsSync, accessSync, constants } from "node:fs"
 import { homedir } from "node:os"
 import path from "node:path"
 import { isTrain, REQUIRED } from "../core/schema.js"
 import { aqRoot, kernelRoot } from "../core/root.js"
 import { listSkills, loadSkill } from "../lib/skill.js"
-import { listTools } from "../handle/tool.js"
 import { startMcp } from "../lib/mcp.js"
 import { extraTools } from "../lib/skill-runtime.js"
 import { activeId, activeLabel, entry, hasCreds } from "./provider.js"
@@ -107,9 +106,6 @@ export async function runDoctor(cwd: string): Promise<{ checks: Check[]; ok: boo
       add("ok", "artifacts", "absent (ok until aq train)")
     }
 
-    const tools = listTools(train)
-    add("ok", "tools", tools.length ? tools.join(" ") : "none")
-
     const names = listSkills(train)
     if (!names.length) add("ok", "skills", "none")
     const live = extraTools(train)
@@ -136,17 +132,6 @@ export async function runDoctor(cwd: string): Promise<{ checks: Check[]; ok: boo
       } catch (err) {
         add("fail", `skill.${name}`, err instanceof Error ? err.message : String(err))
       }
-    }
-
-    let hasTs = false
-    try {
-      hasTs = readdirSync(path.join(train, "tools")).some((f) => f.endsWith(".ts"))
-    } catch {
-      hasTs = false
-    }
-    if (hasTs) {
-      const tsx = path.join(aqRoot(), "node_modules", "tsx", "dist", "cli.mjs")
-      add(existsSync(tsx) ? "ok" : "warn", "tsx", existsSync(tsx) ? "present" : "missing (cannot run .ts tools)")
     }
   }
 

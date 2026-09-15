@@ -45,3 +45,5 @@ desktop/ssh-service/.venv/
 **/__pycache__/
 *.pyc
 
+desktop/build/
+dist/

@@ -1,4 +1,4 @@
-/** Indent-aware subset of YAML for recipe.yaml (plans, nested maps, simple lists). */
+/** Indent-aware subset of YAML for recipe.yaml (nested maps, simple lists). */
 
 import { existsSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
@@ -40,7 +40,7 @@ function indentOf(line: string): number {
 
 /**
  * Parse a small YAML subset into nested objects/arrays.
- * Enough for recipe `plans:` blocks and similar path-based config.
+ * Enough for nested recipe config and path-based keys.
  */
 export function parseSimpleYaml(text: string): Record<string, YamlValue> {
   const root: Record<string, YamlValue> = {}

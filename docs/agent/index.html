@@ -39,10 +39,8 @@
 <a class="nav-link nested" href="../methods/custom/">Custom</a>
 <a class="nav-link" href="../eval/">Eval &amp; inspect</a>
 <a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link" href="../jobs/">Jobs</a>
 <a class="nav-link active" href="../agent/">Agent</a>
-<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link" href="../schedules/">Plans &amp; stages</a></nav>
+<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a></nav>
     </aside>
     <main class="docs-main"><h1>Agent</h1>
 <p class="lead">The aq agent lives inside the train Unix: same cwd, same files, same verbs. On a TTY, bare aq opens chat. It is not a chat toy with a private filesystem.</p>
@@ -129,17 +127,17 @@
 </div>
   
 </section>
-<section class="tool" id="aq-spawn-run----prompt">
-  <h3 class="tool-cmd">aq spawn run -- &lt;prompt&gt;</h3>
+<section class="tool" id="aq-spawn-agent----prompt">
+  <h3 class="tool-cmd">aq spawn agent -- &lt;prompt&gt;</h3>
   
-  <p class="tool-desc">Background worker agent as a job. list / log / cancel manage workers under artifacts/agents/.</p>
+  <p class="tool-desc">Background worker agent. list / log / cancel manage workers under artifacts/agents/.</p>
   
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq spawn run -- &quot;train then eval&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq spawn agent -- &quot;train then eval&quot;</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">

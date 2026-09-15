@@ -28,6 +28,9 @@ export type SshDirEntry = {
 export type AquinDesktopApi = {
   isDesktop: () => Promise<boolean>;
   pickPrivateKey: () => Promise<string | null>;
+  setTrafficLightPosition?: (pos: { x: number; y: number }) => Promise<boolean>;
+  getFullscreen?: () => Promise<boolean>;
+  onFullscreenChange?: (cb: (fullscreen: boolean) => void) => () => void;
   ssh: {
     request: <T = unknown>(method: string, params?: Record<string, unknown>) => Promise<T>;
   };

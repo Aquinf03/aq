@@ -7,6 +7,15 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("aquinDesktop", {
   isDesktop: () => ipcRenderer.invoke("desktop:isDesktop"),
   pickPrivateKey: () => ipcRenderer.invoke("desktop:pickPrivateKey"),
+  /** Reposition macOS traffic lights to match the in-app titlebar. */
+  setTrafficLightPosition: (pos) =>
+    ipcRenderer.invoke("desktop:setTrafficLightPosition", pos),
+  getFullscreen: () => ipcRenderer.invoke("desktop:getFullscreen"),
+  onFullscreenChange: (cb) => {
+    const handler = (_event, fullscreen) => cb(Boolean(fullscreen));
+    ipcRenderer.on("desktop:fullscreen", handler);
+    return () => ipcRenderer.removeListener("desktop:fullscreen", handler);
+  },
   ssh: {
     /**
      * @param {string} method

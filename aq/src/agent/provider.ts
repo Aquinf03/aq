@@ -774,7 +774,7 @@ export function runSlash(line: string): SlashResult {
     if (head === "list") return { spawnList: true }
     if (head === "log") return { spawnLog: rest.join(" ").trim() }
     if (head === "cancel") return { spawnCancel: rest.join(" ").trim() }
-    if (head === "run") return { spawnRun: rest.join(" ").trim() }
+    if (head === "agent" || head === "run") return { spawnRun: rest.join(" ").trim() }
     return { spawnRun: arg }
   }
   if (cmd === "/key") {

@@ -85,15 +85,6 @@ export function trainInArgv(cwd: string, parts: string[]): string | null {
   const head = parts[0]
   if (!head) return null
   const tail = parts.slice(1)
-  if (head === "job") {
-    for (const t of tail) {
-      if (t === "--") break
-      if (t.startsWith("-")) continue
-      const p = path.resolve(cwd, t)
-      if (isTrain(p)) return p
-    }
-    return null
-  }
   for (const t of tail) {
     if (t.startsWith("-")) continue
     const p = path.resolve(cwd, t)

@@ -151,7 +151,7 @@ const NAV = [
   { label: "Jobs", id: "jobs" },
   { label: "Agent", id: "agent" },
   { label: "Skills, tools & MCP", id: "skills" },
-  { label: "Schedules & stages", id: "schedules" },
+  { label: "Plans", id: "schedules" },
 ]
 
 function pageDepth(id) {
@@ -258,7 +258,7 @@ function gettingStartedHtml() {
   ]
   const next = [
     ["install", "Install", "curl release or checkout link, doctor, login, providers"],
-    ["train", "Train folder", "slots, artifacts, fork, checkout"],
+    ["train", "Train folder", "slots, artifacts, checkout"],
     ["recipe", "Recipe", "tabular, transformers, LLM, guard"],
     ["cli", "CLI", "every verb"],
     ["jobs", "Jobs", "detached work with resource asks"],
@@ -284,7 +284,7 @@ function gettingStartedHtml() {
   <p class="lead">${chip("data/")} and ${chip("evals/")} are yours. ${chip("methods/")}, ${chip("tools/")}, ${chip("skills/")}, ${chip("schedules/")}, and ${chip("stages/")} extend the train locally. ${chip("jobs/")} and ${chip("artifacts/")} are system-owned. Forking copies the science and skips runtime state so a variant starts clean. Full layout: <a href="${linkTo("", "train")}">Train folder</a>.</p>
 
   <h2>CLI</h2>
-  <p class="lead">${chip("aq")} is the face. Cwd is the workspace. Help is short. Verbs do one thing and compose: ${chip("aq train")} fits, ${chip("aq eval")} scores, ${chip("aq serve")} generates, ${chip("aq status")} / ${chip("aq diff")} read history, ${chip("aq job run")} files long work with resource asks, ${chip("aq fork")} branches a train.</p>
+  <p class="lead">${chip("aq")} is the face. Cwd is the workspace. Help is short. Verbs do one thing and compose: ${chip("aq train")} fits, ${chip("aq eval")} scores, ${chip("aq serve")} generates, ${chip("aq status")} / ${chip("aq diff")} read history, ${chip("aq job run")} files long work with resource asks, ${chip("aq spawn agent")} runs a worker.</p>
   <p class="lead">On a TTY, bare ${chip("aq")} opens the agent. Without a TTY it prints help. Account tokens live under ${chip("~/.aquin")}; provider keys for the agent under ${chip("~/.aq")}. Reference: <a href="${linkTo("", "cli")}">CLI</a>.</p>
 
   <h2>Kernel (Python)</h2>
@@ -301,7 +301,7 @@ function gettingStartedHtml() {
   <p class="lead">The agent is not a chat toy with a private filesystem. It is a resident of the train: same cwd, same ${chip("recipe.yaml")}, same tools. Humans own the eval gate. Surfaces: interactive ${chip("aq")} / ${chip("aq agent")}, one-shot ${chip("aq ask")}, resume via ${chip("aq chat")}, workers via ${chip("aq spawn")}. Details: <a href="${linkTo("", "agent")}">Agent</a> and <a href="${linkTo("", "skills")}">Skills, tools &amp; MCP</a>.</p>
 
   <h2>What “working” means</h2>
-  <p class="lead">A stranger should be able to open a train, point the recipe at their data, set their gate, run train then eval, fail, inspect, edit one file, fork, and run again. Long work files as ${chip("aq job run")}. There is no preset eval zoo. You write the probes.</p>
+  <p class="lead">A stranger should be able to open a train, point the recipe at their data, set their gate, run train then eval, fail, inspect, edit one file, and run again. Long work files as ${chip("aq job run")}. There is no preset eval zoo. You write the probes.</p>
 
   <h2>Where to go next</h2>
   <ul class="next-list">

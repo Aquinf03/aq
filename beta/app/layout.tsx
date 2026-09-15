@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ThemeScript } from "@/components/ThemeScript";
+import { DesktopBoot } from "@/components/DesktopBoot";
 import { cn, constructMetadata } from "@/lib/utils";
 import { siteConfig } from "@/lib/config";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
         )}
       >
         <ThemeProvider>
+          <DesktopBoot />
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>

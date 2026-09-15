@@ -19,17 +19,9 @@ export function PoliciesDropdown() {
         Policies
         <CaretDown className="size-3.5" weight="bold" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        sideOffset={8}
-        className="min-w-[15rem] rounded-xl border-black/10 bg-white p-1.5 shadow-lg dark:border-white/10 dark:bg-black"
-      >
+      <DropdownMenuContent align="start" sideOffset={8} className="min-w-[15rem]">
         {POLICY_LINKS.map((link) => (
-          <DropdownMenuItem
-            key={link.href}
-            asChild
-            className="rounded-lg font-host-grotesk text-stone-700 focus:bg-black/5 focus:text-stone-900 dark:text-stone-200 dark:focus:bg-white/10 dark:focus:text-[#f5f5f3]"
-          >
+          <DropdownMenuItem key={link.href} asChild>
             <a href={`${mainSite}${link.href}`} target="_blank" rel="noopener noreferrer">
               {link.label}
             </a>

@@ -26,9 +26,8 @@ import { playCue } from "./sound.js"
 import { loadImage, type ChatImage } from "./image.js"
 import { extraTools, shutdownSkills } from "../lib/skill-runtime.js"
 import { agentLog, cancelAgent, formatAgents, listAgents, startAgent } from "./spawn.js"
-import { formatDoctor, runDoctor } from "./doctor.js"
 import { listSkills } from "../lib/skill.js"
-import { listTools } from "../handle/tool.js"
+import { formatDoctor, runDoctor } from "./doctor.js"
 import { isTrain } from "../core/schema.js"
 import {
   createChat,
@@ -420,7 +419,6 @@ export async function startChatUi(train: string, resumeId?: string): Promise<voi
     const mcp = extraTools(train)
     const chats = listChats(train)
     const skills = listSkills(train)
-    const tools = listTools(train)
     const row = (k: string, v: string) => `  ${k.padEnd(12)}  ${v}`
     const lines = [
       "status",
@@ -443,7 +441,6 @@ export async function startChatUi(train: string, resumeId?: string): Promise<voi
       row("images", String(imgs + pendingImages.length) + (pendingImages.length ? `  (${pendingImages.length} pending)` : "")),
       row("chats", String(chats.length)),
       row("skills", skills.length ? skills.join(" ") : "none"),
-      row("tools", tools.length ? tools.join(" ") : "none"),
       row("mcp", mcp.length ? mcp.map((t) => t.name).join(" ") : "none"),
     ]
     return lines.join("\n")
