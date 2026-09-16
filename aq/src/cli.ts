@@ -7,6 +7,8 @@ import { data } from "./handle/data.js"
 import { plot } from "./handle/plot.js"
 import { checkpoint, evalCmd, serve, train } from "./handle/step.js"
 import { status } from "./handle/status.js"
+import { addCmd, placesCmd } from "./fleet/add.js"
+import { goCmd, launchCmd } from "./fleet/launch.js"
 import { runAgent } from "./agent/agent.js"
 import { ask } from "./agent/ask.js"
 import { chatCmd } from "./agent/chat.js"
@@ -129,6 +131,26 @@ async function main(): Promise<void> {
 
   if (cmd === "provider") {
     await providerCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "add") {
+    await addCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "places") {
+    await placesCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "launch") {
+    await launchCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "go") {
+    await goCmd(argv.slice(1))
     return
   }
 
