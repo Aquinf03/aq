@@ -90,6 +90,18 @@ export function pickPoolMember(
   pool: PoolPlace,
   ask: ResolveAsk = {},
 ): ResolvedSsh {
+  const many = pickPoolMembers(poolName, pool, ask, 1)
+  return many[0]
+}
+
+/** Pick N free members (lowest load first). Needs a pool with enough capacity. */
+export function pickPoolMembers(
+  poolName: string,
+  pool: PoolPlace,
+  ask: ResolveAsk = {},
+  n: number,
+): ResolvedSsh[] {
+  if (n < 1) throw tip("nodes must be >= 1", "aq jobs run --nodes 2 --on <pool>")
   if (!pool.members.length) {
     throw tip(`pool ${poolName} has no members`, "aq add pool " + poolName)
   }
@@ -119,22 +131,48 @@ export function pickPoolMember(
     ok.push({ name: m, place: p, load })
   }
 
-  if (!ok.length) {
-    const why = skipped.length ? skipped.join(", ") : "no members"
-    throw tip(`pool ${poolName}: no free member`, why)
+  if (ok.length < n) {
+    const why = skipped.length ? skipped.join(", ") : "not enough members"
+    throw tip(
+      `pool ${poolName}: need ${n} free, have ${ok.length}`,
+      why + " · aq places · aq add ssh",
+    )
   }
 
   ok.sort((a, b) => a.load - b.load || a.name.localeCompare(b.name))
-  const best = ok[0]
-  return {
+  return ok.slice(0, n).map((c) => ({
     requested: poolName,
-    name: best.name,
-    place: best.place,
+    name: c.name,
+    place: c.place,
     viaPool: poolName,
+  }))
+}
+
+/** Resolve --on + --nodes into one or more SSH targets. */
+export function resolveSshTargets(
+  requested: string,
+  ask: ResolveAsk = {},
+  nodes = 1,
+): ResolvedSsh[] {
+  if (nodes < 1) throw tip("nodes must be >= 1", "aq jobs run --nodes 2")
+  const place = getPlace(requested)
+  if (nodes === 1) return [resolveSshTarget(requested, ask)]
+  if (place.kind !== "pool") {
+    throw tip(
+      `--nodes ${nodes} needs a pool (got ${place.kind} ${requested})`,
+      "aq add pool gpus a b · aq jobs run --on gpus --nodes 2 -- …",
+    )
   }
+  return pickPoolMembers(requested, place, ask, nodes)
 }
 
 export function describePick(r: ResolvedSsh): string {
   if (r.viaPool) return `${c.cyan(r.viaPool)} → ${c.cyan(r.name)}`
   return c.cyan(r.name)
+}
+
+export function describeGang(rs: ResolvedSsh[]): string {
+  if (rs.length <= 1) return describePick(rs[0])
+  const pool = rs[0].viaPool || rs[0].requested
+  return `${c.cyan(pool)} → ${rs.map((r) => c.cyan(r.name)).join(", ")} ${c.dim(`(${rs.length} nodes)`)}`
 }

@@ -6,6 +6,7 @@ Same verbs as the shell, from a short Python snippet:
 
     p = Place("temp")
     j = p.train()          # or p.run(["aq", "train"]) / p.eval() / p.serve()
+    # j = p.train(nodes=2)  # pool: multi-node gang + RANK/WORLD_SIZE/MASTER_*
     print(j.id, j.status())
     print(j.logs())
     j.pull()
@@ -78,20 +79,31 @@ class Place:
     def __init__(self, name: str):
         self.name = name
 
-    def train(self, *extra: str, gpu: int | None = None) -> Job:
-        return self._verb("train", extra, gpu=gpu)
+    def train(self, *extra: str, gpu: int | None = None, nodes: int | None = None) -> Job:
+        return self._verb("train", extra, gpu=gpu, nodes=nodes)
 
-    def eval(self, name: str | None = None, *extra: str, gpu: int | None = None) -> Job:
+    def eval(
+        self, name: str | None = None, *extra: str, gpu: int | None = None, nodes: int | None = None
+    ) -> Job:
         args = (*([name] if name else []), *extra)
-        return self._verb("eval", args, gpu=gpu)
+        return self._verb("eval", args, gpu=gpu, nodes=nodes)
 
-    def serve(self, *extra: str, gpu: int | None = None) -> Job:
-        return self._verb("serve", extra, gpu=gpu)
+    def serve(self, *extra: str, gpu: int | None = None, nodes: int | None = None) -> Job:
+        return self._verb("serve", extra, gpu=gpu, nodes=nodes)
 
-    def _verb(self, verb: str, extra: tuple[str, ...], *, gpu: int | None) -> Job:
+    def _verb(
+        self,
+        verb: str,
+        extra: tuple[str, ...],
+        *,
+        gpu: int | None,
+        nodes: int | None = None,
+    ) -> Job:
         args = ["jobs", verb, "--on", self.name, "--json"]
         if gpu is not None:
             args += ["--gpu", str(gpu)]
+        if nodes is not None:
+            args += ["--nodes", str(nodes)]
         if extra:
             args += ["--", *extra]
         r = _aq(*args)
@@ -101,13 +113,17 @@ class Place:
             raise RuntimeError(f"aq jobs {verb} --json returned no id:\n" + (r.stdout or r.stderr))
         return Job(id=str(jid), place=self.name)
 
-    def run(self, cmd: Sequence[str], *, gpu: int | None = None) -> Job:
-        """Background `cmd` on this place. Returns a Job."""
+    def run(
+        self, cmd: Sequence[str], *, gpu: int | None = None, nodes: int | None = None
+    ) -> Job:
+        """Background `cmd` on this place (or gang if nodes>1 on a pool)."""
         if not cmd:
             raise ValueError("run() needs a command")
         args = ["jobs", "run", "--on", self.name, "--json"]
         if gpu is not None:
             args += ["--gpu", str(gpu)]
+        if nodes is not None:
+            args += ["--nodes", str(nodes)]
         args += ["--", *cmd]
         r = _aq(*args)
         data = json.loads(r.stdout.strip() or "{}")

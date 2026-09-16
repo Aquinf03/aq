@@ -79,6 +79,8 @@ CLI twin: `aq jobs train --on temp` (same as `aq jobs run --on temp -- aq train`
 
 Pools: `aq add pool gpus box1 box2` then `Place("gpus")` / `--on gpus` picks a free member.
 
+Multi-node: `p.train(nodes=2)` or `aq jobs train --on gpus --nodes 2` (sets RANK / WORLD_SIZE / MASTER_ADDR).
+
 Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.
