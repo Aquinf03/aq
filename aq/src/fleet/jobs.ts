@@ -50,14 +50,15 @@ function jobsHelp(): string {
   return [
     "aq jobs                     list jobs on last launch place",
     "aq jobs list [--on <place>]",
-    "aq jobs run [--on <place>] -- <cmd>…   start cmd in background on the place",
-    "aq jobs status <id>",
-    "aq jobs logs <id> [-n N|-f]            fetch or follow remote log",
-    "aq jobs pull <id> [dir]                download jobs/<id>/ (default: ./jobs-pull/<id>)",
-    "aq jobs down <id>                      kill remote job",
+    "aq jobs run [--on <place>] [--json] -- <cmd>…",
+    "aq jobs train|eval|serve [--on <place>] [--json] [-- <extra>…]",
+    "aq jobs status <id> [--json]",
+    "aq jobs logs <id> [-n N|-f]",
+    "aq jobs pull <id> [dir]",
+    "aq jobs down <id>",
     "",
-    "Jobs live on the place under <remoteDir>/jobs/<id>/ (spec.json, log, pid).",
-    "Need a place: aq launch --on <place>  (or pass --on)",
+    "train/eval/serve = jobs run -- aq train|eval|serve (same place, no extra loop).",
+    "Jobs live under <remoteDir>/jobs/<id>/ on the place.",
   ].join("\n")
 }
 
@@ -255,8 +256,9 @@ function printJob(spec: RemoteJobSpec): void {
   )
 }
 
-async function jobsRun(argv: string[]): Promise<void> {
+async function jobsRun(argv: string[]): Promise<string> {
   let on: string | undefined
+  let jsonOut = false
   let i = 0
   const cmd: string[] = []
   let sawDash = false
@@ -271,6 +273,11 @@ async function jobsRun(argv: string[]): Promise<void> {
       on = argv[i + 1]
       if (!on) throw tip("need place after --on", "aq places")
       i += 2
+      continue
+    }
+    if (a === "--json") {
+      jsonOut = true
+      i += 1
       continue
     }
     throw tip(`unknown flag: ${a}`, "aq jobs run --on <place> -- <cmd>")
@@ -334,7 +341,7 @@ print(pid)
     `fi`,
   ].join("\n")
 
-  step("jobs", "start  " + cmd.join(" "))
+  if (!jsonOut) step("jobs", "start  " + cmd.join(" "))
   const r = sshExec(place, script, { timeoutMs: 30_000 })
   if (r.status !== 0) {
     throw tip(
@@ -346,8 +353,57 @@ print(pid)
   if (Number.isFinite(pid)) spec.pid = pid
   rememberJob(spec)
 
-  stepOk("jobs", "id  " + c.cyan(id) + (spec.pid != null ? c.dim("  pid " + spec.pid) : ""))
-  console.log(c.dim("next") + "  aq jobs logs " + id + " · aq jobs status " + id)
+  if (jsonOut) {
+    console.log(JSON.stringify({ id: spec.id, pid: spec.pid, place: placeName, command: cmd }))
+  } else {
+    stepOk("jobs", "id  " + c.cyan(id) + (spec.pid != null ? c.dim("  pid " + spec.pid) : ""))
+    console.log(c.dim("next") + "  aq jobs logs " + id + " · aq jobs status " + id)
+  }
+  return id
+}
+
+/** train / eval / serve — same as jobs run -- aq <verb> … */
+async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promise<void> {
+  let on: string | undefined
+  let jsonOut = false
+  const extra: string[] = []
+  let i = 0
+  let sawDash = false
+  while (i < argv.length) {
+    const a = argv[i]
+    if (a === "--") {
+      sawDash = true
+      extra.push(...argv.slice(i + 1))
+      break
+    }
+    if (a === "--on") {
+      on = argv[i + 1]
+      if (!on) throw tip("need place after --on", "aq places")
+      i += 2
+      continue
+    }
+    if (a === "--json") {
+      jsonOut = true
+      i += 1
+      continue
+    }
+    // bare args before -- go to the remote aq verb (e.g. eval name)
+    if (!a.startsWith("-")) {
+      extra.push(a)
+      i += 1
+      continue
+    }
+    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--on <place>] [--json]`)
+  }
+  void sawDash
+  const cmd = ["aq", verb, ...extra]
+  const flags = [
+    ...(on ? ["--on", on] : []),
+    ...(jsonOut ? ["--json"] : []),
+    "--",
+    ...cmd,
+  ]
+  await jobsRun(flags)
 }
 
 async function jobsList(argv: string[]): Promise<void> {
@@ -390,9 +446,17 @@ async function jobsStatus(argv: string[]): Promise<void> {
   const id = argv[0]
   if (!id) throw tip("need a job id", "aq jobs list")
   let on: string | undefined
-  if (argv[1] === "--on") on = argv[2]
+  let jsonOut = false
+  for (let i = 1; i < argv.length; i++) {
+    if (argv[i] === "--on") on = argv[++i]
+    else if (argv[i] === "--json") jsonOut = true
+  }
   const { placeName, place, remoteDir } = lookupJob(id, on)
   const spec = refreshRemote(place, remoteDir, id)
+  if (jsonOut) {
+    console.log(JSON.stringify(spec))
+    return
+  }
   console.log(c.bold("job") + "  " + c.cyan(spec.id))
   console.log(c.dim("  place") + "   " + placeName)
   console.log(c.dim("  status") + "  " + statusColor(spec.status))
@@ -528,6 +592,10 @@ export async function jobsCmd(argv: string[]): Promise<void> {
   }
   if (sub === "run" || sub === "start") {
     await jobsRun(argv.slice(1))
+    return
+  }
+  if (sub === "train" || sub === "eval" || sub === "serve") {
+    await jobsVerb(sub, argv.slice(1))
     return
   }
   if (sub === "status" || sub === "stat") {

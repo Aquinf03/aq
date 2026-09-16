@@ -42,7 +42,7 @@ export function help(): string {
     "                          sync folder → place, setup aq, open SSH",
     "  aq go [place]             re-SSH to last launch (resync if local folder)",
     "  aq jobs                   list remote jobs on last place",
-    "  aq jobs run [--on p] -- <cmd>  background cmd on place",
+    "  aq jobs run|train|eval|serve [--on p] [--json] [-- <cmd>]",
     "  aq jobs status|logs|pull|down <id>",
     "  aq spawn agent [dir] -- <prompt>  start a worker agent",
     "  aq spawn agent --kill -- <prompt>  critic: cheapest disproof",
