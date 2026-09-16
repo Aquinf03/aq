@@ -395,3 +395,75 @@ export function runRemote(
   })
   return r.status ?? 1
 }
+
+/** Non-interactive SSH; capture stdout/stderr. */
+export function sshExec(
+  place: SshPlace,
+  remoteCmd: string,
+  opts?: { timeoutMs?: number },
+): { status: number; stdout: string; stderr: string } {
+  const target = sshTarget(place)
+  const r = spawnSync(
+    "ssh",
+    [
+      ...sshBaseArgs(place),
+      "-o",
+      "BatchMode=yes",
+      "-o",
+      "ConnectTimeout=15",
+      target,
+      remoteCmd,
+    ],
+    {
+      encoding: "utf8",
+      timeout: opts?.timeoutMs ?? 60_000,
+    },
+  )
+  if (r.error) {
+    return { status: 1, stdout: "", stderr: r.error.message }
+  }
+  return {
+    status: r.status ?? 1,
+    stdout: (r.stdout || "").toString(),
+    stderr: (r.stderr || "").toString(),
+  }
+}
+
+/** Quote for embedding in a remote double-quoted bash -c / single-quoted segment. */
+export function shQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\"'\"'`)}'`
+}
+
+/**
+ * Remote path for use in bash scripts. `~/…` must not be single-quoted
+ * (tilde won't expand) — rewrite as "$HOME/…".
+ */
+export function remoteShellPath(p: string): string {
+  if (p === "~") return '"$HOME"'
+  if (p.startsWith("~/")) {
+    const rest = p.slice(2).replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    return `"$HOME/${rest}"`
+  }
+  return shQuote(p)
+}
+
+/** Pull remote path → local dir (rsync). remotePath like ~/aq-runs/x/jobs/id/ */
+export async function rsyncFromRemote(
+  place: SshPlace,
+  remotePath: string,
+  localDir: string,
+): Promise<void> {
+  const { mkdirSync } = await import("node:fs")
+  mkdirSync(localDir, { recursive: true })
+  const target = sshTarget(place)
+  const src = `${target}:${remotePath.replace(/\/?$/, "/")}`
+  const sshArgs = sshBaseArgs(place)
+  const shellSsh = ["ssh", ...sshArgs].map((a) => (/\s/.test(a) ? `'${a}'` : a)).join(" ")
+  const r = spawnSync(
+    "rsync",
+    ["-az", "-e", shellSsh, src, localDir.replace(/\/?$/, "/")],
+    { stdio: "inherit", encoding: "utf8" },
+  )
+  if (r.error) throw new Error(`rsync: ${r.error.message}`)
+  if (r.status !== 0) throw new Error(`rsync pull failed (${r.status ?? "?"})`)
+}

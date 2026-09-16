@@ -9,6 +9,7 @@ import { checkpoint, evalCmd, serve, train } from "./handle/step.js"
 import { status } from "./handle/status.js"
 import { addCmd, placesCmd } from "./fleet/add.js"
 import { goCmd, launchCmd } from "./fleet/launch.js"
+import { jobsCmd } from "./fleet/jobs.js"
 import { runAgent } from "./agent/agent.js"
 import { ask } from "./agent/ask.js"
 import { chatCmd } from "./agent/chat.js"
@@ -151,6 +152,11 @@ async function main(): Promise<void> {
 
   if (cmd === "go") {
     await goCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "jobs") {
+    await jobsCmd(argv.slice(1))
     return
   }
 
