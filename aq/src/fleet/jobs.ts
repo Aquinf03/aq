@@ -11,7 +11,13 @@ import {
   type FleetSession,
   type SshPlace,
 } from "./places.js"
-import { describeGang, describePick, resolveSshTarget, resolveSshTargets } from "./pool.js"
+import {
+  describeGang,
+  describePick,
+  resolveSshTarget,
+  resolveSshTargets,
+  type ResolvedSsh,
+} from "./pool.js"
 import {
   formatSshError,
   remoteShellPath,
@@ -84,6 +90,7 @@ function jobsHelp(): string {
     "aq jobs pull <id> [dir] [--rank K]",
     "aq jobs down <id>",
     "aq jobs recover <id> [--same|--next|--on place|pool] [--force] [--json]",
+    "aq jobs submit …              alias → aq queue push",
     "",
     "--nodes N  (N>1) needs a pool: sync + start the same cmd on N boxes with",
     "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT set (torchrun-friendly).",
@@ -133,12 +140,16 @@ function rememberJob(spec: RemoteJobSpec, pool?: string): void {
   saveIndex(idx)
 }
 
-function defaultRemoteDir(session: FleetSession | null): string {
+export function fleetDefaultRemoteDir(session: FleetSession | null): string {
   return `~/aq-runs/${path.basename(session?.train || process.cwd())}`
 }
 
+function defaultRemoteDir(session: FleetSession | null): string {
+  return fleetDefaultRemoteDir(session)
+}
+
 /** Start one background process on a place; returns pid. */
-function startOnNode(opts: {
+export function startOnNode(opts: {
   place: SshPlace
   placeName: string
   remoteDir: string
@@ -249,8 +260,122 @@ function remoteJobDir(remoteDir: string, id: string): string {
   return `${remoteDir.replace(/\/$/, "")}/jobs/${id}`
 }
 
-function newId(): string {
+export function newJobId(): string {
   return randomBytes(4).toString("hex")
+}
+
+function newId(): string {
+  return newJobId()
+}
+
+/**
+ * Start a job on an already-resolved gang (used by `aq jobs run` and queue workers).
+ * Preserves `id` when provided (recover / queue claim).
+ */
+export async function startRemoteJob(opts: {
+  id?: string
+  gang: ResolvedSsh[]
+  remoteDir: string
+  command: string[]
+  masterPort?: number
+  pool?: string
+  quiet?: boolean
+  syncTrain?: string | null
+}): Promise<RemoteJobSpec> {
+  const {
+    gang,
+    remoteDir,
+    command: cmd,
+    masterPort = 29500,
+    quiet,
+    syncTrain,
+  } = opts
+  if (!gang.length) throw tip("no targets", "aq places")
+  const id = opts.id || newId()
+  const started = new Date().toISOString()
+  const masterAddr = gang[0].place.host
+  const worldSize = gang.length
+  const pool = opts.pool || gang[0].viaPool
+
+  if (!quiet) {
+    if (worldSize > 1) console.log(c.dim("nodes") + "  " + describeGang(gang))
+    else if (gang[0].viaPool) console.log(c.dim("pool") + "  " + describePick(gang[0]))
+    step("jobs", "start  " + cmd.join(" ") + (worldSize > 1 ? c.dim(`  ×${worldSize}`) : ""))
+  }
+
+  if (syncTrain && existsSync(syncTrain)) {
+    for (const g of gang) {
+      if (!quiet) step("sync", g.name)
+      await rsyncToRemote(syncTrain, g.place, remoteDir, "defaults")
+    }
+  }
+
+  const nodeSpecs: JobNode[] = []
+  for (let rank = 0; rank < gang.length; rank++) {
+    const g = gang[rank]
+    const env: Record<string, string> = {
+      RANK: String(rank),
+      LOCAL_RANK: "0",
+      WORLD_SIZE: String(worldSize),
+      MASTER_ADDR: masterAddr,
+      MASTER_PORT: String(masterPort),
+      AQ_RANK: String(rank),
+      AQ_WORLD_SIZE: String(worldSize),
+      AQ_MASTER_ADDR: masterAddr,
+      AQ_MASTER_PORT: String(masterPort),
+    }
+    const baseSpec: RemoteJobSpec = {
+      id,
+      place: g.name,
+      remoteDir,
+      command: cmd,
+      pid: null,
+      status: "running",
+      code: null,
+      started,
+      ended: null,
+      worldSize,
+      masterAddr,
+      masterPort,
+    }
+    const pid = startOnNode({
+      place: g.place,
+      placeName: g.name,
+      remoteDir,
+      id,
+      command: cmd,
+      env,
+      spec: {
+        ...baseSpec,
+        nodes: gang.map((x, ri) => ({
+          place: x.name,
+          remoteDir,
+          rank: ri,
+          pid: null,
+        })),
+      },
+    })
+    nodeSpecs.push({ place: g.name, remoteDir, rank, pid })
+  }
+
+  const head = gang[0]
+  const spec: RemoteJobSpec = {
+    id,
+    place: head.name,
+    remoteDir,
+    command: cmd,
+    pid: nodeSpecs[0]?.pid ?? null,
+    status: "running",
+    code: null,
+    started,
+    ended: null,
+    nodes: worldSize > 1 ? nodeSpecs : undefined,
+    worldSize: worldSize > 1 ? worldSize : undefined,
+    masterAddr: worldSize > 1 ? masterAddr : undefined,
+    masterPort: worldSize > 1 ? masterPort : undefined,
+  }
+  rememberJob(spec, pool)
+  return spec
 }
 
 function parseSpec(raw: string): RemoteJobSpec | null {
@@ -442,102 +567,29 @@ async function jobsRun(argv: string[]): Promise<string> {
   const ask = { gpu: gpuAsk }
   const gang = resolveSshTargets(requested, ask, nodes)
   const remoteDir = session?.remoteDir || defaultRemoteDir(session)
-  const id = newId()
-  const started = new Date().toISOString()
-  const masterAddr = gang[0].place.host
-  const worldSize = gang.length
-
-  if (!jsonOut) {
-    if (worldSize > 1) console.log(c.dim("nodes") + "  " + describeGang(gang))
-    else if (gang[0].viaPool) console.log(c.dim("pool") + "  " + describePick(gang[0]))
-    step("jobs", "start  " + cmd.join(" ") + (worldSize > 1 ? c.dim(`  ×${worldSize}`) : ""))
-  }
-
-  // Best-effort sync train to every node so ranks share the same tree
-  if (session?.train && existsSync(session.train)) {
-    for (const g of gang) {
-      if (!jsonOut) step("sync", g.name)
-      await rsyncToRemote(session.train, g.place, remoteDir, "defaults")
-    }
-  }
-
-  const nodeSpecs: JobNode[] = []
-  for (let rank = 0; rank < gang.length; rank++) {
-    const g = gang[rank]
-    const env: Record<string, string> = {
-      RANK: String(rank),
-      LOCAL_RANK: "0",
-      WORLD_SIZE: String(worldSize),
-      MASTER_ADDR: masterAddr,
-      MASTER_PORT: String(masterPort),
-      AQ_RANK: String(rank),
-      AQ_WORLD_SIZE: String(worldSize),
-      AQ_MASTER_ADDR: masterAddr,
-      AQ_MASTER_PORT: String(masterPort),
-    }
-    const baseSpec: RemoteJobSpec = {
-      id,
-      place: g.name,
-      remoteDir,
-      command: cmd,
-      pid: null,
-      status: "running",
-      code: null,
-      started,
-      ended: null,
-      worldSize,
-      masterAddr,
-      masterPort,
-    }
-    const pid = startOnNode({
-      place: g.place,
-      placeName: g.name,
-      remoteDir,
-      id,
-      command: cmd,
-      env,
-      spec: {
-        ...baseSpec,
-        nodes: gang.map((x, ri) => ({
-          place: x.name,
-          remoteDir,
-          rank: ri,
-          pid: null,
-        })),
-      },
-    })
-    nodeSpecs.push({ place: g.name, remoteDir, rank, pid })
-  }
-
-  const head = gang[0]
-  const spec: RemoteJobSpec = {
-    id,
-    place: head.name,
+  const spec = await startRemoteJob({
+    gang,
     remoteDir,
     command: cmd,
-    pid: nodeSpecs[0]?.pid ?? null,
-    status: "running",
-    code: null,
-    started,
-    ended: null,
-    nodes: worldSize > 1 ? nodeSpecs : undefined,
-    worldSize: worldSize > 1 ? worldSize : undefined,
-    masterAddr: worldSize > 1 ? masterAddr : undefined,
-    masterPort: worldSize > 1 ? masterPort : undefined,
-  }
-  rememberJob(spec, head.viaPool)
+    masterPort,
+    pool: gang[0].viaPool,
+    quiet: jsonOut,
+    syncTrain: session?.train,
+  })
+  const id = spec.id
+  const worldSize = spec.worldSize || 1
 
   if (jsonOut) {
     console.log(
       JSON.stringify({
         id,
-        place: head.name,
-        pool: head.viaPool,
-        nodes: nodeSpecs,
+        place: spec.place,
+        pool: gang[0].viaPool,
+        nodes: spec.nodes,
         command: cmd,
         worldSize,
-        masterAddr,
-        masterPort,
+        masterAddr: spec.masterAddr,
+        masterPort: spec.masterPort,
       }),
     )
   } else {
@@ -1327,6 +1379,11 @@ export async function jobsCmd(argv: string[]): Promise<void> {
   }
   if (sub === "recover" || sub === "retry" || sub === "restart") {
     await jobsRecover(argv.slice(1))
+    return
+  }
+  if (sub === "submit" || sub === "enqueue") {
+    const { queueCmd } = await import("./queue.js")
+    await queueCmd(["push", ...argv.slice(1)])
     return
   }
   throw tip(`unknown jobs command: ${sub}`, "aq jobs help")

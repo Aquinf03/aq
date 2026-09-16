@@ -84,6 +84,19 @@ Multi-node: `p.train(nodes=2)` or `aq jobs train --on gpus --nodes 2` (sets RANK
 
 Recover: `aq jobs recover <id>` (same box) · `--next` / `--on <pool>` when the host is gone.
 
+Queues:
+
+```bash
+aq queue add gpus --on gpus
+aq queue push gpus --priority 10 -- aq train
+aq queue worker gpus --once   # or leave running
+```
+
+```python
+from aquin import Queue
+j = Queue("gpus").submit(["aq", "train"], priority=10)
+```
+
 Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.

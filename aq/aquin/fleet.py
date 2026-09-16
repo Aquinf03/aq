@@ -161,3 +161,44 @@ class Place:
         """Raw `aq jobs list` text for this place."""
         r = _aq("jobs", "list", "--on", self.name, check=False)
         return r.stdout
+
+
+@dataclass
+class Queue:
+    """Named SSH work queue (`aq queue …`)."""
+
+    name: str
+
+    def submit(
+        self,
+        cmd: Sequence[str],
+        *,
+        priority: int = 0,
+        gpu: int | None = None,
+        nodes: int | None = None,
+    ) -> Job:
+        if not cmd:
+            raise ValueError("submit() needs a command")
+        args = ["queue", "push", self.name, "--json", "--priority", str(priority)]
+        if gpu is not None:
+            args += ["--gpu", str(gpu)]
+        if nodes is not None:
+            args += ["--nodes", str(nodes)]
+        args += ["--", *cmd]
+        r = _aq(*args)
+        data = json.loads(r.stdout.strip() or "{}")
+        jid = data.get("id")
+        if not jid:
+            raise RuntimeError("aq queue push --json returned no id:\n" + (r.stdout or r.stderr))
+        return Job(id=str(jid), place=None)
+
+    def drain(self, *, off: bool = False, worker: str | None = None) -> None:
+        args = ["queue", "drain", self.name]
+        if off:
+            args.append("--off")
+        if worker:
+            args += ["--worker", worker]
+        _aq(*args)
+
+    def move(self, job_id: str, *, to: str) -> None:
+        _aq("queue", "move", job_id, "--to", to)

@@ -45,6 +45,8 @@ export function help(): string {
     "  aq jobs                   list remote jobs on last place",
     "  aq jobs run|train|eval|serve [--on p] [--nodes N] [--gpu N] [--json]",
     "  aq jobs status|logs|pull|down|recover <id>   (--rank K · recover --next|--same)",
+    "  aq queue add <name> --on <place|pool>   push / worker / drain / move",
+    "  aq queue push <name> [--priority N] -- <cmd> · aq queue worker [name]",
     "  aq spawn agent [dir] -- <prompt>  start a worker agent",
     "  aq spawn agent --kill -- <prompt>  critic: cheapest disproof",
     "  aq spawn list [dir]       worker agents",
