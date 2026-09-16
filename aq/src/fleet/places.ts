@@ -4,12 +4,24 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import path from "node:path"
 
+export type PlaceGpu = { kind: "nvidia" | "amd" | "mps" | "none"; count: number }
+
+/** Probed once on `aq add` (refresh with `aq places --probe`). */
+export type PlaceResources = {
+  cpu: number
+  ram: number
+  disk: number
+  gpu: PlaceGpu
+  at: string
+}
+
 export type SshPlace = {
   kind: "ssh"
   host: string
   user?: string
   port?: number
   key?: string
+  resources?: PlaceResources
 }
 
 export type Place = SshPlace

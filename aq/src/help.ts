@@ -37,7 +37,7 @@ export function help(): string {
     "  aq status [dir]            last run, eval, metrics",
     "  aq doctor [dir]           health check (cli, provider, run, skills, mcp)",
     "  aq add ssh [name]         register an SSH place (prompts)",
-    "  aq places                 list compute places (~/.aquin/places.json)",
+    "  aq places                 list places (+ resources; --probe refreshes)",
     "  aq launch [dir] --on <place> [--no-setup] [-- <cmd>]",
     "                          sync folder → place, setup aq, open SSH",
     "  aq go [place]             re-SSH to last launch (resync if local folder)",

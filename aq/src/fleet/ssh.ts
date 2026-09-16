@@ -5,7 +5,7 @@ import { chmodSync, existsSync, readdirSync, statSync } from "node:fs"
 import { stdout } from "node:process"
 import path from "node:path"
 import { aqRoot } from "../core/root.js"
-import type { SshPlace } from "./places.js"
+import type { PlaceResources, SshPlace } from "./places.js"
 import { c, fmtMs, step, stepOk } from "./ui.js"
 
 /** Dir/file names skipped when estimating size (defaults profile). */
@@ -426,6 +426,140 @@ export function sshExec(
     status: r.status ?? 1,
     stdout: (r.stdout || "").toString(),
     stderr: (r.stderr || "").toString(),
+  }
+}
+
+/** Probe CPU / RAM / disk / GPU on the remote box (best-effort). */
+export function probeRemoteResources(place: SshPlace): PlaceResources | null {
+  const py = `
+import json, os, shutil, subprocess
+cpu = os.cpu_count() or 0
+ram = 0
+try:
+    with open("/proc/meminfo") as f:
+        for line in f:
+            if line.startswith("MemTotal:"):
+                ram = int(line.split()[1]) * 1024
+                break
+except Exception:
+    pass
+disk = 0
+try:
+    disk = shutil.disk_usage(os.path.expanduser("~")).free
+except Exception:
+    pass
+kind, count = "none", 0
+try:
+    out = subprocess.check_output(["nvidia-smi", "-L"], text=True, stderr=subprocess.DEVNULL, timeout=8)
+    n = sum(1 for l in out.splitlines() if l.strip().startswith("GPU"))
+    if n:
+        kind, count = "nvidia", n
+except Exception:
+    pass
+if kind == "none":
+    try:
+        out = subprocess.check_output(["rocm-smi", "--showid"], text=True, stderr=subprocess.DEVNULL, timeout=8)
+        ids = set(__import__("re").findall(r"GPU\\[(\\d+)\\]", out))
+        if ids:
+            kind, count = "amd", len(ids)
+        elif os.path.exists("/dev/kfd"):
+            kind, count = "amd", 1
+    except Exception:
+        pass
+print(json.dumps({"cpu": cpu, "ram": ram, "disk": disk, "gpu": {"kind": kind, "count": count}}))
+`.trim()
+
+  const bash = `
+CPU=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 0)
+RAM=$(awk '/MemTotal/{print $2*1024}' /proc/meminfo 2>/dev/null || echo 0)
+DISK=$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2{print $4*1024}' || echo 0)
+GK=none; GC=0
+if command -v nvidia-smi >/dev/null 2>&1; then
+  GC=$(nvidia-smi -L 2>/dev/null | grep -c '^GPU' || true)
+  if [ "\${GC:-0}" -gt 0 ]; then GK=nvidia; fi
+fi
+printf '{"cpu":%s,"ram":%s,"disk":%s,"gpu":{"kind":"%s","count":%s}}\\n' "$CPU" "$RAM" "$DISK" "$GK" "$GC"
+`.trim()
+
+  const script = [
+    `if command -v python3 >/dev/null 2>&1; then`,
+    `  echo ${shQuote(Buffer.from(py, "utf8").toString("base64"))} | base64 -d | python3`,
+    `else`,
+    bash,
+    `fi`,
+  ].join("\n")
+
+  const r = sshExec(place, script, { timeoutMs: 20_000 })
+  if (r.status !== 0) return null
+  const line = (r.stdout || "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("{"))
+    .pop()
+  if (!line) return null
+  try {
+    const raw = JSON.parse(line) as {
+      cpu?: number
+      ram?: number
+      disk?: number
+      gpu?: { kind?: string; count?: number }
+    }
+    const kindRaw = (raw.gpu?.kind || "none") as PlaceResources["gpu"]["kind"]
+    const kind =
+      kindRaw === "nvidia" || kindRaw === "amd" || kindRaw === "mps" ? kindRaw : "none"
+    return {
+      cpu: Number(raw.cpu) || 0,
+      ram: Number(raw.ram) || 0,
+      disk: Number(raw.disk) || 0,
+      gpu: { kind, count: Number(raw.gpu?.count) || 0 },
+      at: new Date().toISOString(),
+    }
+  } catch {
+    return null
+  }
+}
+
+export function fmtPlaceResources(res: PlaceResources): string {
+  const bits: string[] = []
+  if (res.cpu > 0) bits.push(res.cpu + "cpu")
+  if (res.ram > 0) {
+    const gb = res.ram / 1e9
+    bits.push((gb >= 10 ? gb.toFixed(0) : gb.toFixed(1)) + "GB")
+  }
+  if (res.gpu.kind !== "none" && res.gpu.count > 0) {
+    bits.push(res.gpu.count + "×" + res.gpu.kind)
+  } else {
+    bits.push("no-gpu")
+  }
+  return bits.join(" ")
+}
+
+/** Refuse when place resources can't cover an ask. */
+export function assertPlaceCanSatisfy(
+  place: SshPlace,
+  ask: { gpu?: number; cpu?: number },
+): void {
+  const res = place.resources
+  if (!res) {
+    if (ask.gpu && ask.gpu > 0) {
+      throw new Error(
+        "place has no probed resources yet\n  tip  aq places --probe  (or re-add the place)",
+      )
+    }
+    return
+  }
+  if (ask.gpu != null && ask.gpu > 0) {
+    if (res.gpu.kind === "none" || res.gpu.count < 1) {
+      throw new Error("place has no GPU\n  tip  pick a GPU box · aq places")
+    }
+    if (ask.gpu > res.gpu.count) {
+      throw new Error(
+        `need ${ask.gpu} GPU(s), place has ${res.gpu.count}×${res.gpu.kind}\n  tip  aq places`,
+      )
+    }
+  }
+  if (ask.cpu != null && ask.cpu > 0 && res.cpu > 0 && ask.cpu > res.cpu) {
+    throw new Error(`need ${ask.cpu} CPU(s), place has ${res.cpu}\n  tip  aq places`)
   }
 }
 

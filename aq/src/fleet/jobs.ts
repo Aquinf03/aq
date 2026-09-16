@@ -12,6 +12,7 @@ import {
   type SshPlace,
 } from "./places.js"
 import {
+  assertPlaceCanSatisfy,
   remoteShellPath,
   rsyncFromRemote,
   shQuote,
@@ -50,8 +51,8 @@ function jobsHelp(): string {
   return [
     "aq jobs                     list jobs on last launch place",
     "aq jobs list [--on <place>]",
-    "aq jobs run [--on <place>] [--json] -- <cmd>…",
-    "aq jobs train|eval|serve [--on <place>] [--json] [-- <extra>…]",
+    "aq jobs run [--on <place>] [--gpu N] [--json] -- <cmd>…",
+    "aq jobs train|eval|serve [--on <place>] [--gpu N] [--json] [-- <extra>…]",
     "aq jobs status <id> [--json]",
     "aq jobs logs <id> [-n N|-f]",
     "aq jobs pull <id> [dir]",
@@ -259,6 +260,7 @@ function printJob(spec: RemoteJobSpec): void {
 async function jobsRun(argv: string[]): Promise<string> {
   let on: string | undefined
   let jsonOut = false
+  let gpuAsk: number | undefined
   let i = 0
   const cmd: string[] = []
   let sawDash = false
@@ -280,6 +282,13 @@ async function jobsRun(argv: string[]): Promise<string> {
       i += 1
       continue
     }
+    if (a === "--gpu" || a === "--gpus") {
+      const v = Number(argv[i + 1])
+      if (!Number.isFinite(v) || v < 0) throw tip("need a number after --gpu", "aq jobs run --gpu 1 -- …")
+      gpuAsk = v
+      i += 2
+      continue
+    }
     throw tip(`unknown flag: ${a}`, "aq jobs run --on <place> -- <cmd>")
   }
   if (!sawDash || !cmd.length) {
@@ -287,6 +296,7 @@ async function jobsRun(argv: string[]): Promise<string> {
   }
 
   const { placeName, place, remoteDir } = resolveContext(on)
+  assertPlaceCanSatisfy(place, { gpu: gpuAsk })
   const id = newId()
   const started = new Date().toISOString()
   const dir = remoteJobDir(remoteDir, id)
@@ -362,17 +372,15 @@ print(pid)
   return id
 }
 
-/** train / eval / serve — same as jobs run -- aq <verb> … */
 async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promise<void> {
   let on: string | undefined
   let jsonOut = false
+  let gpuAsk: number | undefined
   const extra: string[] = []
   let i = 0
-  let sawDash = false
   while (i < argv.length) {
     const a = argv[i]
     if (a === "--") {
-      sawDash = true
       extra.push(...argv.slice(i + 1))
       break
     }
@@ -387,19 +395,25 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
       i += 1
       continue
     }
-    // bare args before -- go to the remote aq verb (e.g. eval name)
+    if (a === "--gpu" || a === "--gpus") {
+      const v = Number(argv[i + 1])
+      if (!Number.isFinite(v) || v < 0) throw tip("need a number after --gpu", `aq jobs ${verb} --gpu 1`)
+      gpuAsk = v
+      i += 2
+      continue
+    }
     if (!a.startsWith("-")) {
       extra.push(a)
       i += 1
       continue
     }
-    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--on <place>] [--json]`)
+    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--on <place>] [--gpu N] [--json]`)
   }
-  void sawDash
   const cmd = ["aq", verb, ...extra]
   const flags = [
     ...(on ? ["--on", on] : []),
     ...(jsonOut ? ["--json"] : []),
+    ...(gpuAsk != null ? ["--gpu", String(gpuAsk)] : []),
     "--",
     ...cmd,
   ]

@@ -1,17 +1,38 @@
 /** aq add — register a compute place (SSH first). */
 
-import { getPlace, loadPlaces, placesPath, upsertPlace } from "./places.js"
-import { fixKeyPermissions, sshCheck } from "./ssh.js"
+import { getPlace, loadPlaces, placesPath, upsertPlace, type SshPlace } from "./places.js"
+import {
+  fixKeyPermissions,
+  fmtPlaceResources,
+  probeRemoteResources,
+  sshCheck,
+} from "./ssh.js"
 import { c, prompt } from "./ui.js"
 
 function addHelp(): string {
   return [
     "aq add ssh [name]     register an SSH place (prompts for host/user)",
-    "aq places             list places",
+    "aq places             list places (+ resources; --probe to refresh)",
     "",
     "Places file: " + placesPath(),
     "Later: aq add k8s | aws | …",
   ].join("\n")
+}
+
+function saveResources(name: string, place: SshPlace): SshPlace {
+  process.stdout.write(c.dim("probe") + "  ")
+  const res = probeRemoteResources(place)
+  if (!res) {
+    console.log(c.yellow("skip") + c.dim("  could not read cpu/gpu"))
+    return place
+  }
+  const next: SshPlace = { ...place, resources: res }
+  upsertPlace(name, next)
+  console.log(c.green("ok") + "  " + fmtPlaceResources(res))
+  if (res.gpu.kind === "none") {
+    console.log(c.dim("  tip") + "  no GPU on this box — fine for CPU jobs")
+  }
+  return next
 }
 
 export async function placesCmd(argv: string[]): Promise<void> {
@@ -20,6 +41,7 @@ export async function placesCmd(argv: string[]): Promise<void> {
     return
   }
   const checkLive = !argv.includes("--no-check")
+  const doProbe = argv.includes("--probe")
   const file = loadPlaces()
   const names = Object.keys(file.places).sort()
   if (!names.length) {
@@ -29,7 +51,7 @@ export async function placesCmd(argv: string[]): Promise<void> {
   }
   console.log(c.bold("places"))
   for (const name of names) {
-    const p = file.places[name]
+    let p = file.places[name]
     if (p.kind === "ssh") {
       const who = p.user ? `${p.user}@${p.host}` : p.host
       const port = p.port && p.port !== 22 ? `:${p.port}` : ""
@@ -37,8 +59,22 @@ export async function placesCmd(argv: string[]): Promise<void> {
       if (checkLive) {
         const r = sshCheck(p)
         status = r.ok ? c.green(" ok") : c.red(" fail")
+        if (r.ok && (doProbe || !p.resources)) {
+          const res = probeRemoteResources(p)
+          if (res) {
+            p = { ...p, resources: res }
+            upsertPlace(name, p)
+          }
+        }
+      } else if (doProbe) {
+        const res = probeRemoteResources(p)
+        if (res) {
+          p = { ...p, resources: res }
+          upsertPlace(name, p)
+        }
       }
-      console.log("  " + c.cyan(name) + "  " + c.dim("ssh") + "  " + who + port + status)
+      const resTxt = p.resources ? c.dim("  " + fmtPlaceResources(p.resources)) : ""
+      console.log("  " + c.cyan(name) + "  " + c.dim("ssh") + "  " + who + port + status + resTxt)
     } else {
       console.log("  " + c.cyan(name) + "  " + (p as { kind: string }).kind)
     }
@@ -93,11 +129,12 @@ async function addSsh(argv: string[]): Promise<void> {
     user: user || undefined,
     port: port === 22 ? undefined : port,
     key: key || undefined,
+    resources: prefill?.resources,
   })
 
   console.log(c.bold("place") + "  " + c.cyan(name))
 
-  const place = getPlace(name)
+  let place = getPlace(name)
   if (place.kind !== "ssh") return
   process.stdout.write(c.dim("check") + "  ")
   let check = sshCheck(place)
@@ -110,6 +147,7 @@ async function addSsh(argv: string[]): Promise<void> {
   }
   if (check.ok) {
     console.log(c.green("ok") + c.dim("  " + check.detail))
+    place = saveResources(name, place)
   } else {
     console.log(c.red("fail") + "  " + check.detail)
   }

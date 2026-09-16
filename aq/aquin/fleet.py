@@ -78,26 +78,43 @@ class Place:
     def __init__(self, name: str):
         self.name = name
 
-    def run(self, cmd: Sequence[str]) -> Job:
+    def train(self, *extra: str, gpu: int | None = None) -> Job:
+        return self._verb("train", extra, gpu=gpu)
+
+    def eval(self, name: str | None = None, *extra: str, gpu: int | None = None) -> Job:
+        args = (*([name] if name else []), *extra)
+        return self._verb("eval", args, gpu=gpu)
+
+    def serve(self, *extra: str, gpu: int | None = None) -> Job:
+        return self._verb("serve", extra, gpu=gpu)
+
+    def _verb(self, verb: str, extra: tuple[str, ...], *, gpu: int | None) -> Job:
+        args = ["jobs", verb, "--on", self.name, "--json"]
+        if gpu is not None:
+            args += ["--gpu", str(gpu)]
+        if extra:
+            args += ["--", *extra]
+        r = _aq(*args)
+        data = json.loads(r.stdout.strip() or "{}")
+        jid = data.get("id")
+        if not jid:
+            raise RuntimeError(f"aq jobs {verb} --json returned no id:\n" + (r.stdout or r.stderr))
+        return Job(id=str(jid), place=self.name)
+
+    def run(self, cmd: Sequence[str], *, gpu: int | None = None) -> Job:
         """Background `cmd` on this place. Returns a Job."""
         if not cmd:
             raise ValueError("run() needs a command")
-        r = _aq("jobs", "run", "--on", self.name, "--json", "--", *cmd)
+        args = ["jobs", "run", "--on", self.name, "--json"]
+        if gpu is not None:
+            args += ["--gpu", str(gpu)]
+        args += ["--", *cmd]
+        r = _aq(*args)
         data = json.loads(r.stdout.strip() or "{}")
         jid = data.get("id")
         if not jid:
             raise RuntimeError("aq jobs run --json returned no id:\n" + (r.stdout or r.stderr))
         return Job(id=str(jid), place=self.name)
-
-    def train(self, *extra: str) -> Job:
-        return self.run(["aq", "train", *extra])
-
-    def eval(self, name: str | None = None, *extra: str) -> Job:
-        cmd = ["aq", "eval", *([name] if name else []), *extra]
-        return self.run(cmd)
-
-    def serve(self, *extra: str) -> Job:
-        return self.run(["aq", "serve", *extra])
 
     def jobs(self) -> str:
         """Raw `aq jobs list` text for this place."""
