@@ -9,6 +9,7 @@ import {
   type PoolPlace,
   type SshPlace,
 } from "./places.js"
+import { freeGpuCount, placeGpuCount } from "./gpu.js"
 import { assertPlaceCanSatisfy, sshCheck, sshExec } from "./ssh.js"
 import { c } from "./ui.js"
 
@@ -76,7 +77,15 @@ export function resolveSshTarget(
 ): ResolvedSsh {
   const place = getPlace(requested)
   if (place.kind === "ssh") {
-    if (ask.gpu != null && ask.gpu > 0) assertPlaceCanSatisfy(place, ask)
+    if (ask.gpu != null && ask.gpu > 0) {
+      assertPlaceCanSatisfy(place, ask)
+      if (placeGpuCount(place) > 0 && freeGpuCount(requested, place) < ask.gpu) {
+        throw tip(
+          `${requested}: need ${ask.gpu} free GPU(s), have ${freeGpuCount(requested, place)} free`,
+          "wait for jobs to finish · aq jobs list · --on another place",
+        )
+      }
+    }
     return { requested, name: requested, place }
   }
   if (place.kind !== "pool") {
@@ -114,9 +123,11 @@ export function pickPoolMembers(
   }
   const exclude = new Set(opts.exclude || [])
   const file = loadPlaces()
-  type Cand = { name: string; place: SshPlace; load: number }
+  type Cand = { name: string; place: SshPlace; load: number; freeGpu: number }
   const ok: Cand[] = []
   const skipped: string[] = []
+
+  const needGpu = ask.gpu != null && ask.gpu > 0 ? ask.gpu : 0
 
   for (const m of pool.members) {
     if (exclude.has(m)) {
@@ -139,8 +150,16 @@ export function pickPoolMembers(
       skipped.push(m + " (resources)")
       continue
     }
+    const free = freeGpuCount(m, p)
+    if (needGpu > 0) {
+      // Prefer live free-device accounting when we know capacity
+      if (placeGpuCount(p) > 0 && free < needGpu) {
+        skipped.push(m + ` (${free}gpu free)`)
+        continue
+      }
+    }
     const load = memberLoad(m, p)
-    ok.push({ name: m, place: p, load })
+    ok.push({ name: m, place: p, load, freeGpu: free })
   }
 
   if (ok.length < n) {
@@ -151,7 +170,15 @@ export function pickPoolMembers(
     )
   }
 
-  ok.sort((a, b) => a.load - b.load || a.name.localeCompare(b.name))
+  // Pack: enough free GPUs, then lowest job load, then fewer leftover free (denser)
+  ok.sort((a, b) => {
+    if (needGpu > 0) {
+      const ra = a.freeGpu - needGpu
+      const rb = b.freeGpu - needGpu
+      if (ra !== rb) return ra - rb
+    }
+    return a.load - b.load || a.name.localeCompare(b.name)
+  })
   return ok.slice(0, n).map((c) => ({
     requested: poolName,
     name: c.name,

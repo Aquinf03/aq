@@ -17,6 +17,7 @@ import {
   probeRemoteTelemetry,
   sshCheck,
 } from "./ssh.js"
+import { fmtGpuShare } from "./gpu.js"
 import { fmtTags, matchTags, parseTag, type Tags } from "./tags.js"
 import { c, prompt } from "./ui.js"
 
@@ -105,6 +106,8 @@ export async function placesCmd(argv: string[]): Promise<void> {
         }
       }
       const capTxt = p.resources ? c.dim("  [" + fmtPlaceResources(p.resources) + "]") : ""
+      const share = fmtGpuShare(name, p)
+      const shareTxt = share ? c.dim("  " + share) : ""
       console.log(
         "  " +
           c.cyan(name) +
@@ -116,6 +119,7 @@ export async function placesCmd(argv: string[]): Promise<void> {
           status +
           liveTxt +
           capTxt +
+          shareTxt +
           tagTxt,
       )
     } else if (p.kind === "pool") {

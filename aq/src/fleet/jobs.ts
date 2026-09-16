@@ -19,6 +19,12 @@ import {
   type ResolvedSsh,
 } from "./pool.js"
 import {
+  allocateGpus,
+  cudaVisibleDevices,
+  parseDevices,
+  releaseGpus,
+} from "./gpu.js"
+import {
   forwardUrl,
   openTunnelBg,
   parsePortForward,
@@ -82,6 +88,8 @@ type IndexEntry = {
   masterPort?: number
   ports?: PortForward[]
   tags?: Tags
+  /** Physical GPU indices claimed (CUDA_VISIBLE_DEVICES). */
+  gpuDevices?: number[]
 }
 
 type JobsIndex = {
@@ -109,6 +117,8 @@ function jobsHelp(): string {
     "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT set (torchrun-friendly).",
     "--port N   SSH -L tunnel (N or local:remote); sets AQ_PORT/PORT on the job.",
     "--tag k=v  label the job (filter with aq jobs list --tag k=v).",
+    "--gpu N    claim N free GPUs on the box (CUDA_VISIBLE_DEVICES; shared multi-GPU).",
+    "--devices  pin indices e.g. 0,2 or 0-1 (with or instead of --gpu).",
     "recover    restart same id after host/process death (SSH spot/preempt pattern).",
     "Jobs live under <remoteDir>/jobs/<id>/ on each place.",
   ].join("\n")
@@ -153,6 +163,7 @@ function rememberJob(
   pool?: string,
   ports?: PortForward[],
   tags?: Tags,
+  gpuDevices?: number[],
 ): void {
   const idx = loadIndex()
   const prev = idx.jobs[spec.id]
@@ -167,6 +178,7 @@ function rememberJob(
     masterPort: spec.masterPort ?? prev?.masterPort,
     ports: ports ?? prev?.ports,
     tags: tags ?? prev?.tags,
+    gpuDevices: gpuDevices ?? prev?.gpuDevices,
   }
   saveIndex(idx)
 }
@@ -315,6 +327,10 @@ export async function startRemoteJob(opts: {
   extraEnv?: Record<string, string>
   ports?: PortForward[]
   tags?: Tags
+  /** Request N free GPUs per place (shared multi-GPU box). */
+  gpu?: number
+  /** Explicit device indices (optional; applies per place / rank 0 pinning). */
+  devices?: number[]
 }): Promise<RemoteJobSpec> {
   const {
     gang,
@@ -326,13 +342,18 @@ export async function startRemoteJob(opts: {
     extraEnv,
     ports,
     tags,
+    gpu,
+    devices: explicitDevices,
   } = opts
   if (!gang.length) throw tip("no targets", "aq places")
   const id = opts.id || newId()
+  // Fresh allocation for this id
+  releaseGpus(id)
   const started = new Date().toISOString()
   const masterAddr = gang[0].place.host
   const worldSize = gang.length
   const pool = opts.pool || gang[0].viaPool
+  const needGpu = gpu != null && gpu > 0 ? gpu : explicitDevices?.length ? explicitDevices.length : 0
 
   if (!quiet) {
     if (worldSize > 1) console.log(c.dim("nodes") + "  " + describeGang(gang))
@@ -348,56 +369,75 @@ export async function startRemoteJob(opts: {
   }
 
   const nodeSpecs: JobNode[] = []
-  for (let rank = 0; rank < gang.length; rank++) {
-    const g = gang[rank]
-    const env: Record<string, string> = {
-      RANK: String(rank),
-      LOCAL_RANK: "0",
-      WORLD_SIZE: String(worldSize),
-      MASTER_ADDR: masterAddr,
-      MASTER_PORT: String(masterPort),
-      AQ_RANK: String(rank),
-      AQ_WORLD_SIZE: String(worldSize),
-      AQ_MASTER_ADDR: masterAddr,
-      AQ_MASTER_PORT: String(masterPort),
-      ...(extraEnv || {}),
+  let headDevices: number[] | undefined
+  try {
+    for (let rank = 0; rank < gang.length; rank++) {
+      const g = gang[rank]
+      const env: Record<string, string> = {
+        RANK: String(rank),
+        LOCAL_RANK: "0",
+        WORLD_SIZE: String(worldSize),
+        MASTER_ADDR: masterAddr,
+        MASTER_PORT: String(masterPort),
+        AQ_RANK: String(rank),
+        AQ_WORLD_SIZE: String(worldSize),
+        AQ_MASTER_ADDR: masterAddr,
+        AQ_MASTER_PORT: String(masterPort),
+        ...(extraEnv || {}),
+      }
+      if (ports?.length) {
+        env.AQ_PORT = String(ports[0].remote)
+        env.PORT = String(ports[0].remote)
+      }
+      if (needGpu > 0 || explicitDevices?.length) {
+        const n = explicitDevices?.length ? explicitDevices.length : needGpu
+        const pinned = rank === 0 ? explicitDevices : undefined
+        const devs = allocateGpus(id, g.name, g.place, n, pinned)
+        if (rank === 0) headDevices = devs
+        const vis = cudaVisibleDevices(devs)
+        env.CUDA_VISIBLE_DEVICES = vis
+        env.AQ_CUDA_VISIBLE_DEVICES = vis
+        env.AQ_GPU_DEVICES = vis
+        if (!quiet) {
+          console.log(c.dim("  gpu") + "   " + g.name + "  devices " + vis)
+        }
+      }
+      const baseSpec: RemoteJobSpec = {
+        id,
+        place: g.name,
+        remoteDir,
+        command: cmd,
+        pid: null,
+        status: "running",
+        code: null,
+        started,
+        ended: null,
+        worldSize,
+        masterAddr,
+        masterPort,
+      }
+      const pid = startOnNode({
+        place: g.place,
+        placeName: g.name,
+        remoteDir,
+        id,
+        command: cmd,
+        env,
+        spec: {
+          ...baseSpec,
+          nodes: gang.map((x, ri) => ({
+            place: x.name,
+            remoteDir,
+            rank: ri,
+            pid: null,
+          })),
+        },
+      })
+      nodeSpecs.push({ place: g.name, remoteDir, rank, pid })
     }
-    if (ports?.length) {
-      env.AQ_PORT = String(ports[0].remote)
-      env.PORT = String(ports[0].remote)
-    }
-    const baseSpec: RemoteJobSpec = {
-      id,
-      place: g.name,
-      remoteDir,
-      command: cmd,
-      pid: null,
-      status: "running",
-      code: null,
-      started,
-      ended: null,
-      worldSize,
-      masterAddr,
-      masterPort,
-    }
-    const pid = startOnNode({
-      place: g.place,
-      placeName: g.name,
-      remoteDir,
-      id,
-      command: cmd,
-      env,
-      spec: {
-        ...baseSpec,
-        nodes: gang.map((x, ri) => ({
-          place: x.name,
-          remoteDir,
-          rank: ri,
-          pid: null,
-        })),
-      },
-    })
-    nodeSpecs.push({ place: g.name, remoteDir, rank, pid })
+  } catch (e) {
+    releaseGpus(id)
+    throw e
   }
 
   const head = gang[0]
@@ -416,7 +456,7 @@ export async function startRemoteJob(opts: {
     masterAddr: worldSize > 1 ? masterAddr : undefined,
     masterPort: worldSize > 1 ? masterPort : undefined,
   }
-  rememberJob(spec, pool, ports, tags)
+  rememberJob(spec, pool, ports, tags, headDevices)
 
   // Open laptop→place tunnels in the background
   if (ports?.length) {
@@ -567,6 +607,7 @@ export function cancelJobsOnPlace(
       } else {
         killRemoteJob(place, meta?.remoteDir || remoteDir, id)
       }
+      releaseGpus(id)
       killed.push(id)
     } catch {
       /* best-effort */
@@ -618,6 +659,7 @@ async function jobsRun(argv: string[]): Promise<string> {
   let masterPort = 29500
   const ports: PortForward[] = []
   const tagNeed: Tags = {}
+  let devices: number[] | undefined
   let i = 0
   const cmd: string[] = []
   let sawDash = false
@@ -643,6 +685,17 @@ async function jobsRun(argv: string[]): Promise<string> {
       const v = Number(argv[i + 1])
       if (!Number.isFinite(v) || v < 0) throw tip("need a number after --gpu", "aq jobs run --gpu 1 -- …")
       gpuAsk = v
+      i += 2
+      continue
+    }
+    if (a === "--devices") {
+      const v = argv[i + 1]
+      if (!v) throw tip("need list after --devices", "aq jobs run --devices 0,1 -- …")
+      try {
+        devices = parseDevices(v)
+      } catch (e) {
+        throw tip(e instanceof Error ? e.message : String(e), "aq jobs run --devices 0,2")
+      }
       i += 2
       continue
     }
@@ -675,7 +728,7 @@ async function jobsRun(argv: string[]): Promise<string> {
       i += 2
       continue
     }
-    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--tag k=v] -- <cmd>")
+    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--gpu N] -- <cmd>")
   }
   if (!sawDash || !cmd.length) {
     throw tip("need a command after --", "aq jobs run --on temp -- sleep 30")
@@ -698,6 +751,8 @@ async function jobsRun(argv: string[]): Promise<string> {
     syncTrain: session?.train,
     ports: ports.length ? ports : undefined,
     tags: Object.keys(tagNeed).length ? tagNeed : undefined,
+    gpu: gpuAsk,
+    devices,
   })
   const id = spec.id
   const worldSize = spec.worldSize || 1
@@ -716,6 +771,8 @@ async function jobsRun(argv: string[]): Promise<string> {
         ports,
         urls: ports.map(forwardUrl),
         tags: tagNeed,
+        gpu: gpuAsk,
+        gpuDevices: loadIndex().jobs[id]?.gpuDevices,
       }),
     )
   } else {
@@ -739,6 +796,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
   let masterPort: number | undefined
   const ports: string[] = []
   const tags: string[] = []
+  let devices: string | undefined
   const extra: string[] = []
   let i = 0
   while (i < argv.length) {
@@ -762,6 +820,11 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
       const v = Number(argv[i + 1])
       if (!Number.isFinite(v) || v < 0) throw tip("need a number after --gpu", `aq jobs ${verb} --gpu 1`)
       gpuAsk = v
+      i += 2
+      continue
+    }
+    if (a === "--devices") {
+      devices = argv[i + 1]
       i += 2
       continue
     }
@@ -792,13 +855,14 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
       i += 1
       continue
     }
-    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--tag k=v] [--port N]`)
+    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--gpu N] [--devices 0,1]`)
   }
   const cmd = ["aq", verb, ...extra]
   const flags = [
     ...(on ? ["--on", on] : []),
     ...(jsonOut ? ["--json"] : []),
     ...(gpuAsk != null ? ["--gpu", String(gpuAsk)] : []),
+    ...(devices ? ["--devices", devices] : []),
     ...(nodes != null ? ["--nodes", String(nodes)] : []),
     ...(masterPort != null ? ["--master-port", String(masterPort)] : []),
     ...ports.flatMap((p) => ["--port", p]),
@@ -1049,6 +1113,10 @@ async function jobsStatus(argv: string[]): Promise<void> {
   if (jobTags && Object.keys(jobTags).length) {
     console.log(c.dim("  tags") + "    " + fmtTags(jobTags))
   }
+  const gpus = loadIndex().jobs[id]?.gpuDevices
+  if (gpus?.length) {
+    console.log(c.dim("  gpu") + "     " + gpus.join(",") + c.dim("  (CUDA_VISIBLE_DEVICES)"))
+  }
   console.log(c.dim("  status") + "  " + statusColor(spec.status))
   console.log(c.dim("  cmd") + "     " + spec.command.join(" "))
   if (spec.pid != null) console.log(c.dim("  pid") + "     " + spec.pid)
@@ -1234,6 +1302,7 @@ async function jobsDown(argv: string[]): Promise<void> {
     killRemoteJob(place, remoteDir, id)
   }
   closeTunnelsForJob(id)
+  releaseGpus(id)
   stepOk("down", "canceled  " + id)
 }
 
@@ -1441,6 +1510,9 @@ async function jobsRecover(argv: string[]): Promise<void> {
   const masterAddr = gang[0].place.host
   const cmd = entry.command
   const nodeSpecs: JobNode[] = []
+  const needGpu = entry.gpuDevices?.length || 0
+  releaseGpus(id)
+  let headDevices: number[] | undefined
 
   for (let rank = 0; rank < gang.length; rank++) {
     const g = gang[rank]
@@ -1456,6 +1528,14 @@ async function jobsRecover(argv: string[]): Promise<void> {
       AQ_MASTER_ADDR: masterAddr,
       AQ_MASTER_PORT: String(masterPort),
       AQ_RECOVERED: "1",
+    }
+    if (needGpu > 0) {
+      const devs = allocateGpus(id, g.name, g.place, needGpu)
+      if (rank === 0) headDevices = devs
+      const vis = cudaVisibleDevices(devs)
+      env.CUDA_VISIBLE_DEVICES = vis
+      env.AQ_CUDA_VISIBLE_DEVICES = vis
+      env.AQ_GPU_DEVICES = vis
     }
     const baseSpec: RemoteJobSpec = {
       id,
@@ -1510,7 +1590,7 @@ async function jobsRecover(argv: string[]): Promise<void> {
     masterAddr: worldSize > 1 ? masterAddr : undefined,
     masterPort: worldSize > 1 ? masterPort : undefined,
   }
-  rememberJob(spec, poolName || head.viaPool || entry.pool)
+  rememberJob(spec, poolName || head.viaPool || entry.pool, entry.ports, entry.tags, headDevices)
 
   if (jsonOut) {
     console.log(

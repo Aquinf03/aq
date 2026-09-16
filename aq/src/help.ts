@@ -47,7 +47,7 @@ export function help(): string {
     "  aq shutdown [place] [--wipe]  stop jobs + clear session",
     "  aq port <N> [--on p] [--bg]  SSH tunnel (expose remote UI on laptop)",
     "  aq jobs                   list remote jobs on last place",
-    "  aq jobs run|train|eval|serve [--on p] [--tag k=v] [--port N] [--json]",
+    "  aq jobs run|train|eval|serve [--on p] [--tag k=v] [--gpu N] [--devices 0,1] [--port N] [--json]",
     "  aq jobs status|logs|pull|down|recover <id>   (--rank K · recover --next|--same)",
     "  aq jobs list [--tag k=v]   filter by label",
     "  aq queue add <name> --on <place|pool>   push / worker / drain / move",

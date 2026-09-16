@@ -497,6 +497,7 @@ async function startClaimed(it: QueueItem, quiet: boolean): Promise<void> {
       pool: gang[0].viaPool || (getPlace(q.on).kind === "pool" ? q.on : undefined),
       quiet,
       syncTrain: session?.train,
+      gpu: it.gpu,
     })
     markItem(it.id, {
       status: "running",

@@ -123,6 +123,15 @@ aq jobs list --tag exp=lr-sweep
 aq jobs run --tag exp=baseline --on temp -- sleep 10
 ```
 
+Shared GPUs on one box:
+
+```bash
+aq jobs run --on box --gpu 1 -- python train.py   # claims one free GPU
+aq jobs run --on box --gpu 1 -- python train.py   # another free GPU
+aq jobs run --on box --devices 0,2 -- …           # pin indices
+aq places   # shows e.g. 6/8gpu free
+```
+
 Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.
