@@ -176,6 +176,13 @@ class Place:
             args.append("--wipe")
         _aq(*args)
 
+    def port(self, spec: int | str, *, bg: bool = True) -> None:
+        """SSH tunnel: expose remote port on the laptop (`aq port`)."""
+        args = ["port", str(spec), "--on", self.name]
+        if bg:
+            args.append("--bg")
+        _aq(*args)
+
 
 @dataclass
 class Queue:

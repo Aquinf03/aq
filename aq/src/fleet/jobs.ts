@@ -19,6 +19,13 @@ import {
   type ResolvedSsh,
 } from "./pool.js"
 import {
+  forwardUrl,
+  openTunnelBg,
+  parsePortForward,
+  closeTunnelsForJob,
+  type PortForward,
+} from "./port.js"
+import {
   formatSshError,
   fmtPlaceTelemetry,
   probeRemoteTelemetry,
@@ -72,6 +79,7 @@ type IndexEntry = {
   pool?: string
   worldSize?: number
   masterPort?: number
+  ports?: PortForward[]
 }
 
 type JobsIndex = {
@@ -86,8 +94,8 @@ function jobsHelp(): string {
   return [
     "aq jobs                     list jobs on last launch place",
     "aq jobs list [--on <place>]",
-    "aq jobs run [--on <place|pool>] [--nodes N] [--gpu N] [--json] -- <cmd>…",
-    "aq jobs train|eval|serve [--on …] [--nodes N] [--gpu N] [--json] [-- <extra>…]",
+    "aq jobs run [--on <place|pool>] [--nodes N] [--gpu N] [--port N] [--json] -- <cmd>…",
+    "aq jobs train|eval|serve [--on …] [--nodes N] [--gpu N] [--port N] [--json] [-- <extra>…]",
     "aq jobs status <id> [--json]",
     "aq jobs logs <id> [-n N|-f] [--rank K]",
     "aq jobs pull <id> [dir] [--rank K]",
@@ -97,6 +105,7 @@ function jobsHelp(): string {
     "",
     "--nodes N  (N>1) needs a pool: sync + start the same cmd on N boxes with",
     "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT set (torchrun-friendly).",
+    "--port N   SSH -L tunnel (N or local:remote); sets AQ_PORT/PORT on the job.",
     "recover    restart same id after host/process death (SSH spot/preempt pattern).",
     "Jobs live under <remoteDir>/jobs/<id>/ on each place.",
   ].join("\n")
@@ -127,7 +136,7 @@ function saveIndex(idx: JobsIndex): void {
   writeFileSync(indexPath(), JSON.stringify(idx, null, 2) + "\n", "utf8")
 }
 
-function rememberJob(spec: RemoteJobSpec, pool?: string): void {
+function rememberJob(spec: RemoteJobSpec, pool?: string, ports?: PortForward[]): void {
   const idx = loadIndex()
   const prev = idx.jobs[spec.id]
   idx.jobs[spec.id] = {
@@ -139,6 +148,7 @@ function rememberJob(spec: RemoteJobSpec, pool?: string): void {
     pool: pool ?? prev?.pool,
     worldSize: spec.worldSize ?? prev?.worldSize,
     masterPort: spec.masterPort ?? prev?.masterPort,
+    ports: ports ?? prev?.ports,
   }
   saveIndex(idx)
 }
@@ -284,6 +294,8 @@ export async function startRemoteJob(opts: {
   pool?: string
   quiet?: boolean
   syncTrain?: string | null
+  extraEnv?: Record<string, string>
+  ports?: PortForward[]
 }): Promise<RemoteJobSpec> {
   const {
     gang,
@@ -292,6 +304,8 @@ export async function startRemoteJob(opts: {
     masterPort = 29500,
     quiet,
     syncTrain,
+    extraEnv,
+    ports,
   } = opts
   if (!gang.length) throw tip("no targets", "aq places")
   const id = opts.id || newId()
@@ -326,6 +340,11 @@ export async function startRemoteJob(opts: {
       AQ_WORLD_SIZE: String(worldSize),
       AQ_MASTER_ADDR: masterAddr,
       AQ_MASTER_PORT: String(masterPort),
+      ...(extraEnv || {}),
+    }
+    if (ports?.length) {
+      env.AQ_PORT = String(ports[0].remote)
+      env.PORT = String(ports[0].remote)
     }
     const baseSpec: RemoteJobSpec = {
       id,
@@ -377,7 +396,23 @@ export async function startRemoteJob(opts: {
     masterAddr: worldSize > 1 ? masterAddr : undefined,
     masterPort: worldSize > 1 ? masterPort : undefined,
   }
-  rememberJob(spec, pool)
+  rememberJob(spec, pool, ports)
+
+  // Open laptop→place tunnels in the background
+  if (ports?.length) {
+    for (const fw of ports) {
+      try {
+        openTunnelBg(head.place, head.name, fw, { jobId: id, quiet })
+        if (!quiet) {
+          console.log(c.dim("  open") + "  " + forwardUrl(fw) + c.dim("  (aq port down " + fw.local + ")"))
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (!quiet) console.log(c.yellow("port") + "  tunnel failed: " + msg.split("\n")[0])
+      }
+    }
+  }
+
   return spec
 }
 
@@ -559,6 +594,7 @@ async function jobsRun(argv: string[]): Promise<string> {
   let gpuAsk: number | undefined
   let nodes = 1
   let masterPort = 29500
+  const ports: PortForward[] = []
   let i = 0
   const cmd: string[] = []
   let sawDash = false
@@ -601,7 +637,14 @@ async function jobsRun(argv: string[]): Promise<string> {
       i += 2
       continue
     }
-    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--nodes N] -- <cmd>")
+    if (a === "--port") {
+      const v = argv[i + 1]
+      if (!v) throw tip("need N after --port", "aq jobs run --port 8000 -- …")
+      ports.push(parsePortForward(v))
+      i += 2
+      continue
+    }
+    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--port N] -- <cmd>")
   }
   if (!sawDash || !cmd.length) {
     throw tip("need a command after --", "aq jobs run --on temp -- sleep 30")
@@ -622,6 +665,7 @@ async function jobsRun(argv: string[]): Promise<string> {
     pool: gang[0].viaPool,
     quiet: jsonOut,
     syncTrain: session?.train,
+    ports: ports.length ? ports : undefined,
   })
   const id = spec.id
   const worldSize = spec.worldSize || 1
@@ -637,6 +681,8 @@ async function jobsRun(argv: string[]): Promise<string> {
         worldSize,
         masterAddr: spec.masterAddr,
         masterPort: spec.masterPort,
+        ports,
+        urls: ports.map(forwardUrl),
       }),
     )
   } else {
@@ -658,6 +704,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
   let gpuAsk: number | undefined
   let nodes: number | undefined
   let masterPort: number | undefined
+  const ports: string[] = []
   const extra: string[] = []
   let i = 0
   while (i < argv.length) {
@@ -696,12 +743,17 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
       i += 2
       continue
     }
+    if (a === "--port") {
+      ports.push(argv[i + 1] || "")
+      i += 2
+      continue
+    }
     if (!a.startsWith("-")) {
       extra.push(a)
       i += 1
       continue
     }
-    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--on <pool>] [--nodes N] [--gpu N]`)
+    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--on <pool>] [--port N] [--gpu N]`)
   }
   const cmd = ["aq", verb, ...extra]
   const flags = [
@@ -710,6 +762,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
     ...(gpuAsk != null ? ["--gpu", String(gpuAsk)] : []),
     ...(nodes != null ? ["--nodes", String(nodes)] : []),
     ...(masterPort != null ? ["--master-port", String(masterPort)] : []),
+    ...ports.flatMap((p) => ["--port", p]),
     "--",
     ...cmd,
   ]
@@ -924,6 +977,14 @@ async function jobsStatus(argv: string[]): Promise<void> {
   console.log(c.bold("job") + "  " + c.cyan(spec.id))
   console.log(c.dim("  place") + "   " + placeName)
   if (tel) console.log(c.dim("  load") + "    " + fmtPlaceTelemetry(tel))
+  const jobPorts = loadIndex().jobs[id]?.ports
+  if (jobPorts?.length) {
+    console.log(
+      c.dim("  port") +
+        "    " +
+        jobPorts.map((p) => `${p.local}→${p.remote} ${forwardUrl(p)}`).join("  "),
+    )
+  }
   console.log(c.dim("  status") + "  " + statusColor(spec.status))
   console.log(c.dim("  cmd") + "     " + spec.command.join(" "))
   if (spec.pid != null) console.log(c.dim("  pid") + "     " + spec.pid)
@@ -1108,6 +1169,7 @@ async function jobsDown(argv: string[]): Promise<void> {
   } else {
     killRemoteJob(place, remoteDir, id)
   }
+  closeTunnelsForJob(id)
   stepOk("down", "canceled  " + id)
 }
 

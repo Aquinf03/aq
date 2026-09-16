@@ -11,6 +11,7 @@ import { addCmd, placesCmd } from "./fleet/add.js"
 import { goCmd, launchCmd, shutdownCmd, syncCmd } from "./fleet/launch.js"
 import { jobsCmd } from "./fleet/jobs.js"
 import { queueCmd } from "./fleet/queue.js"
+import { portCmd } from "./fleet/port.js"
 import { runAgent } from "./agent/agent.js"
 import { ask } from "./agent/ask.js"
 import { chatCmd } from "./agent/chat.js"
@@ -173,6 +174,11 @@ async function main(): Promise<void> {
 
   if (cmd === "queue" || cmd === "queues") {
     await queueCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "port" || cmd === "ports" || cmd === "tunnel") {
+    await portCmd(argv.slice(1))
     return
   }
 

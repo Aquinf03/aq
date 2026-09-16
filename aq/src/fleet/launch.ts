@@ -12,6 +12,7 @@ import {
 } from "./places.js"
 import { describePick, resolveSshTarget } from "./pool.js"
 import { cancelJobsOnPlace } from "./jobs.js"
+import { forwardUrl, parsePortForward, type PortForward } from "./port.js"
 import {
   estimateSync,
   remoteShellPath,
@@ -30,15 +31,17 @@ function tip(msg: string, hint: string): Error {
 
 function launchHelp(): string {
   return [
-    "aq launch [dir] --on <place> [--setup|--no-setup] [-- <cmd>…]",
+    "aq launch [dir] --on <place> [--setup|--no-setup] [--port N] [-- <cmd>…]",
     "  pick a folder (prompts, like aq add), sync it, install aq, then SSH",
     "  pass [dir] to skip the folder prompt",
     "  --no-setup   skip aq install on the remote",
+    "  --port N     SSH -L (repeatable; N or local:remote) — expose remote UI",
     "  -- <cmd>     run cmd on the remote instead of opening a shell",
     "",
-    "aq go [place]              re-SSH to last launch (resync when local folder exists)",
-    "aq sync [dir] [--on place] push/update local folder → place (like git push)",
-    "aq shutdown [place] [--wipe]  stop jobs on place + clear session (--wipe removes remote dir)",
+    "aq go [place] [--port N]       re-SSH to last launch (resync when local folder exists)",
+    "aq sync [dir] [--on place]     push/update local folder → place (like git push)",
+    "aq shutdown [place] [--wipe]   stop jobs on place + clear session (--wipe removes remote dir)",
+    "aq port <N> [--on place] [--bg]  tunnel only (see aq port help)",
   ].join("\n")
 }
 
@@ -55,6 +58,7 @@ function parseLaunch(argv: string[]): {
   on: string
   setup: boolean
   command: string[] | null
+  ports: PortForward[]
 } {
   let dir: string | null = null
   let on = ""
@@ -62,6 +66,7 @@ function parseLaunch(argv: string[]): {
   let i = 0
   const command: string[] = []
   let sawDash = false
+  const ports: PortForward[] = []
 
   if (argv[0] && !argv[0].startsWith("-") && argv[0] !== "--") {
     const cand = path.resolve(argv[0])
@@ -97,6 +102,13 @@ function parseLaunch(argv: string[]): {
       i += 1
       continue
     }
+    if (a === "--port" || a === "-p") {
+      const v = argv[i + 1]
+      if (!v) throw tip("need N after --port", "aq launch --on temp --port 8000")
+      ports.push(parsePortForward(v))
+      i += 2
+      continue
+    }
     // kept for scripts; picker is the interactive path now
     if (a === "-y" || a === "--yes") {
       i += 1
@@ -111,7 +123,7 @@ function parseLaunch(argv: string[]): {
     const known = names.length ? `known: ${names.join(", ")}` : "none yet — aq add ssh"
     throw tip("need --on <place>", `${known}`)
   }
-  return { dir, on, setup, command: sawDash ? command : null }
+  return { dir, on, setup, command: sawDash ? command : null, ports }
 }
 
 type FolderOpt = { label: string; abs: string; files: number; bytes: number }
@@ -196,7 +208,7 @@ export async function launchCmd(argv: string[]): Promise<void> {
     console.log(launchHelp())
     return
   }
-  const { dir, on, setup, command } = parseLaunch(argv)
+  const { dir, on, setup, command, ports } = parseLaunch(argv)
   let resolved
   try {
     resolved = resolveSshTarget(on)
@@ -247,8 +259,13 @@ export async function launchCmd(argv: string[]): Promise<void> {
     return
   }
 
+  if (ports.length) {
+    for (const p of ports) {
+      console.log(c.dim("  port") + "  " + p.local + " → " + p.remote + "  " + c.dim(forwardUrl(p)))
+    }
+  }
   step("shell", "cd " + remoteDir)
-  const code = await sshInteractive(place, remoteDir)
+  const code = await sshInteractive(place, remoteDir, { forwards: ports })
   if (code !== 0) process.exitCode = code
 }
 
@@ -257,8 +274,17 @@ export async function goCmd(argv: string[]): Promise<void> {
     console.log(launchHelp())
     return
   }
+  const ports: PortForward[] = []
+  const rest: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--port" || argv[i] === "-p") {
+      ports.push(parsePortForward(argv[++i] || ""))
+      continue
+    }
+    rest.push(argv[i])
+  }
   const session = loadSession()
-  const name = argv[0] || session?.place
+  const name = rest[0] || session?.place
   if (!name) {
     throw tip("nothing to go to", "aq launch --on <place> first · aq places")
   }
@@ -301,8 +327,13 @@ export async function goCmd(argv: string[]): Promise<void> {
     })
   }
 
+  if (ports.length) {
+    for (const p of ports) {
+      console.log(c.dim("  port") + "  " + p.local + " → " + p.remote + "  " + c.dim(forwardUrl(p)))
+    }
+  }
   step("shell", "cd " + remoteDir)
-  const code = await sshInteractive(place, remoteDir)
+  const code = await sshInteractive(place, remoteDir, { forwards: ports })
   if (code !== 0) process.exitCode = code
 }
 

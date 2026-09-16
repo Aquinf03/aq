@@ -314,11 +314,16 @@ export async function setupAqOnRemote(place: SshPlace): Promise<void> {
   stepOk("setup", "ok")
 }
 
-export function sshInteractive(place: SshPlace, remoteDir: string): Promise<number> {
+export function sshInteractive(
+  place: SshPlace,
+  remoteDir: string,
+  opts: { forwards?: { local: number; remote: number }[] } = {},
+): Promise<number> {
   const target = sshTarget(place)
   const remoteCmd = `cd ${remoteDir} && export PATH="$HOME/.aquin/bin:$PATH" && exec bash -l`
+  const fwd = (opts.forwards || []).flatMap((f) => ["-L", `${f.local}:127.0.0.1:${f.remote}`])
   return new Promise((resolve, reject) => {
-    const child = spawn("ssh", [...sshBaseArgs(place), "-t", target, remoteCmd], {
+    const child = spawn("ssh", [...sshBaseArgs(place), ...fwd, "-t", target, remoteCmd], {
       stdio: "inherit",
     })
     child.on("error", reject)
