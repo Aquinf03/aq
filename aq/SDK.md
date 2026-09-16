@@ -97,6 +97,14 @@ from aquin import Queue
 j = Queue("gpus").submit(["aq", "train"], priority=10)
 ```
 
+Sync / shutdown:
+
+```bash
+aq sync --on temp          # push local folder (like git push to the box)
+aq shutdown                # stop jobs + clear session
+aq shutdown --wipe         # also delete remote run dir
+```
+
 Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.

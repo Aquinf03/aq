@@ -42,6 +42,8 @@ export function help(): string {
     "  aq launch [dir] --on <place> [--no-setup] [-- <cmd>]",
     "                          sync folder → place, setup aq, open SSH",
     "  aq go [place]             re-SSH to last launch (resync if local folder)",
+    "  aq sync [dir] [--on p]    push/update folder → place (no shell)",
+    "  aq shutdown [place] [--wipe]  stop jobs + clear session",
     "  aq jobs                   list remote jobs on last place",
     "  aq jobs run|train|eval|serve [--on p] [--nodes N] [--gpu N] [--json]",
     "  aq jobs status|logs|pull|down|recover <id>   (--rank K · recover --next|--same)",

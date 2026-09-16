@@ -1,6 +1,6 @@
 /** Named compute places (~/.aquin/places.json) + last fleet session. */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import path from "node:path"
 
@@ -110,6 +110,11 @@ export function listSshPlaceNames(): string[] {
 
 export function saveSession(session: FleetSession): void {
   writeFileSync(sessionPath(), JSON.stringify(session, null, 2) + "\n", "utf8")
+}
+
+export function clearSession(): void {
+  const p = sessionPath()
+  if (existsSync(p)) unlinkSync(p)
 }
 
 export function loadSession(): FleetSession | null {

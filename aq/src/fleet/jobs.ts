@@ -482,6 +482,44 @@ function listRemoteIds(place: SshPlace, remoteDir: string): string[] {
     .filter((s) => /^[a-f0-9]{8}$/i.test(s))
 }
 
+/** Cancel remote jobs for a place + remoteDir (used by `aq shutdown`). */
+export function cancelJobsOnPlace(
+  place: SshPlace,
+  placeName: string,
+  remoteDir: string,
+): string[] {
+  const fromRemote = listRemoteIds(place, remoteDir)
+  const fromIdx = Object.entries(loadIndex().jobs)
+    .filter(
+      ([, j]) =>
+        j.place === placeName ||
+        j.nodes?.some((n) => n.place === placeName) ||
+        j.remoteDir === remoteDir,
+    )
+    .map(([id]) => id)
+  const ids = [...new Set([...fromRemote, ...fromIdx])]
+  const killed: string[] = []
+  for (const id of ids) {
+    try {
+      const meta = loadIndex().jobs[id]
+      const nodes = meta?.nodes
+      if (nodes && nodes.length > 1) {
+        for (const n of nodes) {
+          const p = getPlace(n.place)
+          if (p.kind !== "ssh") continue
+          killRemoteJob(p, n.remoteDir || remoteDir, id)
+        }
+      } else {
+        killRemoteJob(place, meta?.remoteDir || remoteDir, id)
+      }
+      killed.push(id)
+    } catch {
+      /* best-effort */
+    }
+  }
+  return killed
+}
+
 function statusColor(st: string): string {
   if (st === "running") return c.green(st)
   if (st === "canceled") return c.yellow(st)

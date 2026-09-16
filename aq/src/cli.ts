@@ -8,7 +8,7 @@ import { plot } from "./handle/plot.js"
 import { checkpoint, evalCmd, serve, train } from "./handle/step.js"
 import { status } from "./handle/status.js"
 import { addCmd, placesCmd } from "./fleet/add.js"
-import { goCmd, launchCmd } from "./fleet/launch.js"
+import { goCmd, launchCmd, shutdownCmd, syncCmd } from "./fleet/launch.js"
 import { jobsCmd } from "./fleet/jobs.js"
 import { queueCmd } from "./fleet/queue.js"
 import { runAgent } from "./agent/agent.js"
@@ -153,6 +153,16 @@ async function main(): Promise<void> {
 
   if (cmd === "go") {
     await goCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "sync") {
+    await syncCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "shutdown" || cmd === "teardown") {
+    await shutdownCmd(argv.slice(1))
     return
   }
 

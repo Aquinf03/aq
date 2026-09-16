@@ -162,6 +162,20 @@ class Place:
         r = _aq("jobs", "list", "--on", self.name, check=False)
         return r.stdout
 
+    def sync(self, dir: str | Path | None = None) -> None:
+        """Push/update local folder to this place (`aq sync`)."""
+        args = ["sync", "--on", self.name]
+        if dir is not None:
+            args.insert(1, str(dir))
+        _aq(*args)
+
+    def shutdown(self, *, wipe: bool = False) -> None:
+        """Stop jobs on this place and clear fleet session."""
+        args = ["shutdown", self.name]
+        if wipe:
+            args.append("--wipe")
+        _aq(*args)
+
 
 @dataclass
 class Queue:

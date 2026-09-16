@@ -1,24 +1,28 @@
-/** aq launch / aq go — sync a folder to a place, optional setup, land in SSH. */
+/** aq launch / go / sync / shutdown — place workspace verbs. */
 
 import { existsSync, readdirSync, statSync } from "node:fs"
 import { stdin, stdout } from "node:process"
 import path from "node:path"
 import {
+  clearSession,
   listPlaceNames,
   loadSession,
   remoteTrainDir,
   saveSession,
 } from "./places.js"
 import { describePick, resolveSshTarget } from "./pool.js"
+import { cancelJobsOnPlace } from "./jobs.js"
 import {
   estimateSync,
+  remoteShellPath,
   rsyncToRemote,
   runRemote,
   setupAqOnRemote,
+  sshExec,
   sshInteractive,
   type SyncProfile,
 } from "./ssh.js"
-import { c, fmtBytes, prompt, step } from "./ui.js"
+import { c, fmtBytes, prompt, step, stepOk } from "./ui.js"
 
 function tip(msg: string, hint: string): Error {
   return new Error(msg + "\n  " + c.dim("tip") + "  " + hint)
@@ -32,7 +36,9 @@ function launchHelp(): string {
     "  --no-setup   skip aq install on the remote",
     "  -- <cmd>     run cmd on the remote instead of opening a shell",
     "",
-    "aq go [place]   re-SSH to last launch (resync when local folder exists)",
+    "aq go [place]              re-SSH to last launch (resync when local folder exists)",
+    "aq sync [dir] [--on place] push/update local folder → place (like git push)",
+    "aq shutdown [place] [--wipe]  stop jobs on place + clear session (--wipe removes remote dir)",
   ].join("\n")
 }
 
@@ -298,4 +304,155 @@ export async function goCmd(argv: string[]): Promise<void> {
   step("shell", "cd " + remoteDir)
   const code = await sshInteractive(place, remoteDir)
   if (code !== 0) process.exitCode = code
+}
+
+export async function syncCmd(argv: string[]): Promise<void> {
+  if (argv[0] === "help" || argv[0] === "-h" || argv[0] === "--help") {
+    console.log(launchHelp())
+    return
+  }
+  let dir: string | null = null
+  let on = ""
+  let profile: SyncProfile = "defaults"
+  let i = 0
+  if (argv[0] && !argv[0].startsWith("-")) {
+    const cand = path.resolve(argv[0])
+    if (existsSync(cand) && statSync(cand).isDirectory()) {
+      dir = argv[0]
+      i = 1
+    }
+  }
+  while (i < argv.length) {
+    const a = argv[i]
+    if (a === "--on") {
+      on = argv[i + 1] || ""
+      i += 2
+      continue
+    }
+    if (a === "--lean") {
+      profile = "lean"
+      i += 1
+      continue
+    }
+    if (a === "--minimal") {
+      profile = "minimal"
+      i += 1
+      continue
+    }
+    if (a === "--profile") {
+      const v = argv[i + 1] as SyncProfile
+      if (v !== "defaults" && v !== "lean" && v !== "minimal") {
+        throw tip("bad --profile", "defaults | lean | minimal")
+      }
+      profile = v
+      i += 2
+      continue
+    }
+    throw tip(`unknown: ${a}`, "aq sync [dir] --on <place>")
+  }
+
+  const session = loadSession()
+  const placeName = on || session?.place
+  if (!placeName) throw tip("need --on <place>", "aq places · or aq launch first")
+
+  let resolved
+  try {
+    if (!on && session?.place === placeName && session.member) {
+      resolved = resolveSshTarget(session.member)
+      resolved = { ...resolved, requested: placeName, viaPool: placeName }
+    } else {
+      resolved = resolveSshTarget(placeName)
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("unknown place")) {
+      throw tip(e.message.split("\n")[0], "aq places · aq add ssh")
+    }
+    throw e
+  }
+
+  const local = resolveDir(dir || session?.train || ".")
+  const remoteDir =
+    session &&
+    (session.place === placeName || session.member === resolved.name) &&
+    session.remoteDir &&
+    path.basename(session.remoteDir.replace(/\/$/, "")) === path.basename(local)
+      ? session.remoteDir
+      : remoteTrainDir(local)
+
+  console.log(c.bold("sync") + "  " + describePick(resolved) + c.dim(`  (${profile})`))
+  console.log(c.dim("  ") + local + " → " + remoteDir)
+  await rsyncToRemote(local, resolved.place, remoteDir, profile)
+  saveSession({
+    place: placeName,
+    member: resolved.viaPool ? resolved.name : session?.member,
+    train: local,
+    remoteDir,
+    at: new Date().toISOString(),
+  })
+  stepOk("sync", "pushed  " + c.cyan(path.basename(local)))
+  console.log(c.dim("next") + "  aq jobs train --on " + placeName + " · aq go")
+}
+
+export async function shutdownCmd(argv: string[]): Promise<void> {
+  if (argv[0] === "help" || argv[0] === "-h" || argv[0] === "--help") {
+    console.log(launchHelp())
+    return
+  }
+  let wipe = false
+  let name = ""
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === "--wipe") {
+      wipe = true
+      continue
+    }
+    if (!a.startsWith("-") && !name) {
+      name = a
+      continue
+    }
+    throw tip(`unknown: ${a}`, "aq shutdown [place] [--wipe]")
+  }
+
+  const session = loadSession()
+  const placeName = name || session?.place
+  if (!placeName) throw tip("nothing to shut down", "aq launch --on <place> · aq places")
+
+  let resolved
+  try {
+    if (session?.place === placeName && session.member) {
+      resolved = resolveSshTarget(session.member)
+      resolved = { ...resolved, requested: placeName, viaPool: placeName }
+    } else {
+      resolved = resolveSshTarget(placeName)
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("unknown place")) {
+      throw tip(e.message.split("\n")[0], "aq places")
+    }
+    throw e
+  }
+
+  const remoteDir = session?.remoteDir || remoteTrainDir(session?.train || process.cwd())
+  console.log(c.bold("shutdown") + "  " + describePick(resolved))
+
+  step("shutdown", "stop jobs")
+  const killed = cancelJobsOnPlace(resolved.place, resolved.name, remoteDir)
+  if (killed.length) stepOk("shutdown", "canceled  " + killed.map((id) => c.cyan(id)).join(" "))
+  else console.log(c.dim("  no running jobs on this remoteDir"))
+
+  if (wipe) {
+    step("shutdown", "wipe  " + remoteDir)
+    const r = sshExec(resolved.place, `rm -rf ${remoteShellPath(remoteDir)}`, { timeoutMs: 60_000 })
+    if (r.status !== 0) {
+      throw tip(
+        `wipe failed: ${(r.stderr || r.stdout || "").trim().split("\n")[0] || "ssh error"}`,
+        "check SSH · aq places",
+      )
+    }
+    stepOk("shutdown", "wiped  " + remoteDir)
+  }
+
+  if (!name || session?.place === placeName) clearSession()
+  stepOk("shutdown", "session cleared")
+  console.log(c.dim("next") + "  aq launch --on <place>  when you want the box again")
 }
