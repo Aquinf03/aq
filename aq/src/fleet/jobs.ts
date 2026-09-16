@@ -25,6 +25,7 @@ import {
   closeTunnelsForJob,
   type PortForward,
 } from "./port.js"
+import { fmtTags, matchTags, parseTag, type Tags } from "./tags.js"
 import {
   formatSshError,
   fmtPlaceTelemetry,
@@ -80,6 +81,7 @@ type IndexEntry = {
   worldSize?: number
   masterPort?: number
   ports?: PortForward[]
+  tags?: Tags
 }
 
 type JobsIndex = {
@@ -106,6 +108,7 @@ function jobsHelp(): string {
     "--nodes N  (N>1) needs a pool: sync + start the same cmd on N boxes with",
     "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT set (torchrun-friendly).",
     "--port N   SSH -L tunnel (N or local:remote); sets AQ_PORT/PORT on the job.",
+    "--tag k=v  label the job (filter with aq jobs list --tag k=v).",
     "recover    restart same id after host/process death (SSH spot/preempt pattern).",
     "Jobs live under <remoteDir>/jobs/<id>/ on each place.",
   ].join("\n")
@@ -131,12 +134,26 @@ function loadIndex(): JobsIndex {
   }
 }
 
+export { loadIndex }
+
 function saveIndex(idx: JobsIndex): void {
   mkdirSync(path.dirname(indexPath()), { recursive: true })
   writeFileSync(indexPath(), JSON.stringify(idx, null, 2) + "\n", "utf8")
 }
 
-function rememberJob(spec: RemoteJobSpec, pool?: string, ports?: PortForward[]): void {
+export function setJobTags(id: string, tags: Tags): void {
+  const idx = loadIndex()
+  if (!idx.jobs[id]) throw tip(`no local job record: ${id}`, "aq jobs list")
+  idx.jobs[id] = { ...idx.jobs[id], tags }
+  saveIndex(idx)
+}
+
+function rememberJob(
+  spec: RemoteJobSpec,
+  pool?: string,
+  ports?: PortForward[],
+  tags?: Tags,
+): void {
   const idx = loadIndex()
   const prev = idx.jobs[spec.id]
   idx.jobs[spec.id] = {
@@ -149,6 +166,7 @@ function rememberJob(spec: RemoteJobSpec, pool?: string, ports?: PortForward[]):
     worldSize: spec.worldSize ?? prev?.worldSize,
     masterPort: spec.masterPort ?? prev?.masterPort,
     ports: ports ?? prev?.ports,
+    tags: tags ?? prev?.tags,
   }
   saveIndex(idx)
 }
@@ -296,6 +314,7 @@ export async function startRemoteJob(opts: {
   syncTrain?: string | null
   extraEnv?: Record<string, string>
   ports?: PortForward[]
+  tags?: Tags
 }): Promise<RemoteJobSpec> {
   const {
     gang,
@@ -306,6 +325,7 @@ export async function startRemoteJob(opts: {
     syncTrain,
     extraEnv,
     ports,
+    tags,
   } = opts
   if (!gang.length) throw tip("no targets", "aq places")
   const id = opts.id || newId()
@@ -396,7 +416,7 @@ export async function startRemoteJob(opts: {
     masterAddr: worldSize > 1 ? masterAddr : undefined,
     masterPort: worldSize > 1 ? masterPort : undefined,
   }
-  rememberJob(spec, pool, ports)
+  rememberJob(spec, pool, ports, tags)
 
   // Open laptop→place tunnels in the background
   if (ports?.length) {
@@ -562,10 +582,11 @@ function statusColor(st: string): string {
   return c.dim(st)
 }
 
-function printJob(spec: RemoteJobSpec): void {
+function printJob(spec: RemoteJobSpec, tags?: Tags): void {
   const cmd = spec.command.join(" ")
   const gang =
     spec.nodes && spec.nodes.length > 1 ? c.dim(`  ×${spec.nodes.length}`) : ""
+  const tagTxt = tags && Object.keys(tags).length ? c.dim("  " + fmtTags(tags)) : ""
   console.log(
     "  " +
       c.cyan(spec.id) +
@@ -573,6 +594,7 @@ function printJob(spec: RemoteJobSpec): void {
       statusColor(spec.status) +
       (spec.code != null ? c.dim(` exit ${spec.code}`) : "") +
       gang +
+      tagTxt +
       "  " +
       c.dim(cmd.length > 60 ? cmd.slice(0, 57) + "…" : cmd),
   )
@@ -595,6 +617,7 @@ async function jobsRun(argv: string[]): Promise<string> {
   let nodes = 1
   let masterPort = 29500
   const ports: PortForward[] = []
+  const tagNeed: Tags = {}
   let i = 0
   const cmd: string[] = []
   let sawDash = false
@@ -644,7 +667,15 @@ async function jobsRun(argv: string[]): Promise<string> {
       i += 2
       continue
     }
-    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--port N] -- <cmd>")
+    if (a === "--tag") {
+      const v = argv[i + 1]
+      if (!v) throw tip("need key=val after --tag", "aq jobs run --tag exp=x -- …")
+      const { key, value } = parseTag(v)
+      tagNeed[key] = value
+      i += 2
+      continue
+    }
+    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--tag k=v] -- <cmd>")
   }
   if (!sawDash || !cmd.length) {
     throw tip("need a command after --", "aq jobs run --on temp -- sleep 30")
@@ -666,6 +697,7 @@ async function jobsRun(argv: string[]): Promise<string> {
     quiet: jsonOut,
     syncTrain: session?.train,
     ports: ports.length ? ports : undefined,
+    tags: Object.keys(tagNeed).length ? tagNeed : undefined,
   })
   const id = spec.id
   const worldSize = spec.worldSize || 1
@@ -683,6 +715,7 @@ async function jobsRun(argv: string[]): Promise<string> {
         masterPort: spec.masterPort,
         ports,
         urls: ports.map(forwardUrl),
+        tags: tagNeed,
       }),
     )
   } else {
@@ -705,6 +738,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
   let nodes: number | undefined
   let masterPort: number | undefined
   const ports: string[] = []
+  const tags: string[] = []
   const extra: string[] = []
   let i = 0
   while (i < argv.length) {
@@ -748,12 +782,17 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
       i += 2
       continue
     }
+    if (a === "--tag") {
+      tags.push(argv[i + 1] || "")
+      i += 2
+      continue
+    }
     if (!a.startsWith("-")) {
       extra.push(a)
       i += 1
       continue
     }
-    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--on <pool>] [--port N] [--gpu N]`)
+    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--tag k=v] [--port N]`)
   }
   const cmd = ["aq", verb, ...extra]
   const flags = [
@@ -763,6 +802,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
     ...(nodes != null ? ["--nodes", String(nodes)] : []),
     ...(masterPort != null ? ["--master-port", String(masterPort)] : []),
     ...ports.flatMap((p) => ["--port", p]),
+    ...tags.flatMap((t) => ["--tag", t]),
     "--",
     ...cmd,
   ]
@@ -771,16 +811,24 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
 
 async function jobsList(argv: string[]): Promise<void> {
   let on: string | undefined
+  const filter: Tags = {}
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--on") {
       on = argv[++i]
+      continue
+    }
+    if (argv[i] === "--tag") {
+      const v = argv[++i]
+      if (!v) throw tip("need key=val after --tag", "aq jobs list --tag exp=x")
+      const { key, value } = parseTag(v)
+      filter[key] = value
       continue
     }
     if (argv[i] === "-h" || argv[i] === "--help") {
       console.log(jobsHelp())
       return
     }
-    throw tip(`unknown flag: ${argv[i]}`, "aq jobs list [--on <place>]")
+    throw tip(`unknown flag: ${argv[i]}`, "aq jobs list [--on <place>] [--tag k=v]")
   }
   const session = loadSession()
   const requested = on || session?.place
@@ -824,21 +872,26 @@ async function jobsList(argv: string[]): Promise<void> {
       .map(([id]) => id)
     const all = [...new Set([...ids, ...fromIdx])].sort()
     if (!all.length) continue
-    any = true
-    if (target.kind === "pool") {
-      console.log(c.dim("  · " + m.name) + loadFor(m.name, m.place))
-    } else {
-      console.log(c.dim("  load") + loadFor(m.name, m.place))
-    }
+    let section = false
     for (const id of all) {
       if (seen.has(id)) continue
       seen.add(id)
+      const meta = loadIndex().jobs[id]
+      if (Object.keys(filter).length && !matchTags(meta?.tags, filter)) continue
+      if (!section) {
+        any = true
+        section = true
+        if (target.kind === "pool") {
+          console.log(c.dim("  · " + m.name) + loadFor(m.name, m.place))
+        } else {
+          console.log(c.dim("  load") + loadFor(m.name, m.place))
+        }
+      }
       try {
-        const meta = loadIndex().jobs[id]
         const rd = meta?.remoteDir || m.remoteDir
         const headPlace = meta?.place ? getPlace(meta.place) : m.place
         const ssh = headPlace.kind === "ssh" ? headPlace : m.place
-        printJob(refreshRemote(ssh, rd, id))
+        printJob(refreshRemote(ssh, rd, id), meta?.tags)
       } catch {
         console.log("  " + c.cyan(id) + "  " + c.red("missing"))
       }
@@ -942,7 +995,14 @@ async function jobsStatus(argv: string[]): Promise<void> {
       telByPlace[n.place] = p.kind === "ssh" && n.status !== "unreachable" ? probeRemoteTelemetry(p) : null
     }
     if (jsonOut) {
-      console.log(JSON.stringify({ ...spec, ranks, telemetry: telByPlace }))
+      console.log(
+        JSON.stringify({
+          ...spec,
+          ranks,
+          telemetry: telByPlace,
+          tags: loadIndex().jobs[id]?.tags,
+        }),
+      )
       return
     }
     console.log(c.bold("job") + "  " + c.cyan(spec.id) + c.dim(`  ×${nodes.length}`))
@@ -971,7 +1031,7 @@ async function jobsStatus(argv: string[]): Promise<void> {
   }
   const tel = probeRemoteTelemetry(place)
   if (jsonOut) {
-    console.log(JSON.stringify({ ...spec, telemetry: tel }))
+    console.log(JSON.stringify({ ...spec, telemetry: tel, tags: loadIndex().jobs[id]?.tags }))
     return
   }
   console.log(c.bold("job") + "  " + c.cyan(spec.id))
@@ -984,6 +1044,10 @@ async function jobsStatus(argv: string[]): Promise<void> {
         "    " +
         jobPorts.map((p) => `${p.local}→${p.remote} ${forwardUrl(p)}`).join("  "),
     )
+  }
+  const jobTags = loadIndex().jobs[id]?.tags
+  if (jobTags && Object.keys(jobTags).length) {
+    console.log(c.dim("  tags") + "    " + fmtTags(jobTags))
   }
   console.log(c.dim("  status") + "  " + statusColor(spec.status))
   console.log(c.dim("  cmd") + "     " + spec.command.join(" "))

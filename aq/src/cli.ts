@@ -12,6 +12,7 @@ import { goCmd, launchCmd, shutdownCmd, syncCmd } from "./fleet/launch.js"
 import { jobsCmd } from "./fleet/jobs.js"
 import { queueCmd } from "./fleet/queue.js"
 import { portCmd } from "./fleet/port.js"
+import { tagCmd } from "./fleet/tag.js"
 import { runAgent } from "./agent/agent.js"
 import { ask } from "./agent/ask.js"
 import { chatCmd } from "./agent/chat.js"
@@ -179,6 +180,11 @@ async function main(): Promise<void> {
 
   if (cmd === "port" || cmd === "ports" || cmd === "tunnel") {
     await portCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "tag" || cmd === "tags" || cmd === "label" || cmd === "labels") {
+    await tagCmd(argv.slice(1))
     return
   }
 

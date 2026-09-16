@@ -17,13 +17,15 @@ import {
   probeRemoteTelemetry,
   sshCheck,
 } from "./ssh.js"
+import { fmtTags, matchTags, parseTag, type Tags } from "./tags.js"
 import { c, prompt } from "./ui.js"
 
 function addHelp(): string {
   return [
     "aq add ssh [name]              register an SSH place (prompts)",
     "aq add pool [name] [members…]  named pool of SSH places (pick free box)",
-    "aq places                      list places (+ live load; --probe capacity)",
+    "aq places [--tag k=v]          list places (+ live load; --probe capacity)",
+    "aq tag place <name> key=val    labels on places (see aq tag help)",
     "",
     "Places file: " + placesPath(),
     "Later: aq add k8s | aws | …",
@@ -53,16 +55,29 @@ export async function placesCmd(argv: string[]): Promise<void> {
   }
   const checkLive = !argv.includes("--no-check")
   const doProbe = argv.includes("--probe")
+  const filter: Tags = {}
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--tag") {
+      const v = argv[++i]
+      if (!v) throw new Error("need key=val after --tag\n  tip  aq places --tag team=ml")
+      const { key, value } = parseTag(v)
+      filter[key] = value
+    }
+  }
   const file = loadPlaces()
-  const names = Object.keys(file.places).sort()
+  let names = Object.keys(file.places).sort()
+  if (Object.keys(filter).length) {
+    names = names.filter((n) => matchTags(file.places[n].tags, filter))
+  }
   if (!names.length) {
     console.log(c.yellow("no places"))
-    console.log(c.dim("  tip") + "  aq add ssh")
+    console.log(c.dim("  tip") + "  aq add ssh · aq tag place <name> team=ml")
     return
   }
   console.log(c.bold("places"))
   for (const name of names) {
     let p = file.places[name]
+    const tagTxt = p.tags && Object.keys(p.tags).length ? c.dim("  " + fmtTags(p.tags)) : ""
     if (p.kind === "ssh") {
       const who = p.user ? `${p.user}@${p.host}` : p.host
       const port = p.port && p.port !== 22 ? `:${p.port}` : ""
@@ -91,11 +106,21 @@ export async function placesCmd(argv: string[]): Promise<void> {
       }
       const capTxt = p.resources ? c.dim("  [" + fmtPlaceResources(p.resources) + "]") : ""
       console.log(
-        "  " + c.cyan(name) + "  " + c.dim("ssh") + "  " + who + port + status + liveTxt + capTxt,
+        "  " +
+          c.cyan(name) +
+          "  " +
+          c.dim("ssh") +
+          "  " +
+          who +
+          port +
+          status +
+          liveTxt +
+          capTxt +
+          tagTxt,
       )
     } else if (p.kind === "pool") {
       const mem = p.members.length ? p.members.join(",") : "(empty)"
-      console.log("  " + c.cyan(name) + "  " + c.dim("pool") + "  " + mem)
+      console.log("  " + c.cyan(name) + "  " + c.dim("pool") + "  " + mem + tagTxt)
       if (checkLive) {
         for (const m of p.members) {
           const mp = file.places[m]
@@ -111,7 +136,7 @@ export async function placesCmd(argv: string[]): Promise<void> {
         }
       }
     } else {
-      console.log("  " + c.cyan(name) + "  " + (p as { kind: string }).kind)
+      console.log("  " + c.cyan(name) + "  " + (p as { kind: string }).kind + tagTxt)
     }
   }
 }

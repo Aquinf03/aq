@@ -97,6 +97,14 @@ class Job:
             self.place = str(data["place"])
         return data
 
+    def tag(self, *tags: str, rm: bool = False) -> None:
+        """Set or remove labels on this job (`aq tag job`)."""
+        args = ["tag", "job", self.id]
+        if rm:
+            args.append("--rm")
+        args += list(tags)
+        _aq(*args)
+
 
 class Place:
     """Named SSH place from `aq add` / `~/.aquin/places.json`."""
@@ -181,6 +189,14 @@ class Place:
         args = ["port", str(spec), "--on", self.name]
         if bg:
             args.append("--bg")
+        _aq(*args)
+
+    def tag(self, *tags: str, rm: bool = False) -> None:
+        """Set or remove labels on this place (`aq tag place`)."""
+        args = ["tag", "place", self.name]
+        if rm:
+            args.append("--rm")
+        args += list(tags)
         _aq(*args)
 
 

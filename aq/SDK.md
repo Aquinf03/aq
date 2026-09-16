@@ -113,6 +113,16 @@ aq jobs run --on temp --port 8000 -- python -m http.server 8000
 aq launch --on temp --port 6006   # interactive + LocalForward
 ```
 
+Tags (local governance):
+
+```bash
+aq tag place temp team=ml env=prod
+aq tag job <id> exp=lr-sweep
+aq places --tag team=ml
+aq jobs list --tag exp=lr-sweep
+aq jobs run --tag exp=baseline --on temp -- sleep 10
+```
+
 Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.

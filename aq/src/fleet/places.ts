@@ -4,6 +4,8 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { homedir } from "node:os"
 import path from "node:path"
 
+import type { Tags } from "./tags.js"
+
 export type PlaceGpu = { kind: "nvidia" | "amd" | "mps" | "none"; count: number }
 
 /** Probed once on `aq add` (refresh with `aq places --probe`). */
@@ -22,12 +24,14 @@ export type SshPlace = {
   port?: number
   key?: string
   resources?: PlaceResources
+  tags?: Tags
 }
 
 /** Named group of SSH places — pick a free member at launch/job time. */
 export type PoolPlace = {
   kind: "pool"
   members: string[]
+  tags?: Tags
 }
 
 export type Place = SshPlace | PoolPlace
@@ -95,6 +99,11 @@ export function upsertPlace(name: string, place: Place): void {
   const file = loadPlaces()
   file.places[name] = place
   savePlaces(file)
+}
+
+export function setPlaceTags(name: string, tags: Tags): void {
+  const p = getPlace(name)
+  upsertPlace(name, { ...p, tags })
 }
 
 export function listPlaceNames(): string[] {
