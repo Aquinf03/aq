@@ -4,13 +4,12 @@ import { existsSync, readdirSync, statSync } from "node:fs"
 import { stdin, stdout } from "node:process"
 import path from "node:path"
 import {
-  getPlace,
   listPlaceNames,
   loadSession,
   remoteTrainDir,
   saveSession,
-  type SshPlace,
 } from "./places.js"
+import { describePick, resolveSshTarget } from "./pool.js"
 import {
   estimateSync,
   rsyncToRemote,
@@ -192,21 +191,25 @@ export async function launchCmd(argv: string[]): Promise<void> {
     return
   }
   const { dir, on, setup, command } = parseLaunch(argv)
-  let place: SshPlace
+  let resolved
   try {
-    const p = getPlace(on)
-    if (p.kind !== "ssh") {
-      throw tip(`place ${on} is ${p.kind}`, "only ssh works for now — aq add ssh")
-    }
-    place = p
+    resolved = resolveSshTarget(on)
   } catch (e) {
     if (e instanceof Error && e.message.startsWith("unknown place")) {
-      throw tip(e.message.split("\n")[0], "aq places · aq add ssh")
+      throw tip(e.message.split("\n")[0], "aq places · aq add ssh · aq add pool")
     }
     throw e
   }
+  const place = resolved.place
 
-  console.log(c.bold("launch") + "  " + c.cyan(on) + c.dim("  ssh  ") + (place.user ? `${place.user}@` : "") + place.host)
+  console.log(
+    c.bold("launch") +
+      "  " +
+      describePick(resolved) +
+      c.dim("  ssh  ") +
+      (place.user ? `${place.user}@` : "") +
+      place.host,
+  )
 
   const local = await pickFolder(dir)
   const profile = await pickProfile()
@@ -224,6 +227,7 @@ export async function launchCmd(argv: string[]): Promise<void> {
 
   saveSession({
     place: on,
+    member: resolved.viaPool ? resolved.name : undefined,
     train: local,
     remoteDir,
     at: new Date().toISOString(),
@@ -252,19 +256,23 @@ export async function goCmd(argv: string[]): Promise<void> {
   if (!name) {
     throw tip("nothing to go to", "aq launch --on <place> first · aq places")
   }
-  let place: SshPlace
+
+  // Prefer sticky member from last launch on this pool; else pick fresh
+  let resolved
   try {
-    const p = getPlace(name)
-    if (p.kind !== "ssh") {
-      throw tip(`place ${name} is ${p.kind}`, "only ssh works for now")
+    if (session?.place === name && session.member) {
+      resolved = resolveSshTarget(session.member)
+      resolved = { ...resolved, requested: name, viaPool: name }
+    } else {
+      resolved = resolveSshTarget(name)
     }
-    place = p
   } catch (e) {
     if (e instanceof Error && e.message.startsWith("unknown place")) {
       throw tip(e.message.split("\n")[0], "aq places · aq add ssh")
     }
     throw e
   }
+  const place = resolved.place
 
   let remoteDir = session?.remoteDir
   let local = session?.train
@@ -273,13 +281,14 @@ export async function goCmd(argv: string[]): Promise<void> {
     remoteDir = remoteTrainDir(local)
   }
 
-  console.log(c.bold("go") + "  " + c.cyan(name))
+  console.log(c.bold("go") + "  " + describePick(resolved))
   console.log(c.dim("  ") + (local || remoteDir) + " → " + remoteDir)
 
   if (local && existsSync(local) && statSync(local).isDirectory()) {
     await rsyncToRemote(local, place, remoteDir)
     saveSession({
       place: name,
+      member: resolved.viaPool ? resolved.name : session?.member,
       train: local,
       remoteDir,
       at: new Date().toISOString(),

@@ -24,7 +24,13 @@ export type SshPlace = {
   resources?: PlaceResources
 }
 
-export type Place = SshPlace
+/** Named group of SSH places — pick a free member at launch/job time. */
+export type PoolPlace = {
+  kind: "pool"
+  members: string[]
+}
+
+export type Place = SshPlace | PoolPlace
 
 export type PlacesFile = {
   places: Record<string, Place>
@@ -32,6 +38,8 @@ export type PlacesFile = {
 
 export type FleetSession = {
   place: string
+  /** Concrete SSH member when `place` is a pool. */
+  member?: string
   train: string
   remoteDir: string
   at: string
@@ -91,6 +99,13 @@ export function upsertPlace(name: string, place: Place): void {
 
 export function listPlaceNames(): string[] {
   return Object.keys(loadPlaces().places).sort()
+}
+
+export function listSshPlaceNames(): string[] {
+  const file = loadPlaces()
+  return Object.keys(file.places)
+    .filter((n) => file.places[n].kind === "ssh")
+    .sort()
 }
 
 export function saveSession(session: FleetSession): void {

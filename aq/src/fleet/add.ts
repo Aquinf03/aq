@@ -1,6 +1,14 @@
-/** aq add — register a compute place (SSH first). */
+/** aq add — register a compute place (SSH first) or an SSH pool. */
 
-import { getPlace, loadPlaces, placesPath, upsertPlace, type SshPlace } from "./places.js"
+import {
+  getPlace,
+  listSshPlaceNames,
+  loadPlaces,
+  placesPath,
+  upsertPlace,
+  type PoolPlace,
+  type SshPlace,
+} from "./places.js"
 import {
   fixKeyPermissions,
   fmtPlaceResources,
@@ -11,8 +19,9 @@ import { c, prompt } from "./ui.js"
 
 function addHelp(): string {
   return [
-    "aq add ssh [name]     register an SSH place (prompts for host/user)",
-    "aq places             list places (+ resources; --probe to refresh)",
+    "aq add ssh [name]              register an SSH place (prompts)",
+    "aq add pool [name] [members…]  named pool of SSH places (pick free box)",
+    "aq places                      list places (+ resources; --probe)",
     "",
     "Places file: " + placesPath(),
     "Later: aq add k8s | aws | …",
@@ -75,6 +84,9 @@ export async function placesCmd(argv: string[]): Promise<void> {
       }
       const resTxt = p.resources ? c.dim("  " + fmtPlaceResources(p.resources)) : ""
       console.log("  " + c.cyan(name) + "  " + c.dim("ssh") + "  " + who + port + status + resTxt)
+    } else if (p.kind === "pool") {
+      const mem = p.members.length ? p.members.join(",") : "(empty)"
+      console.log("  " + c.cyan(name) + "  " + c.dim("pool") + "  " + mem)
     } else {
       console.log("  " + c.cyan(name) + "  " + (p as { kind: string }).kind)
     }
@@ -91,7 +103,53 @@ export async function addCmd(argv: string[]): Promise<void> {
     await addSsh(argv.slice(1))
     return
   }
+  if (sub === "pool") {
+    await addPool(argv.slice(1))
+    return
+  }
   throw new Error(`unknown add kind: ${sub}\n${addHelp()}`)
+}
+
+async function addPool(argv: string[]): Promise<void> {
+  let name = argv[0]
+  let rest = argv.slice(1)
+  if (name === "--") {
+    name = ""
+    rest = argv.slice(1)
+  }
+  if (!name || name.startsWith("-")) {
+    name = await prompt("pool name", "gpus")
+    rest = argv
+  }
+  if (!name) throw new Error("need a pool name")
+
+  const known = listSshPlaceNames()
+  let members = rest.filter((a) => a !== "--")
+  if (!members.length) {
+    if (!known.length) {
+      throw new Error("no SSH places yet — aq add ssh first")
+    }
+    console.log(c.dim("ssh places") + "  " + known.join(", "))
+    const raw = await prompt("members (comma or space)", known.join(","))
+    members = raw
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }
+  if (!members.length) throw new Error("need at least one member")
+
+  for (const m of members) {
+    const p = getPlace(m)
+    if (p.kind !== "ssh") {
+      throw new Error(`pool member must be ssh: ${m} is ${p.kind}`)
+    }
+  }
+
+  const pool: PoolPlace = { kind: "pool", members }
+  upsertPlace(name, pool)
+  console.log(c.bold("pool") + "  " + c.cyan(name))
+  console.log(c.dim("  members") + "  " + members.join(", "))
+  console.log(c.dim("next") + "  aq jobs train --on " + name + " · aq launch --on " + name)
 }
 
 async function addSsh(argv: string[]): Promise<void> {
@@ -99,7 +157,6 @@ async function addSsh(argv: string[]): Promise<void> {
   if (!name) name = await prompt("place name", "lab")
   if (!name) throw new Error("need a place name")
 
-  // Blank prompts for a new place. Prefill only when re-adding the same name.
   const existing = (() => {
     try {
       return getPlace(name)

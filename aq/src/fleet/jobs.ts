@@ -11,6 +11,7 @@ import {
   type FleetSession,
   type SshPlace,
 } from "./places.js"
+import { describePick, resolveSshTarget } from "./pool.js"
 import {
   assertPlaceCanSatisfy,
   remoteShellPath,
@@ -99,26 +100,36 @@ function rememberJob(spec: RemoteJobSpec): void {
   saveIndex(idx)
 }
 
-function resolveContext(onFlag: string | undefined): {
+function resolveContext(
+  onFlag: string | undefined,
+  ask: { gpu?: number } = {},
+): {
   placeName: string
   place: SshPlace
   remoteDir: string
   session: FleetSession | null
+  requested: string
+  viaPool?: string
 } {
   const session = loadSession()
-  const placeName = onFlag || session?.place
-  if (!placeName) {
+  const requested = onFlag || session?.place
+  if (!requested) {
     throw tip("no place", "aq launch --on <place> first · or pass --on <place>")
   }
-  const p = getPlace(placeName)
-  if (p.kind !== "ssh") {
-    throw tip(`place ${placeName} is ${p.kind}`, "only ssh for now")
-  }
+  const resolved = resolveSshTarget(requested, ask)
   const remoteDir =
-    session?.place === placeName && session.remoteDir
+    (session?.member === resolved.name || session?.place === resolved.name) &&
+    session.remoteDir
       ? session.remoteDir
       : `~/aq-runs/${path.basename(session?.train || process.cwd())}`
-  return { placeName, place: p, remoteDir, session }
+  return {
+    placeName: resolved.name,
+    place: resolved.place,
+    remoteDir,
+    session,
+    requested: resolved.requested,
+    viaPool: resolved.viaPool,
+  }
 }
 
 function lookupJob(
@@ -295,12 +306,19 @@ async function jobsRun(argv: string[]): Promise<string> {
     throw tip("need a command after --", "aq jobs run --on temp -- sleep 30")
   }
 
-  const { placeName, place, remoteDir } = resolveContext(on)
+  const { placeName, place, remoteDir, viaPool, requested } = resolveContext(on, {
+    gpu: gpuAsk,
+  })
+  // assert already done inside resolve for gpu; keep for direct ssh edge cases
   assertPlaceCanSatisfy(place, { gpu: gpuAsk })
   const id = newId()
   const started = new Date().toISOString()
   const dir = remoteJobDir(remoteDir, id)
   const runLine = cmd.map(shQuote).join(" ")
+
+  if (!jsonOut && viaPool) {
+    console.log(c.dim("pool") + "  " + describePick({ requested, name: placeName, place, viaPool }))
+  }
 
   const runSh = [
     "#!/bin/bash",
@@ -433,26 +451,56 @@ async function jobsList(argv: string[]): Promise<void> {
     }
     throw tip(`unknown flag: ${argv[i]}`, "aq jobs list [--on <place>]")
   }
-  const { placeName, place, remoteDir } = resolveContext(on)
-  console.log(c.bold("jobs") + "  " + c.cyan(placeName) + c.dim("  " + remoteDir))
-  const ids = listRemoteIds(place, remoteDir)
-  const fromIdx = Object.entries(loadIndex().jobs)
-    .filter(([, j]) => j.place === placeName)
-    .map(([id]) => id)
-  const all = [...new Set([...ids, ...fromIdx])].sort()
-  if (!all.length) {
-    console.log(c.yellow("no jobs"))
-    console.log(c.dim("  tip") + "  aq jobs run --on " + placeName + " -- sleep 20")
-    return
-  }
-  for (const id of all) {
-    try {
-      const meta = loadIndex().jobs[id]
-      const rd = meta?.remoteDir || remoteDir
-      printJob(refreshRemote(place, rd, id))
-    } catch {
-      console.log("  " + c.cyan(id) + "  " + c.red("missing"))
+  const session = loadSession()
+  const requested = on || session?.place
+  if (!requested) throw tip("no place", "aq launch --on <place> · or --on")
+
+  const target = getPlace(requested)
+  const members: { name: string; place: SshPlace; remoteDir: string }[] = []
+  if (target.kind === "pool") {
+    for (const m of target.members) {
+      const p = getPlace(m)
+      if (p.kind !== "ssh") continue
+      const rd =
+        session?.member === m && session.remoteDir
+          ? session.remoteDir
+          : `~/aq-runs/${path.basename(session?.train || process.cwd())}`
+      members.push({ name: m, place: p, remoteDir: rd })
     }
+    console.log(c.bold("jobs") + "  " + c.cyan(requested) + c.dim("  pool"))
+  } else if (target.kind === "ssh") {
+    const ctx = resolveContext(requested)
+    members.push({ name: ctx.placeName, place: ctx.place, remoteDir: ctx.remoteDir })
+    console.log(c.bold("jobs") + "  " + c.cyan(ctx.placeName) + c.dim("  " + ctx.remoteDir))
+  } else {
+    throw tip(`place ${requested} is ${(target as { kind: string }).kind}`, "aq add ssh")
+  }
+
+  let any = false
+  for (const m of members) {
+    const ids = listRemoteIds(m.place, m.remoteDir)
+    const fromIdx = Object.entries(loadIndex().jobs)
+      .filter(([, j]) => j.place === m.name)
+      .map(([id]) => id)
+    const all = [...new Set([...ids, ...fromIdx])].sort()
+    if (!all.length) continue
+    any = true
+    if (target.kind === "pool") {
+      console.log(c.dim("  · " + m.name))
+    }
+    for (const id of all) {
+      try {
+        const meta = loadIndex().jobs[id]
+        const rd = meta?.remoteDir || m.remoteDir
+        printJob(refreshRemote(m.place, rd, id))
+      } catch {
+        console.log("  " + c.cyan(id) + "  " + c.red("missing"))
+      }
+    }
+  }
+  if (!any) {
+    console.log(c.yellow("no jobs"))
+    console.log(c.dim("  tip") + "  aq jobs run --on " + requested + " -- sleep 20")
   }
 }
 
