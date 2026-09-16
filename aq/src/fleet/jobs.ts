@@ -20,6 +20,8 @@ import {
 } from "./pool.js"
 import {
   formatSshError,
+  fmtPlaceTelemetry,
+  probeRemoteTelemetry,
   remoteShellPath,
   rsyncFromRemote,
   rsyncToRemote,
@@ -28,6 +30,7 @@ import {
   sshCheck,
   sshExec,
   sshTarget,
+  type PlaceTelemetry,
 } from "./ssh.js"
 import { c, step, stepOk } from "./ui.js"
 
@@ -502,6 +505,12 @@ function printJob(spec: RemoteJobSpec): void {
   )
 }
 
+function telemetryLine(_placeName: string, place: SshPlace): string {
+  const tel = probeRemoteTelemetry(place)
+  if (!tel) return c.dim("  load  ?")
+  return c.dim("  " + fmtPlaceTelemetry(tel))
+}
+
 function indexNodes(id: string): JobNode[] | undefined {
   return loadIndex().jobs[id]?.nodes
 }
@@ -709,6 +718,14 @@ async function jobsList(argv: string[]): Promise<void> {
 
   let any = false
   const seen = new Set<string>()
+  const telCache = new Map<string, string>()
+  const loadFor = (name: string, place: SshPlace): string => {
+    if (telCache.has(name)) return telCache.get(name)!
+    const line = telemetryLine(name, place)
+    telCache.set(name, line)
+    return line
+  }
+
   for (const m of members) {
     const ids = listRemoteIds(m.place, m.remoteDir)
     const fromIdx = Object.entries(loadIndex().jobs)
@@ -718,7 +735,9 @@ async function jobsList(argv: string[]): Promise<void> {
     if (!all.length) continue
     any = true
     if (target.kind === "pool") {
-      console.log(c.dim("  · " + m.name))
+      console.log(c.dim("  · " + m.name) + loadFor(m.name, m.place))
+    } else {
+      console.log(c.dim("  load") + loadFor(m.name, m.place))
     }
     for (const id of all) {
       if (seen.has(id)) continue
@@ -825,8 +844,14 @@ async function jobsStatus(argv: string[]): Promise<void> {
           ? "canceled"
           : "exited"
     spec.nodes = nodeViews
+    const telByPlace: Record<string, PlaceTelemetry | null> = {}
+    for (const n of nodeViews) {
+      if (telByPlace[n.place] !== undefined) continue
+      const p = getPlace(n.place)
+      telByPlace[n.place] = p.kind === "ssh" && n.status !== "unreachable" ? probeRemoteTelemetry(p) : null
+    }
     if (jsonOut) {
-      console.log(JSON.stringify({ ...spec, ranks }))
+      console.log(JSON.stringify({ ...spec, ranks, telemetry: telByPlace }))
       return
     }
     console.log(c.bold("job") + "  " + c.cyan(spec.id) + c.dim(`  ×${nodes.length}`))
@@ -836,13 +861,16 @@ async function jobsStatus(argv: string[]): Promise<void> {
       console.log(c.dim("  master") + "  " + spec.masterAddr + ":" + (spec.masterPort || 29500))
     }
     for (const n of spec.nodes) {
+      const tel = telByPlace[n.place]
+      const live = tel ? c.dim("  " + fmtPlaceTelemetry(tel)) : ""
       console.log(
         c.dim("  rank " + n.rank) +
           "  " +
           c.cyan(n.place) +
           "  " +
           statusColor(n.status || "?") +
-          (n.code != null ? c.dim(` exit ${n.code}`) : ""),
+          (n.code != null ? c.dim(` exit ${n.code}`) : "") +
+          live,
       )
     }
     if (spec.status === "unreachable") {
@@ -850,12 +878,14 @@ async function jobsStatus(argv: string[]): Promise<void> {
     }
     return
   }
+  const tel = probeRemoteTelemetry(place)
   if (jsonOut) {
-    console.log(JSON.stringify(spec))
+    console.log(JSON.stringify({ ...spec, telemetry: tel }))
     return
   }
   console.log(c.bold("job") + "  " + c.cyan(spec.id))
   console.log(c.dim("  place") + "   " + placeName)
+  if (tel) console.log(c.dim("  load") + "    " + fmtPlaceTelemetry(tel))
   console.log(c.dim("  status") + "  " + statusColor(spec.status))
   console.log(c.dim("  cmd") + "     " + spec.command.join(" "))
   if (spec.pid != null) console.log(c.dim("  pid") + "     " + spec.pid)

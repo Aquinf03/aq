@@ -534,6 +534,191 @@ export function fmtPlaceResources(res: PlaceResources): string {
   return bits.join(" ")
 }
 
+/** Live load on a place (not capacity). */
+export type PlaceTelemetry = {
+  load1: number
+  cpuPct: number | null
+  memUsed: number
+  memTotal: number
+  diskUsed: number
+  diskTotal: number
+  gpu: { index: number; util: number; memUsed: number; memTotal: number }[]
+  at: string
+}
+
+function fmtBytesShort(n: number): string {
+  if (!n || n < 0) return "?"
+  const gb = n / 1e9
+  if (gb >= 100) return gb.toFixed(0) + "G"
+  if (gb >= 10) return gb.toFixed(0) + "G"
+  if (gb >= 1) return gb.toFixed(1) + "G"
+  const mb = n / 1e6
+  return (mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)) + "M"
+}
+
+/** Compact live line: `load 0.4  cpu 12%  mem 3.1/16G  disk 40%  gpu0 80% 2/24G` */
+export function fmtPlaceTelemetry(t: PlaceTelemetry): string {
+  const bits: string[] = []
+  if (Number.isFinite(t.load1)) bits.push("load " + t.load1.toFixed(1))
+  if (t.cpuPct != null && Number.isFinite(t.cpuPct)) bits.push("cpu " + Math.round(t.cpuPct) + "%")
+  if (t.memTotal > 0) {
+    bits.push("mem " + fmtBytesShort(t.memUsed) + "/" + fmtBytesShort(t.memTotal))
+  }
+  if (t.diskTotal > 0) {
+    const pct = Math.round((100 * t.diskUsed) / t.diskTotal)
+    bits.push("disk " + pct + "%")
+  }
+  if (t.gpu.length) {
+    for (const g of t.gpu) {
+      const mem =
+        g.memTotal > 0 ? " " + fmtBytesShort(g.memUsed) + "/" + fmtBytesShort(g.memTotal) : ""
+      bits.push("gpu" + g.index + " " + Math.round(g.util) + "%" + mem)
+    }
+  }
+  return bits.join("  ") || "…"
+}
+
+/** Live CPU / mem / disk / GPU util via SSH (best-effort). */
+export function probeRemoteTelemetry(place: SshPlace): PlaceTelemetry | null {
+  const py = `
+import json, os, subprocess, time
+load1 = 0.0
+try:
+    load1 = os.getloadavg()[0]
+except Exception:
+    pass
+cpu_pct = None
+try:
+    with open("/proc/stat") as f:
+        parts = f.readline().split()
+    nums = [int(x) for x in parts[1:]]
+    idle1, total1 = nums[3], sum(nums)
+    time.sleep(0.15)
+    with open("/proc/stat") as f:
+        parts = f.readline().split()
+    nums = [int(x) for x in parts[1:]]
+    idle2, total2 = nums[3], sum(nums)
+    dt, di = total2 - total1, idle2 - idle1
+    if dt > 0:
+        cpu_pct = max(0.0, min(100.0, 100.0 * (1.0 - di / dt)))
+except Exception:
+    pass
+mem_total = mem_avail = 0
+try:
+    with open("/proc/meminfo") as f:
+        for line in f:
+            if line.startswith("MemTotal:"):
+                mem_total = int(line.split()[1]) * 1024
+            elif line.startswith("MemAvailable:"):
+                mem_avail = int(line.split()[1]) * 1024
+except Exception:
+    pass
+mem_used = max(0, mem_total - mem_avail) if mem_total else 0
+disk_total = disk_used = 0
+try:
+    import shutil
+    u = shutil.disk_usage(os.path.expanduser("~"))
+    disk_total, disk_used = u.total, u.used
+except Exception:
+    pass
+gpus = []
+try:
+    out = subprocess.check_output(
+        ["nvidia-smi",
+         "--query-gpu=index,utilization.gpu,memory.used,memory.total",
+         "--format=csv,noheader,nounits"],
+        text=True, stderr=subprocess.DEVNULL, timeout=8,
+    )
+    for line in out.splitlines():
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 4: continue
+        gpus.append({
+            "index": int(float(parts[0])),
+            "util": float(parts[1]),
+            "memUsed": float(parts[2]) * 1024 * 1024,
+            "memTotal": float(parts[3]) * 1024 * 1024,
+        })
+except Exception:
+    pass
+print(json.dumps({
+    "load1": load1, "cpuPct": cpu_pct,
+    "memUsed": mem_used, "memTotal": mem_total,
+    "diskUsed": disk_used, "diskTotal": disk_total,
+    "gpu": gpus,
+}))
+`.trim()
+
+  const bash = `
+LOAD=$(awk '{print $1}' /proc/loadavg 2>/dev/null || echo 0)
+MEM_T=$(awk '/MemTotal/{print $2*1024}' /proc/meminfo 2>/dev/null || echo 0)
+MEM_A=$(awk '/MemAvailable/{print $2*1024}' /proc/meminfo 2>/dev/null || echo 0)
+MEM_U=$(( MEM_T > MEM_A ? MEM_T - MEM_A : 0 ))
+DISK_T=$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2{print $2*1024}' || echo 0)
+DISK_U=$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2{print ($2-$4)*1024}' || echo 0)
+GPU_JSON="[]"
+if command -v nvidia-smi >/dev/null 2>&1; then
+  GPU_JSON=$(nvidia-smi --query-gpu=index,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null | awk -F',' '
+    BEGIN{printf "["}
+    {
+      gsub(/ /,"",$1); gsub(/ /,"",$2); gsub(/ /,"",$3); gsub(/ /,"",$4);
+      if(NR>1) printf ",";
+      printf "{\\"index\\":%s,\\"util\\":%s,\\"memUsed\\":%s,\\"memTotal\\":%s}", $1+0, $2+0, ($3+0)*1048576, ($4+0)*1048576
+    }
+    END{printf "]"}
+  ' || echo "[]")
+fi
+printf '{"load1":%s,"cpuPct":null,"memUsed":%s,"memTotal":%s,"diskUsed":%s,"diskTotal":%s,"gpu":%s}\\n' \\
+  "$LOAD" "$MEM_U" "$MEM_T" "$DISK_U" "$DISK_T" "$GPU_JSON"
+`.trim()
+
+  const script = [
+    `if command -v python3 >/dev/null 2>&1; then`,
+    `  echo ${shQuote(Buffer.from(py, "utf8").toString("base64"))} | base64 -d | python3`,
+    `else`,
+    bash,
+    `fi`,
+  ].join("\n")
+
+  const r = sshExec(place, script, { timeoutMs: 20_000 })
+  if (r.status !== 0) return null
+  const line = (r.stdout || "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("{"))
+    .pop()
+  if (!line) return null
+  try {
+    const raw = JSON.parse(line) as {
+      load1?: number
+      cpuPct?: number | null
+      memUsed?: number
+      memTotal?: number
+      diskUsed?: number
+      diskTotal?: number
+      gpu?: { index?: number; util?: number; memUsed?: number; memTotal?: number }[]
+    }
+    return {
+      load1: Number(raw.load1) || 0,
+      cpuPct: raw.cpuPct == null || !Number.isFinite(Number(raw.cpuPct)) ? null : Number(raw.cpuPct),
+      memUsed: Number(raw.memUsed) || 0,
+      memTotal: Number(raw.memTotal) || 0,
+      diskUsed: Number(raw.diskUsed) || 0,
+      diskTotal: Number(raw.diskTotal) || 0,
+      gpu: Array.isArray(raw.gpu)
+        ? raw.gpu.map((g) => ({
+            index: Number(g.index) || 0,
+            util: Number(g.util) || 0,
+            memUsed: Number(g.memUsed) || 0,
+            memTotal: Number(g.memTotal) || 0,
+          }))
+        : [],
+      at: new Date().toISOString(),
+    }
+  } catch {
+    return null
+  }
+}
+
 /** Refuse when place resources can't cover an ask. */
 export function assertPlaceCanSatisfy(
   place: SshPlace,

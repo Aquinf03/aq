@@ -38,7 +38,7 @@ export function help(): string {
     "  aq doctor [dir]           health check (cli, provider, run, skills, mcp)",
     "  aq add ssh [name]         register an SSH place (prompts)",
     "  aq add pool [name] [m…]   pool of SSH places (picks a free box)",
-    "  aq places                 list places (+ resources; --probe refreshes)",
+    "  aq places                 list places (+ live load; --probe capacity)",
     "  aq launch [dir] --on <place> [--no-setup] [-- <cmd>]",
     "                          sync folder → place, setup aq, open SSH",
     "  aq go [place]             re-SSH to last launch (resync if local folder)",

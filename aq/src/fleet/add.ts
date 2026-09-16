@@ -12,7 +12,9 @@ import {
 import {
   fixKeyPermissions,
   fmtPlaceResources,
+  fmtPlaceTelemetry,
   probeRemoteResources,
+  probeRemoteTelemetry,
   sshCheck,
 } from "./ssh.js"
 import { c, prompt } from "./ui.js"
@@ -21,7 +23,7 @@ function addHelp(): string {
   return [
     "aq add ssh [name]              register an SSH place (prompts)",
     "aq add pool [name] [members…]  named pool of SSH places (pick free box)",
-    "aq places                      list places (+ resources; --probe)",
+    "aq places                      list places (+ live load; --probe capacity)",
     "",
     "Places file: " + placesPath(),
     "Later: aq add k8s | aws | …",
@@ -65,15 +67,20 @@ export async function placesCmd(argv: string[]): Promise<void> {
       const who = p.user ? `${p.user}@${p.host}` : p.host
       const port = p.port && p.port !== 22 ? `:${p.port}` : ""
       let status = ""
+      let liveTxt = ""
       if (checkLive) {
         const r = sshCheck(p)
         status = r.ok ? c.green(" ok") : c.red(" fail")
-        if (r.ok && (doProbe || !p.resources)) {
-          const res = probeRemoteResources(p)
-          if (res) {
-            p = { ...p, resources: res }
-            upsertPlace(name, p)
+        if (r.ok) {
+          if (doProbe || !p.resources) {
+            const res = probeRemoteResources(p)
+            if (res) {
+              p = { ...p, resources: res }
+              upsertPlace(name, p)
+            }
           }
+          const tel = probeRemoteTelemetry(p)
+          if (tel) liveTxt = c.dim("  " + fmtPlaceTelemetry(tel))
         }
       } else if (doProbe) {
         const res = probeRemoteResources(p)
@@ -82,11 +89,27 @@ export async function placesCmd(argv: string[]): Promise<void> {
           upsertPlace(name, p)
         }
       }
-      const resTxt = p.resources ? c.dim("  " + fmtPlaceResources(p.resources)) : ""
-      console.log("  " + c.cyan(name) + "  " + c.dim("ssh") + "  " + who + port + status + resTxt)
+      const capTxt = p.resources ? c.dim("  [" + fmtPlaceResources(p.resources) + "]") : ""
+      console.log(
+        "  " + c.cyan(name) + "  " + c.dim("ssh") + "  " + who + port + status + liveTxt + capTxt,
+      )
     } else if (p.kind === "pool") {
       const mem = p.members.length ? p.members.join(",") : "(empty)"
       console.log("  " + c.cyan(name) + "  " + c.dim("pool") + "  " + mem)
+      if (checkLive) {
+        for (const m of p.members) {
+          const mp = file.places[m]
+          if (!mp || mp.kind !== "ssh") continue
+          const r = sshCheck(mp)
+          if (!r.ok) {
+            console.log("    " + c.dim("·") + " " + c.cyan(m) + c.red(" fail"))
+            continue
+          }
+          const tel = probeRemoteTelemetry(mp)
+          const live = tel ? c.dim("  " + fmtPlaceTelemetry(tel)) : ""
+          console.log("    " + c.dim("·") + " " + c.cyan(m) + c.green(" ok") + live)
+        }
+      }
     } else {
       console.log("  " + c.cyan(name) + "  " + (p as { kind: string }).kind)
     }
