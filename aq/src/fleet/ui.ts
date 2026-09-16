@@ -1,6 +1,7 @@
 /** Minimal ANSI for fleet output (NO_COLOR / non-TTY → plain). */
 
 import { stdin, stdout } from "node:process"
+import { createInterface } from "node:readline"
 
 const on =
   !process.env.NO_COLOR && process.env.TERM !== "dumb" && !!stdout.isTTY
@@ -54,7 +55,6 @@ export function fmtBytes(n: number): string {
 /** y/N confirm. Default no unless defaultYes. Non-TTY → true (scripts). */
 export async function confirm(question: string, defaultYes = false): Promise<boolean> {
   if (!stdout.isTTY || !stdin.isTTY) return true
-  const { createInterface } = await import("node:readline")
   const rl = createInterface({ input: stdin, output: stdout })
   const hint = defaultYes ? "Y/n" : "y/N"
   return new Promise((resolve) => {
@@ -66,6 +66,20 @@ export async function confirm(question: string, defaultYes = false): Promise<boo
         return
       }
       resolve(v === "y" || v === "yes")
+    })
+  })
+}
+
+/** Same style as `aq add` prompts. Non-TTY → fallback. */
+export async function prompt(question: string, fallback = ""): Promise<string> {
+  if (!stdout.isTTY || !stdin.isTTY) return fallback
+  const rl = createInterface({ input: stdin, output: stdout })
+  const hint = fallback ? c.dim(` [${fallback}]`) : ""
+  return new Promise((resolve) => {
+    rl.question(c.magenta(question) + hint + c.cyan(": "), (ans) => {
+      rl.close()
+      const v = ans.trim()
+      resolve(v || fallback)
     })
   })
 }

@@ -8,7 +8,7 @@ import { aqRoot } from "../core/root.js"
 import type { SshPlace } from "./places.js"
 import { c, fmtMs, step, stepOk } from "./ui.js"
 
-/** Dir/file names skipped when syncing a train (rsync + size estimate). */
+/** Dir/file names skipped when estimating size (defaults profile). */
 export const SYNC_SKIP = new Set([
   ".git",
   "node_modules",
@@ -17,6 +17,37 @@ export const SYNC_SKIP = new Set([
   ".venv",
   ".next",
 ])
+
+export type SyncProfile = "defaults" | "lean" | "minimal"
+
+export function excludeArgs(profile: SyncProfile): string[] {
+  const pairs = (names: string[]) => names.flatMap((n) => ["--exclude", n])
+  if (profile === "minimal") {
+    return pairs([".git", "node_modules"])
+  }
+  const base = [
+    ".git",
+    "node_modules",
+    "jobs",
+    "**/__pycache__",
+    ".venv",
+    "**/.next",
+    "artifacts/checkpoints",
+  ]
+  if (profile === "lean") {
+    return pairs([
+      ...base,
+      "data",
+      "datasets",
+      "wandb",
+      "runs",
+      "**/*.pt",
+      "**/*.ckpt",
+      "**/*.safetensors",
+    ])
+  }
+  return pairs(base)
+}
 
 export function estimateSync(root: string): { files: number; bytes: number } {
   let files = 0
@@ -168,6 +199,7 @@ export async function rsyncToRemote(
   train: string,
   place: SshPlace,
   remoteDir: string,
+  profile: SyncProfile = "defaults",
 ): Promise<void> {
   const target = sshTarget(place)
   const dest = `${target}:${expandRemoteDir(remoteDir)}/`
@@ -183,28 +215,11 @@ export async function rsyncToRemote(
   )
   if (mkdir.status !== 0) throw new Error(`ssh mkdir failed (${mkdir.status ?? "?"})`)
 
-  step("sync", `rsync → ${dest}`)
-  const excludes = [
-    "--exclude",
-    ".git",
-    "--exclude",
-    "node_modules",
-    "--exclude",
-    "jobs",
-    "--exclude",
-    "**/__pycache__",
-    "--exclude",
-    ".venv",
-    "--exclude",
-    "**/.next",
-    "--exclude",
-    "artifacts/checkpoints",
-  ]
-  // Keep in sync with SYNC_SKIP above.
+  step("sync", `rsync → ${dest}` + (profile !== "defaults" ? c.dim(`  (${profile})`) : ""))
   const stats = await runRsync([
     "-az",
     "--delete",
-    ...excludes,
+    ...excludeArgs(profile),
     "-e",
     shellSsh,
     train + "/",

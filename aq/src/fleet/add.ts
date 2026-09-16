@@ -1,22 +1,8 @@
 /** aq add — register a compute place (SSH first). */
 
-import { stdin, stdout } from "node:process"
-import { createInterface } from "node:readline"
 import { getPlace, loadPlaces, placesPath, upsertPlace } from "./places.js"
 import { fixKeyPermissions, sshCheck } from "./ssh.js"
-import { c } from "./ui.js"
-
-function prompt(question: string, fallback = ""): Promise<string> {
-  const rl = createInterface({ input: stdin, output: stdout })
-  const hint = fallback ? c.dim(` [${fallback}]`) : ""
-  return new Promise((resolve) => {
-    rl.question(c.magenta(question) + hint + c.cyan(": "), (ans) => {
-      rl.close()
-      const v = ans.trim()
-      resolve(v || fallback)
-    })
-  })
-}
+import { c, prompt } from "./ui.js"
 
 function addHelp(): string {
   return [

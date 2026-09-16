@@ -1,6 +1,7 @@
 /** aq launch / aq go — sync a folder to a place, optional setup, land in SSH. */
 
 import { existsSync, readdirSync, statSync } from "node:fs"
+import { stdin, stdout } from "node:process"
 import path from "node:path"
 import {
   getPlace,
@@ -10,12 +11,15 @@ import {
   saveSession,
   type SshPlace,
 } from "./places.js"
-import { estimateSync, rsyncToRemote, runRemote, setupAqOnRemote, sshInteractive } from "./ssh.js"
-import { c, confirm, fmtBytes, step } from "./ui.js"
-
-/** Prompt when payload is bigger than a typical train folder. */
-const BIG_FILES = 1500
-const BIG_BYTES = 30 * 1024 * 1024
+import {
+  estimateSync,
+  rsyncToRemote,
+  runRemote,
+  setupAqOnRemote,
+  sshInteractive,
+  type SyncProfile,
+} from "./ssh.js"
+import { c, fmtBytes, prompt, step } from "./ui.js"
 
 function tip(msg: string, hint: string): Error {
   return new Error(msg + "\n  " + c.dim("tip") + "  " + hint)
@@ -23,10 +27,9 @@ function tip(msg: string, hint: string): Error {
 
 function launchHelp(): string {
   return [
-    "aq launch [dir] --on <place> [-y] [--setup|--no-setup] [-- <cmd>…]",
-    "  sync that folder (default: .) to the place, install aq, then SSH",
-    "  pass a train dir — don't launch from a huge monorepo root",
-    "  -y / --yes   skip the big-folder confirm",
+    "aq launch [dir] --on <place> [--setup|--no-setup] [-- <cmd>…]",
+    "  pick a folder (prompts, like aq add), sync it, install aq, then SSH",
+    "  pass [dir] to skip the folder prompt",
     "  --no-setup   skip aq install on the remote",
     "  -- <cmd>     run cmd on the remote instead of opening a shell",
     "",
@@ -37,22 +40,20 @@ function launchHelp(): string {
 function resolveDir(dir: string): string {
   const root = path.resolve(dir)
   if (!existsSync(root) || !statSync(root).isDirectory()) {
-    throw tip(`not a directory: ${root}`, "cd into a folder, or pass one: aq launch ./my-run --on <place>")
+    throw tip(`not a directory: ${root}`, "cd into a folder, or pick one at the prompt")
   }
   return root
 }
 
 function parseLaunch(argv: string[]): {
-  dir: string
+  dir: string | null
   on: string
   setup: boolean
-  yes: boolean
   command: string[] | null
 } {
-  let dir = "."
+  let dir: string | null = null
   let on = ""
   let setup = true
-  let yes = false
   let i = 0
   const command: string[] = []
   let sawDash = false
@@ -91,8 +92,8 @@ function parseLaunch(argv: string[]): {
       i += 1
       continue
     }
+    // kept for scripts; picker is the interactive path now
     if (a === "-y" || a === "--yes") {
-      yes = true
       i += 1
       continue
     }
@@ -105,41 +106,84 @@ function parseLaunch(argv: string[]): {
     const known = names.length ? `known: ${names.join(", ")}` : "none yet — aq add ssh"
     throw tip("need --on <place>", `${known}`)
   }
-  return { dir, on, setup, yes, command: sawDash ? command : null }
+  return { dir, on, setup, command: sawDash ? command : null }
 }
 
-function childDirs(root: string): string[] {
+type FolderOpt = { label: string; abs: string; files: number; bytes: number }
+
+function listFolderOptions(cwd: string): FolderOpt[] {
+  const opts: FolderOpt[] = []
+  const here = estimateSync(cwd)
+  opts.push({ label: ".", abs: cwd, files: here.files, bytes: here.bytes })
+
+  let kids: string[] = []
   try {
-    return readdirSync(root, { withFileTypes: true })
+    kids = readdirSync(cwd, { withFileTypes: true })
       .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules")
       .map((e) => e.name)
-      .slice(0, 8)
+      .sort()
+      .slice(0, 9)
   } catch {
-    return []
+    kids = []
   }
+  for (const name of kids) {
+    const abs = path.join(cwd, name)
+    const est = estimateSync(abs)
+    opts.push({ label: "./" + name, abs, files: est.files, bytes: est.bytes })
+  }
+  return opts
 }
 
-/** Stop monorepo slam-dunks: show size and ask before syncing a huge tree. */
-async function confirmBigSync(local: string, yes: boolean): Promise<boolean> {
-  const { files, bytes } = estimateSync(local)
-  const big = files >= BIG_FILES || bytes >= BIG_BYTES
-  console.log(
-    c.dim("  ") + fmtBytes(bytes) + " · " + files + " files" + (big ? c.yellow("  (looks big)") : ""),
+function fmtOpt(o: FolderOpt): string {
+  return (
+    c.cyan(o.label.padEnd(16)) +
+    c.dim(fmtBytes(o.bytes) + " · " + o.files + " files")
   )
-  if (!big || yes) return true
+}
 
-  const kids = childDirs(local)
-  if (kids.length >= 2) {
-    console.log(c.dim("  tip") + "  sync a train folder, not the whole repo:")
-    console.log(c.dim("       ") + "aq launch ./" + kids[0] + " --on <place>")
-    if (kids.length > 1) {
-      console.log(c.dim("       ") + "or: " + kids.slice(0, 5).map((k) => "./" + k).join("  "))
-    }
-  } else {
-    console.log(c.dim("  tip") + "  aq launch ./my-run --on <place>")
+/** Pick sync folder — same prompt vibe as `aq add`. */
+async function pickFolder(explicit: string | null): Promise<string> {
+  if (explicit) return resolveDir(explicit)
+
+  const cwd = resolveDir(".")
+  if (!stdout.isTTY || !stdin.isTTY) return cwd
+
+  const opts = listFolderOptions(cwd)
+  console.log(c.bold("folder"))
+  for (let i = 0; i < opts.length; i++) {
+    console.log("  " + c.dim(String(i + 1).padStart(2)) + "  " + fmtOpt(opts[i]))
+  }
+  console.log(c.dim("  or type a path"))
+
+  // Prefer a small child over slamming `.` when `.` is huge
+  let def = "1"
+  if (opts.length > 1 && (opts[0].files >= 1500 || opts[0].bytes >= 30 * 1024 * 1024)) {
+    const best = opts
+      .slice(1)
+      .reduce((a, b) => (a.bytes <= b.bytes ? a : b), opts[1])
+    def = String(opts.indexOf(best) + 1)
   }
 
-  return confirm("sync this folder anyway?", false)
+  const ans = await prompt("folder", def)
+  const n = Number(ans)
+  if (Number.isFinite(n) && n >= 1 && n <= opts.length) {
+    return opts[n - 1].abs
+  }
+  return resolveDir(ans)
+}
+
+async function pickProfile(): Promise<SyncProfile> {
+  if (!stdout.isTTY || !stdin.isTTY) return "defaults"
+
+  console.log(c.bold("skip"))
+  console.log("  " + c.dim("1") + "  " + c.cyan("defaults") + c.dim("  .git node_modules .venv .next checkpoints"))
+  console.log("  " + c.dim("2") + "  " + c.cyan("lean") + c.dim("      + data wandb runs *.pt *.ckpt"))
+  console.log("  " + c.dim("3") + "  " + c.cyan("minimal") + c.dim("  only .git node_modules"))
+
+  const ans = await prompt("skip", "1")
+  if (ans === "2" || ans === "lean") return "lean"
+  if (ans === "3" || ans === "minimal") return "minimal"
+  return "defaults"
 }
 
 export async function launchCmd(argv: string[]): Promise<void> {
@@ -147,8 +191,7 @@ export async function launchCmd(argv: string[]): Promise<void> {
     console.log(launchHelp())
     return
   }
-  const { dir, on, setup, yes, command } = parseLaunch(argv)
-  const local = resolveDir(dir)
+  const { dir, on, setup, command } = parseLaunch(argv)
   let place: SshPlace
   try {
     const p = getPlace(on)
@@ -162,17 +205,16 @@ export async function launchCmd(argv: string[]): Promise<void> {
     }
     throw e
   }
-  const remoteDir = remoteTrainDir(local)
 
   console.log(c.bold("launch") + "  " + c.cyan(on) + c.dim("  ssh  ") + (place.user ? `${place.user}@` : "") + place.host)
+
+  const local = await pickFolder(dir)
+  const profile = await pickProfile()
+  const remoteDir = remoteTrainDir(local)
+
   console.log(c.dim("  ") + local + " → " + remoteDir)
 
-  if (!(await confirmBigSync(local, yes))) {
-    console.log(c.yellow("aborted"))
-    return
-  }
-
-  await rsyncToRemote(local, place, remoteDir)
+  await rsyncToRemote(local, place, remoteDir, profile)
 
   if (setup) {
     await setupAqOnRemote(place)
