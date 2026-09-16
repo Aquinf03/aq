@@ -32,6 +32,7 @@
 <a class="nav-link" href="train/">Train folder</a>
 <a class="nav-link" href="recipe/">Recipe</a>
 <a class="nav-link" href="cli/">CLI reference</a>
+<a class="nav-link" href="fleet/">SSH fleet</a>
 <p class="nav-section">Methods</p>
 <a class="nav-link nested" href="methods/tabular/">Tabular</a>
 <a class="nav-link nested" href="methods/transformers/">Transformers</a>
@@ -129,11 +130,26 @@
   <h2>What “working” means</h2>
   <p class="lead">A stranger should point <code class="chip">data.path</code> at their file, set the gate, run train then eval, fail, inspect, edit one key, and run again. No preset eval zoo — you write the probes.</p>
 
+  <h2>SSH fleet</h2>
+  <p class="lead">Same folder on remote boxes: register a place, launch or <code class="chip">aq jobs … --on</code>, then scale with a pool. Walkthrough: <a href="fleet/">SSH fleet</a>.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq add ssh temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq launch --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs train --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq add pool gpus temp other</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs train --on gpus</span></span></code></pre>
+  </div>
+
   <h2>Where to go next</h2>
   <ul class="next-list">
     <li><a href="install/">Install</a><span class="dot"> · </span>curl release or checkout link, doctor, login</li>
 <li><a href="train/">Train folder</a><span class="dot"> · </span>init scaffold, artifacts</li>
 <li><a href="recipe/">Recipe</a><span class="dot"> · </span>tabular, transformers, LLM, guard</li>
+<li><a href="fleet/">SSH fleet</a><span class="dot"> · </span>places, jobs, pools, sweeps</li>
 <li><a href="cli/">CLI</a><span class="dot"> · </span>every verb</li>
   </ul>
 </article></main>
