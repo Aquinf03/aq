@@ -8,6 +8,7 @@ Same verbs as the shell, from a short Python snippet:
     j = p.train()          # or p.run(["aq", "train"]) / p.eval() / p.serve()
     # j = p.train(nodes=2)  # pool: multi-node gang + RANK/WORLD_SIZE/MASTER_*
     # j.recover(next=True)  # same id on another pool member after host death
+    # out = p.sweep(["aq", "train", "--shard", "{i}/{n}"], shard=8)
     print(j.id, j.status())
     print(j.logs())
     j.pull()
@@ -105,6 +106,21 @@ class Job:
         args += list(tags)
         _aq(*args)
 
+    def manage(
+        self,
+        *,
+        retry: int = 3,
+        prefer: str = "next",
+        off: bool = False,
+    ) -> None:
+        """Enable/disable managed auto-recover (`aq jobs manage`)."""
+        args = ["jobs", "manage", self.id]
+        if off:
+            args.append("--off")
+        else:
+            args += ["--retry", str(retry), "--prefer", prefer]
+        _aq(*args)
+
 
 class Place:
     """Named SSH place from `aq add` / `~/.aquin/places.json`."""
@@ -164,6 +180,53 @@ class Place:
         if not jid:
             raise RuntimeError("aq jobs run --json returned no id:\n" + (r.stdout or r.stderr))
         return Job(id=str(jid), place=self.name)
+
+    def sweep(
+        self,
+        cmd: Sequence[str],
+        *,
+        shard: int | None = None,
+        grid: dict[str, Sequence[str]] | None = None,
+        gpu: int | None = None,
+        manage: bool = False,
+        retry: int | None = None,
+        prefer: str | None = None,
+        name: str | None = None,
+        max: int | None = None,
+    ) -> dict[str, Any]:
+        """Fan out many independent jobs (`aq jobs sweep`).
+
+        `cmd` may include `{i}` `{n}` `{shard}` `{shards}` and `{gridKey}` placeholders.
+        Returns the `--json` payload: `{sweep, jobs, total}`.
+        """
+        if not cmd:
+            raise ValueError("sweep() needs a command")
+        if shard is None and not grid:
+            raise ValueError("sweep() needs shard= and/or grid=")
+        args = ["jobs", "sweep", "--on", self.name, "--json"]
+        if shard is not None:
+            args += ["--shard", str(shard)]
+        if grid:
+            for k, vals in grid.items():
+                args += ["--grid", f"{k}={','.join(str(v) for v in vals)}"]
+        if gpu is not None:
+            args += ["--gpu", str(gpu)]
+        if manage:
+            args.append("--manage")
+        if retry is not None:
+            args += ["--retry", str(retry)]
+        if prefer is not None:
+            args += ["--prefer", prefer]
+        if name is not None:
+            args += ["--name", name]
+        if max is not None:
+            args += ["--max", str(max)]
+        args += ["--", *cmd]
+        r = _aq(*args)
+        data = json.loads(r.stdout.strip() or "{}")
+        if not data.get("jobs"):
+            raise RuntimeError("aq jobs sweep --json returned no jobs:\n" + (r.stdout or r.stderr))
+        return data
 
     def jobs(self) -> str:
         """Raw `aq jobs list` text for this place."""

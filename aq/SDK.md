@@ -132,6 +132,33 @@ aq jobs run --on box --devices 0,2 -- …           # pin indices
 aq places   # shows e.g. 6/8gpu free
 ```
 
+Managed recovery (auto retry after flake/preempt):
+
+```bash
+aq jobs run --on gpus --manage --retry 3 --prefer next -- aq train
+aq jobs watch              # polls all managed jobs
+aq jobs manage <id> --retry 5 --prefer same
+```
+
+Sweeps (many independent jobs across a place/pool):
+
+```bash
+aq jobs sweep --shard 8 --on gpus -- aq train --shard {i}/{n}
+aq jobs sweep --grid lr=1e-3,1e-4 --grid wd=0,1e-4 --on gpus -- python train.py --lr {lr} --wd {wd}
+aq jobs sweep --shard 4 --grid lr=1e-3,1e-4 --manage --prefer next --on gpus -- …
+aq jobs list --tag sweep=<id>
+```
+
+```python
+from aquin import Place
+p = Place("gpus")
+out = p.sweep(["aq", "train", "--shard", "{i}/{n}"], shard=8, manage=True)
+# out["sweep"], out["jobs"], out["total"]
+```
+
+Placeholders in the command: `{i}` `{n}` `{shard}` `{shards}` plus each `--grid` key.
+Env on each job: `AQ_SWEEP`, `AQ_SHARD`, `AQ_SHARDS`, `AQ_SWEEP_I`, `AQ_SWEEP_N`, and `AQ_<GRIDKEY>`.
+
 Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.

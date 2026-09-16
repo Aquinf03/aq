@@ -76,6 +76,14 @@ export type RemoteJobSpec = {
   masterPort?: number
 }
 
+type ManagedPolicy = {
+  enabled: boolean
+  /** same box first, or jump to next pool member. */
+  prefer: "same" | "next"
+  maxRetries: number
+  retries: number
+}
+
 type IndexEntry = {
   place: string
   remoteDir: string
@@ -90,6 +98,7 @@ type IndexEntry = {
   tags?: Tags
   /** Physical GPU indices claimed (CUDA_VISIBLE_DEVICES). */
   gpuDevices?: number[]
+  managed?: ManagedPolicy
 }
 
 type JobsIndex = {
@@ -111,6 +120,9 @@ function jobsHelp(): string {
     "aq jobs pull <id> [dir] [--rank K]",
     "aq jobs down <id>",
     "aq jobs recover <id> [--same|--next|--on place|pool] [--force] [--json]",
+    "aq jobs watch [id…] [--poll sec] [--once]",
+    "aq jobs manage <id> [--retry N] [--prefer same|next] [--off]",
+    "aq jobs sweep [--shard N] [--grid k=a,b] [--on p] [--gpu N] [--json] -- <cmd>…",
     "aq jobs submit …              alias → aq queue push",
     "",
     "--nodes N  (N>1) needs a pool: sync + start the same cmd on N boxes with",
@@ -119,7 +131,12 @@ function jobsHelp(): string {
     "--tag k=v  label the job (filter with aq jobs list --tag k=v).",
     "--gpu N    claim N free GPUs on the box (CUDA_VISIBLE_DEVICES; shared multi-GPU).",
     "--devices  pin indices e.g. 0,2 or 0-1 (with or instead of --gpu).",
+    "--manage / --retry N   auto-recover after flake (pair with aq jobs watch).",
+    "--prefer same|next     managed recover target (default: next if pool).",
+    "sweep      fan out many jobs: --shard N and/or --grid lr=1e-3,1e-4",
+    "           cmd may use {i} {n} {shard} {shards} and {gridKey} placeholders.",
     "recover    restart same id after host/process death (SSH spot/preempt pattern).",
+    "watch      poll managed jobs and recover on unreachable / failed exit.",
     "Jobs live under <remoteDir>/jobs/<id>/ on each place.",
   ].join("\n")
 }
@@ -179,7 +196,15 @@ function rememberJob(
     ports: ports ?? prev?.ports,
     tags: tags ?? prev?.tags,
     gpuDevices: gpuDevices ?? prev?.gpuDevices,
+    managed: prev?.managed,
   }
+  saveIndex(idx)
+}
+
+export function setJobManaged(id: string, managed: ManagedPolicy | undefined): void {
+  const idx = loadIndex()
+  if (!idx.jobs[id]) throw tip(`no local job record: ${id}`, "aq jobs list")
+  idx.jobs[id] = { ...idx.jobs[id], managed }
   saveIndex(idx)
 }
 
@@ -660,6 +685,9 @@ async function jobsRun(argv: string[]): Promise<string> {
   const ports: PortForward[] = []
   const tagNeed: Tags = {}
   let devices: number[] | undefined
+  let manage = false
+  let maxRetries = 3
+  let prefer: "same" | "next" | undefined
   let i = 0
   const cmd: string[] = []
   let sawDash = false
@@ -728,7 +756,29 @@ async function jobsRun(argv: string[]): Promise<string> {
       i += 2
       continue
     }
-    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--gpu N] -- <cmd>")
+    if (a === "--manage") {
+      manage = true
+      i += 1
+      continue
+    }
+    if (a === "--retry") {
+      manage = true
+      maxRetries = Number(argv[i + 1])
+      if (!Number.isFinite(maxRetries) || maxRetries < 0) {
+        throw tip("need N >= 0 after --retry", "aq jobs run --retry 3 -- …")
+      }
+      i += 2
+      continue
+    }
+    if (a === "--prefer") {
+      const v = argv[i + 1]
+      if (v !== "same" && v !== "next") throw tip("prefer same|next", "aq jobs run --prefer next")
+      prefer = v
+      manage = true
+      i += 2
+      continue
+    }
+    throw tip(`unknown flag: ${a}`, "aq jobs run --on <place|pool> [--manage] -- <cmd>")
   }
   if (!sawDash || !cmd.length) {
     throw tip("need a command after --", "aq jobs run --on temp -- sleep 30")
@@ -757,6 +807,18 @@ async function jobsRun(argv: string[]): Promise<string> {
   const id = spec.id
   const worldSize = spec.worldSize || 1
 
+  if (manage) {
+    const pref =
+      prefer ||
+      (gang[0].viaPool || loadIndex().jobs[id]?.pool ? "next" : "same")
+    setJobManaged(id, {
+      enabled: true,
+      prefer: pref,
+      maxRetries,
+      retries: 0,
+    })
+  }
+
   if (jsonOut) {
     console.log(
       JSON.stringify({
@@ -773,6 +835,7 @@ async function jobsRun(argv: string[]): Promise<string> {
         tags: tagNeed,
         gpu: gpuAsk,
         gpuDevices: loadIndex().jobs[id]?.gpuDevices,
+        managed: loadIndex().jobs[id]?.managed,
       }),
     )
   } else {
@@ -781,9 +844,17 @@ async function jobsRun(argv: string[]): Promise<string> {
       "id  " +
         c.cyan(id) +
         (worldSize > 1 ? c.dim(`  ranks 0..${worldSize - 1}`) : "") +
-        (spec.pid != null ? c.dim("  pid " + spec.pid) : ""),
+        (spec.pid != null ? c.dim("  pid " + spec.pid) : "") +
+        (manage ? c.dim("  managed") : ""),
     )
-    console.log(c.dim("next") + "  aq jobs logs " + id + " · aq jobs status " + id)
+    console.log(
+      c.dim("next") +
+        "  aq jobs logs " +
+        id +
+        " · aq jobs status " +
+        id +
+        (manage ? " · aq jobs watch " + id : ""),
+    )
   }
   return id
 }
@@ -797,6 +868,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
   const ports: string[] = []
   const tags: string[] = []
   let devices: string | undefined
+  let manageFlags: string[] = []
   const extra: string[] = []
   let i = 0
   while (i < argv.length) {
@@ -828,6 +900,21 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
       i += 2
       continue
     }
+    if (a === "--manage") {
+      manageFlags.push("--manage")
+      i += 1
+      continue
+    }
+    if (a === "--retry") {
+      manageFlags.push("--retry", argv[i + 1] || "3")
+      i += 2
+      continue
+    }
+    if (a === "--prefer") {
+      manageFlags.push("--prefer", argv[i + 1] || "next")
+      i += 2
+      continue
+    }
     if (a === "--nodes") {
       const v = Number(argv[i + 1])
       if (!Number.isFinite(v) || v < 1) throw tip("need N >= 1 after --nodes", `aq jobs ${verb} --nodes 2`)
@@ -855,7 +942,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
       i += 1
       continue
     }
-    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--gpu N] [--devices 0,1]`)
+    throw tip(`unknown flag: ${a}`, `aq jobs ${verb} [--manage] [--gpu N]`)
   }
   const cmd = ["aq", verb, ...extra]
   const flags = [
@@ -863,6 +950,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
     ...(jsonOut ? ["--json"] : []),
     ...(gpuAsk != null ? ["--gpu", String(gpuAsk)] : []),
     ...(devices ? ["--devices", devices] : []),
+    ...manageFlags,
     ...(nodes != null ? ["--nodes", String(nodes)] : []),
     ...(masterPort != null ? ["--master-port", String(masterPort)] : []),
     ...ports.flatMap((p) => ["--port", p]),
@@ -1303,6 +1391,8 @@ async function jobsDown(argv: string[]): Promise<void> {
   }
   closeTunnelsForJob(id)
   releaseGpus(id)
+  const m = loadIndex().jobs[id]?.managed
+  if (m?.enabled) setJobManaged(id, { ...m, enabled: false })
   stepOk("down", "canceled  " + id)
 }
 
@@ -1368,6 +1458,48 @@ async function jobsRecover(argv: string[]): Promise<void> {
   if (!id) throw tip("need a job id", "aq jobs recover <id>")
   if (same && next) throw tip("use --same or --next, not both", "aq jobs recover " + id)
 
+  const result = await recoverJob({ id, on, same, next, force, quiet: jsonOut, gpuAsk })
+  if (jsonOut) {
+    console.log(JSON.stringify(result))
+    return
+  }
+  if (!result.recovered) {
+    if (result.status === "running") {
+      stepOk("recover", "already running  " + c.cyan(id))
+      console.log(c.dim("tip") + "  aq jobs status " + id + " · pass --force to kill+restart")
+    }
+    return
+  }
+  stepOk(
+    "recover",
+    "id  " +
+      c.cyan(id) +
+      "  on  " +
+      c.cyan(result.place || "?") +
+      (result.pid != null ? c.dim("  pid " + result.pid) : ""),
+  )
+  console.log(c.dim("next") + "  aq jobs logs " + id + " · aq jobs status " + id)
+}
+
+type RecoverResult = {
+  id: string
+  recovered: boolean
+  place?: string
+  pid?: number | null
+  status?: string
+  reason?: string
+}
+
+async function recoverJob(opts: {
+  id: string
+  on?: string
+  same?: boolean
+  next?: boolean
+  force?: boolean
+  quiet?: boolean
+  gpuAsk?: number
+}): Promise<RecoverResult> {
+  const { id, on, same = false, next = false, force = false, quiet = false, gpuAsk } = opts
   const entry = loadIndex().jobs[id]
   if (!entry?.command?.length) {
     throw tip(
@@ -1385,7 +1517,6 @@ async function jobsRecover(argv: string[]): Promise<void> {
     ? entry.nodes.map((n) => n.place)
     : [entry.place]
 
-  // Probe current head (or ranks)
   let anyUnreachable = false
   let anyRunning = false
   for (const name of oldPlaces) {
@@ -1405,16 +1536,9 @@ async function jobsRecover(argv: string[]): Promise<void> {
   }
 
   if (anyRunning && !force) {
-    if (jsonOut) {
-      console.log(JSON.stringify({ id, status: "running", recovered: false }))
-      return
-    }
-    stepOk("recover", "already running  " + c.cyan(id))
-    console.log(c.dim("tip") + "  aq jobs status " + id + " · pass --force to kill+restart")
-    return
+    return { id, recovered: false, status: "running", reason: "already running" }
   }
 
-  // Where to place the restart
   let poolName = on || entry.pool
   let preferNext = next || anyUnreachable
   if (same) preferNext = false
@@ -1453,11 +1577,9 @@ async function jobsRecover(argv: string[]): Promise<void> {
       gang = resolveSshTargets(poolName, ask, worldSize, { exclude })
     } catch (e) {
       if (!exclude.length) throw e
-      // Pool too small after exclude — allow original members if they're back up
       gang = resolveSshTargets(poolName, ask, worldSize)
     }
   } else if (same || !preferNext) {
-    // Restart on the original place(s)
     gang = oldPlaces.map((name) => {
       const p = getPlace(name)
       if (p.kind !== "ssh") throw tip(`place ${name} is not ssh`, "aq places")
@@ -1489,7 +1611,7 @@ async function jobsRecover(argv: string[]): Promise<void> {
     }
   }
 
-  if (!jsonOut) {
+  if (!quiet) {
     step(
       "recover",
       c.cyan(id) +
@@ -1501,7 +1623,7 @@ async function jobsRecover(argv: string[]): Promise<void> {
 
   if (session?.train && existsSync(session.train)) {
     for (const g of gang) {
-      if (!jsonOut) step("sync", g.name)
+      if (!quiet) step("sync", g.name)
       await rsyncToRemote(session.train, g.place, remoteDir, "defaults")
     }
   }
@@ -1591,29 +1713,486 @@ async function jobsRecover(argv: string[]): Promise<void> {
     masterPort: worldSize > 1 ? masterPort : undefined,
   }
   rememberJob(spec, poolName || head.viaPool || entry.pool, entry.ports, entry.tags, headDevices)
+  return {
+    id,
+    recovered: true,
+    place: head.name,
+    pid: spec.pid,
+    status: "running",
+  }
+}
 
-  if (jsonOut) {
-    console.log(
-      JSON.stringify({
-        id,
-        recovered: true,
-        place: head.name,
-        pool: poolName || head.viaPool || entry.pool,
-        nodes: nodeSpecs,
-        from: oldPlaces,
-      }),
-    )
+type ProbeKind = "running" | "ok" | "failed" | "canceled" | "unreachable" | "missing"
+
+function probeJobHealth(id: string): ProbeKind {
+  const entry = loadIndex().jobs[id]
+  if (!entry) return "missing"
+  const places = entry.nodes?.length ? entry.nodes.map((n) => n.place) : [entry.place]
+  const remoteDir = entry.remoteDir
+  let sawUnreach = false
+  let sawRunning = false
+  let sawCanceled = false
+  let sawFailed = false
+  let sawOk = false
+  for (const name of places) {
+    const p = getPlace(name)
+    if (p.kind !== "ssh") continue
+    if (!sshCheck(p).ok) {
+      sawUnreach = true
+      continue
+    }
+    try {
+      const spec = refreshRemote(p, remoteDir, id)
+      if (spec.status === "running") sawRunning = true
+      else if (spec.status === "canceled") sawCanceled = true
+      else if (spec.status === "exited" && spec.code === 0) sawOk = true
+      else sawFailed = true
+    } catch {
+      sawUnreach = true
+    }
+  }
+  if (sawRunning) return "running"
+  if (sawUnreach) return "unreachable"
+  if (sawCanceled) return "canceled"
+  if (sawFailed) return "failed"
+  if (sawOk) return "ok"
+  return "missing"
+}
+
+async function jobsManage(argv: string[]): Promise<void> {
+  const id = argv[0]
+  if (!id) throw tip("need a job id", "aq jobs manage <id> --retry 3")
+  let off = false
+  let maxRetries = 3
+  let prefer: "same" | "next" | undefined
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === "--off") {
+      off = true
+      continue
+    }
+    if (a === "--retry") {
+      maxRetries = Number(argv[++i])
+      continue
+    }
+    if (a === "--prefer") {
+      const v = argv[++i]
+      if (v !== "same" && v !== "next") throw tip("prefer same|next", "aq jobs manage --prefer next")
+      prefer = v
+      continue
+    }
+    throw tip(`unknown: ${a}`, "aq jobs manage <id> --retry 3 --prefer next")
+  }
+  const entry = loadIndex().jobs[id]
+  if (!entry) throw tip(`no job ${id}`, "aq jobs list")
+  if (off) {
+    setJobManaged(id, undefined)
+    stepOk("manage", c.cyan(id) + "  off")
     return
   }
-  stepOk(
-    "recover",
-    "id  " +
-      c.cyan(id) +
-      "  on  " +
-      c.cyan(head.name) +
-      (spec.pid != null ? c.dim("  pid " + spec.pid) : ""),
+  const pref = prefer || (entry.pool ? "next" : "same")
+  setJobManaged(id, {
+    enabled: true,
+    prefer: pref,
+    maxRetries: Number.isFinite(maxRetries) ? maxRetries : 3,
+    retries: entry.managed?.retries || 0,
+  })
+  stepOk("manage", c.cyan(id) + `  retry ${maxRetries}  prefer ${pref}`)
+  console.log(c.dim("next") + "  aq jobs watch " + id)
+}
+
+async function jobsWatch(argv: string[]): Promise<void> {
+  const ids: string[] = []
+  let pollSec = 5
+  let once = false
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === "--poll") {
+      pollSec = Number(argv[++i] || 5)
+      continue
+    }
+    if (a === "--once") {
+      once = true
+      continue
+    }
+    if (a === "-h" || a === "--help") {
+      console.log(jobsHelp())
+      return
+    }
+    if (!a.startsWith("-")) {
+      ids.push(a)
+      continue
+    }
+    throw tip(`unknown: ${a}`, "aq jobs watch [id…] [--poll 5] [--once]")
+  }
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+  const pickIds = (): string[] => {
+    if (ids.length) return ids
+    return Object.entries(loadIndex().jobs)
+      .filter(([, j]) => j.managed?.enabled)
+      .map(([id]) => id)
+  }
+
+  let watch = pickIds()
+  if (!watch.length) {
+    throw tip(
+      "no managed jobs to watch",
+      "aq jobs run --manage --retry 3 -- … · or aq jobs manage <id> --retry 3",
+    )
+  }
+
+  step("watch", watch.map((id) => c.cyan(id)).join(" ") + c.dim(`  poll ${pollSec}s`))
+
+  for (;;) {
+    watch = pickIds()
+    if (!watch.length) {
+      stepOk("watch", "done — no managed jobs left")
+      return
+    }
+    let active = 0
+    for (const id of watch) {
+      const entry = loadIndex().jobs[id]
+      const managed = entry?.managed
+      if (!managed?.enabled) continue
+      const health = probeJobHealth(id)
+      if (health === "running") {
+        active += 1
+        continue
+      }
+      if (health === "ok") {
+        setJobManaged(id, { ...managed, enabled: false })
+        stepOk("watch", c.cyan(id) + "  exited 0 — manage off")
+        continue
+      }
+      if (health === "canceled") {
+        setJobManaged(id, { ...managed, enabled: false })
+        console.log(c.dim("watch") + "  " + c.cyan(id) + "  canceled — manage off")
+        continue
+      }
+      if (managed.retries >= managed.maxRetries) {
+        setJobManaged(id, { ...managed, enabled: false })
+        console.log(
+          c.red("watch") +
+            "  " +
+            c.cyan(id) +
+            "  " +
+            health +
+            c.dim(`  retries exhausted (${managed.retries}/${managed.maxRetries})`),
+        )
+        continue
+      }
+      const preferNext = managed.prefer === "next"
+      try {
+        step(
+          "watch",
+          "recover  " +
+            c.cyan(id) +
+            c.dim(`  ${health}  try ${managed.retries + 1}/${managed.maxRetries}  ${managed.prefer}`),
+        )
+        const result = await recoverJob({
+          id,
+          next: preferNext,
+          same: !preferNext,
+          quiet: false,
+          force: health === "failed",
+        })
+        if (result.recovered) {
+          setJobManaged(id, {
+            ...managed,
+            retries: managed.retries + 1,
+            enabled: true,
+          })
+          active += 1
+        } else if (result.status === "running") {
+          active += 1
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.log(c.red("watch") + "  " + c.cyan(id) + "  " + msg.split("\n")[0])
+        setJobManaged(id, { ...managed, retries: managed.retries + 1 })
+      }
+    }
+    if (once) {
+      stepOk("watch", "once pass done")
+      return
+    }
+    if (active === 0 && !pickIds().some((id) => loadIndex().jobs[id]?.managed?.enabled)) {
+      stepOk("watch", "idle — all managed jobs settled")
+      return
+    }
+    await sleep(Math.max(1, pollSec) * 1000)
+  }
+}
+
+/** Cartesian product of grid value lists. */
+function cartesian(grids: Record<string, string[]>): Record<string, string>[] {
+  const keys = Object.keys(grids)
+  if (!keys.length) return [{}]
+  let rows: Record<string, string>[] = [{}]
+  for (const k of keys) {
+    const vals = grids[k]
+    const next: Record<string, string>[] = []
+    for (const row of rows) {
+      for (const v of vals) next.push({ ...row, [k]: v })
+    }
+    rows = next
+  }
+  return rows
+}
+
+function substCmd(cmd: string[], vars: Record<string, string>): string[] {
+  return cmd.map((arg) =>
+    arg.replace(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (_, key: string) =>
+      key in vars ? vars[key] : `{${key}}`,
+    ),
   )
-  console.log(c.dim("next") + "  aq jobs logs " + id + " · aq jobs status " + id)
+}
+
+async function jobsSweep(argv: string[]): Promise<void> {
+  let on: string | undefined
+  let jsonOut = false
+  let gpuAsk: number | undefined
+  let devices: number[] | undefined
+  let shards = 0
+  const grids: Record<string, string[]> = {}
+  const tagNeed: Tags = {}
+  let manage = false
+  let maxRetries = 3
+  let prefer: "same" | "next" | undefined
+  let maxJobs = 64
+  let sweepName = ""
+  const cmd: string[] = []
+  let sawDash = false
+  let i = 0
+  while (i < argv.length) {
+    const a = argv[i]
+    if (a === "--") {
+      sawDash = true
+      cmd.push(...argv.slice(i + 1))
+      break
+    }
+    if (a === "--on") {
+      on = argv[i + 1]
+      i += 2
+      continue
+    }
+    if (a === "--json") {
+      jsonOut = true
+      i += 1
+      continue
+    }
+    if (a === "--gpu" || a === "--gpus") {
+      gpuAsk = Number(argv[i + 1])
+      i += 2
+      continue
+    }
+    if (a === "--devices") {
+      devices = parseDevices(argv[i + 1] || "")
+      i += 2
+      continue
+    }
+    if (a === "--shard" || a === "--shards") {
+      shards = Number(argv[i + 1])
+      if (!Number.isFinite(shards) || shards < 1) {
+        throw tip("need N >= 1 after --shard", "aq jobs sweep --shard 8 -- …")
+      }
+      i += 2
+      continue
+    }
+    if (a === "--grid") {
+      const raw = argv[i + 1] || ""
+      const eq = raw.indexOf("=")
+      if (eq < 1) throw tip("bad --grid", "aq jobs sweep --grid lr=1e-3,1e-4")
+      const key = raw.slice(0, eq).trim()
+      const vals = raw
+        .slice(eq + 1)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+      if (!key || !vals.length) throw tip("bad --grid", "--grid lr=1e-3,1e-4")
+      grids[key] = vals
+      i += 2
+      continue
+    }
+    if (a === "--tag") {
+      const { key, value } = parseTag(argv[i + 1] || "")
+      tagNeed[key] = value
+      i += 2
+      continue
+    }
+    if (a === "--manage") {
+      manage = true
+      i += 1
+      continue
+    }
+    if (a === "--retry") {
+      manage = true
+      maxRetries = Number(argv[i + 1])
+      i += 2
+      continue
+    }
+    if (a === "--prefer") {
+      const v = argv[i + 1]
+      if (v !== "same" && v !== "next") throw tip("prefer same|next", "aq jobs sweep --prefer next")
+      prefer = v
+      manage = true
+      i += 2
+      continue
+    }
+    if (a === "--max") {
+      maxJobs = Number(argv[i + 1])
+      i += 2
+      continue
+    }
+    if (a === "--name") {
+      sweepName = argv[i + 1] || ""
+      i += 2
+      continue
+    }
+    throw tip(`unknown: ${a}`, "aq jobs sweep --shard 8 --on gpus -- <cmd>")
+  }
+  if (!sawDash || !cmd.length) {
+    throw tip(
+      "need a command after --",
+      "aq jobs sweep --shard 4 --on gpus -- aq train --shard {i}/{n}",
+    )
+  }
+  if (shards < 1 && !Object.keys(grids).length) {
+    throw tip(
+      "need --shard N and/or --grid k=a,b",
+      "aq jobs sweep --shard 8 -- … · or --grid lr=1e-3,1e-4",
+    )
+  }
+
+  const session = loadSession()
+  const requested = on || session?.place
+  if (!requested) throw tip("no place", "aq jobs sweep --on <pool>")
+
+  const gridRows = cartesian(grids)
+  const shardCount = shards >= 1 ? shards : 1
+  type Variant = { i: number; n: number; vars: Record<string, string> }
+  const variants: Variant[] = []
+  for (let si = 0; si < shardCount; si++) {
+    for (const grow of gridRows) {
+      variants.push({
+        i: variants.length,
+        n: 0, // filled below
+        vars: {
+          i: String(si),
+          n: String(shardCount),
+          shard: String(si),
+          shards: String(shardCount),
+          ...grow,
+        },
+      })
+    }
+  }
+  // When only grid (no shard), i/n should index the grid row
+  if (shards < 1) {
+    for (let gi = 0; gi < variants.length; gi++) {
+      variants[gi].vars.i = String(gi)
+      variants[gi].vars.n = String(variants.length)
+      variants[gi].vars.shard = String(gi)
+      variants[gi].vars.shards = String(variants.length)
+      variants[gi].i = gi
+    }
+  }
+  const total = variants.length
+  for (const v of variants) v.n = total
+
+  if (total > maxJobs) {
+    throw tip(
+      `sweep would start ${total} jobs (max ${maxJobs})`,
+      "raise with --max " + total + " · or shrink --shard / --grid",
+    )
+  }
+
+  const sweepId = sweepName || newJobId()
+  const remoteDir = session?.remoteDir || defaultRemoteDir(session)
+  const ask = { gpu: gpuAsk }
+  const pref =
+    prefer || (getPlace(requested).kind === "pool" ? "next" : "same")
+
+  if (!jsonOut) {
+    step("sweep", c.cyan(sweepId) + c.dim(`  ×${total}`) + "  on  " + c.cyan(requested))
+  }
+
+  const syncedPlaces = new Set<string>()
+  const train = session?.train
+  const launched: { id: string; place: string; vars: Record<string, string> }[] = []
+  for (const v of variants) {
+    const gang = resolveSshTargets(requested, ask, 1)
+    const runCmd = substCmd(cmd, v.vars)
+    const tags: Tags = {
+      ...tagNeed,
+      sweep: sweepId,
+      shard: v.vars.shard,
+      i: String(v.i),
+    }
+    for (const [gk, gv] of Object.entries(v.vars)) {
+      if (["i", "n", "shard", "shards"].includes(gk)) continue
+      tags["g." + gk] = gv
+    }
+    const extraEnv: Record<string, string> = {
+      AQ_SWEEP: sweepId,
+      AQ_SHARD: v.vars.shard,
+      AQ_SHARDS: v.vars.shards,
+      AQ_SWEEP_I: String(v.i),
+      AQ_SWEEP_N: String(v.n),
+    }
+    for (const [gk, gv] of Object.entries(v.vars)) {
+      if (["i", "n", "shard", "shards"].includes(gk)) continue
+      extraEnv["AQ_" + gk.toUpperCase().replace(/[^A-Z0-9]/g, "_")] = gv
+    }
+
+    // Sync train once per place (pool sweeps land on different boxes).
+    const needSync = Boolean(train && existsSync(train) && !syncedPlaces.has(gang[0].name))
+    const spec = await startRemoteJob({
+      gang,
+      remoteDir,
+      command: runCmd,
+      pool: gang[0].viaPool,
+      quiet: true,
+      syncTrain: needSync ? train : undefined,
+      tags,
+      gpu: gpuAsk,
+      devices,
+      extraEnv,
+    })
+    syncedPlaces.add(gang[0].name)
+    if (manage) {
+      setJobManaged(spec.id, {
+        enabled: true,
+        prefer: pref,
+        maxRetries,
+        retries: 0,
+      })
+    }
+    launched.push({ id: spec.id, place: spec.place, vars: v.vars })
+    if (!jsonOut) {
+      const hint = Object.entries(v.vars)
+        .filter(([k]) => !["n", "shards"].includes(k))
+        .map(([k, val]) => `${k}=${val}`)
+        .join(" ")
+      console.log(
+        "  " + c.cyan(spec.id) + "  " + c.dim(spec.place) + (hint ? c.dim("  " + hint) : ""),
+      )
+    }
+  }
+
+  if (jsonOut) {
+    console.log(JSON.stringify({ sweep: sweepId, jobs: launched, total }))
+    return
+  }
+  stepOk("sweep", c.cyan(sweepId) + "  " + launched.length + " jobs")
+  console.log(
+    c.dim("next") +
+      "  aq jobs list --tag sweep=" +
+      sweepId +
+      " · aq jobs watch  (if --manage)",
+  )
 }
 
 export async function jobsCmd(argv: string[]): Promise<void> {
@@ -1635,6 +2214,10 @@ export async function jobsCmd(argv: string[]): Promise<void> {
     await jobsVerb(sub, argv.slice(1))
     return
   }
+  if (sub === "sweep") {
+    await jobsSweep(argv.slice(1))
+    return
+  }
   if (sub === "status" || sub === "stat") {
     await jobsStatus(argv.slice(1))
     return
@@ -1653,6 +2236,14 @@ export async function jobsCmd(argv: string[]): Promise<void> {
   }
   if (sub === "recover" || sub === "retry" || sub === "restart") {
     await jobsRecover(argv.slice(1))
+    return
+  }
+  if (sub === "watch") {
+    await jobsWatch(argv.slice(1))
+    return
+  }
+  if (sub === "manage") {
+    await jobsManage(argv.slice(1))
     return
   }
   if (sub === "submit" || sub === "enqueue") {
