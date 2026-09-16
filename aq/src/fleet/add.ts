@@ -3,13 +3,14 @@
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline"
 import { getPlace, loadPlaces, placesPath, upsertPlace } from "./places.js"
-import { sshCheck } from "./ssh.js"
+import { fixKeyPermissions, sshCheck } from "./ssh.js"
+import { c } from "./ui.js"
 
 function prompt(question: string, fallback = ""): Promise<string> {
   const rl = createInterface({ input: stdin, output: stdout })
-  const hint = fallback ? ` [${fallback}]` : ""
+  const hint = fallback ? c.dim(` [${fallback}]`) : ""
   return new Promise((resolve) => {
-    rl.question(question + hint + ": ", (ans) => {
+    rl.question(c.magenta(question) + hint + c.cyan(": "), (ans) => {
       rl.close()
       const v = ans.trim()
       resolve(v || fallback)
@@ -32,22 +33,28 @@ export async function placesCmd(argv: string[]): Promise<void> {
     console.log(addHelp())
     return
   }
+  const checkLive = !argv.includes("--no-check")
   const file = loadPlaces()
   const names = Object.keys(file.places).sort()
   if (!names.length) {
-    console.log("no places")
-    console.log("  aq add ssh")
+    console.log(c.yellow("no places"))
+    console.log(c.dim("  tip") + "  aq add ssh")
     return
   }
-  console.log("places")
+  console.log(c.bold("places"))
   for (const name of names) {
     const p = file.places[name]
     if (p.kind === "ssh") {
       const who = p.user ? `${p.user}@${p.host}` : p.host
       const port = p.port && p.port !== 22 ? `:${p.port}` : ""
-      console.log(`  ${name}  ssh  ${who}${port}`)
+      let status = ""
+      if (checkLive) {
+        const r = sshCheck(p)
+        status = r.ok ? c.green(" ok") : c.red(" fail")
+      }
+      console.log("  " + c.cyan(name) + "  " + c.dim("ssh") + "  " + who + port + status)
     } else {
-      console.log(`  ${name}  ${(p as { kind: string }).kind}`)
+      console.log("  " + c.cyan(name) + "  " + (p as { kind: string }).kind)
     }
   }
 }
@@ -70,6 +77,7 @@ async function addSsh(argv: string[]): Promise<void> {
   if (!name) name = await prompt("place name", "lab")
   if (!name) throw new Error("need a place name")
 
+  // Blank prompts for a new place. Prefill only when re-adding the same name.
   const existing = (() => {
     try {
       return getPlace(name)
@@ -77,23 +85,21 @@ async function addSsh(argv: string[]): Promise<void> {
       return null
     }
   })()
+  const prefill = argv[0] && existing?.kind === "ssh" ? existing : null
 
-  const host = await prompt("ssh host", existing?.kind === "ssh" ? existing.host : "")
+  const host = await prompt("ssh host", prefill?.host ?? "")
   if (!host) throw new Error("need a host")
-  const user = await prompt(
-    "ssh user (empty = default)",
-    existing?.kind === "ssh" ? existing.user || "" : "",
-  )
-  const portRaw = await prompt(
-    "ssh port",
-    existing?.kind === "ssh" && existing.port ? String(existing.port) : "22",
-  )
+  const user = await prompt("ssh user", prefill?.user ?? "")
+  const portRaw = await prompt("ssh port", prefill?.port != null ? String(prefill.port) : "22")
   const port = Number(portRaw || "22")
   if (!Number.isFinite(port) || port < 1) throw new Error(`bad port: ${portRaw}`)
-  const key = await prompt(
-    "ssh key path (empty = agent/default)",
-    existing?.kind === "ssh" ? existing.key || "" : "",
-  )
+  const key = await prompt("ssh key path", prefill?.key ?? "")
+
+  if (key) {
+    if (fixKeyPermissions(key)) {
+      console.log(c.yellow("key") + "  chmod 600 " + key)
+    }
+  }
 
   upsertPlace(name, {
     kind: "ssh",
@@ -103,22 +109,23 @@ async function addSsh(argv: string[]): Promise<void> {
     key: key || undefined,
   })
 
-  console.log("place")
-  console.log("  " + name)
-  console.log("  " + placesPath())
+  console.log(c.bold("place") + "  " + c.cyan(name))
 
   const place = getPlace(name)
   if (place.kind !== "ssh") return
-  process.stdout.write("check … ")
-  const c = sshCheck(place)
-  if (c.ok) {
-    console.log("ok")
-    console.log("  " + c.detail)
-  } else {
-    console.log("fail")
-    console.log("  " + c.detail)
-    console.log("  fix SSH, then: aq launch --on " + name)
+  process.stdout.write(c.dim("check") + "  ")
+  let check = sshCheck(place)
+  if (!check.ok && place.key && /permissions too open/i.test(check.detail)) {
+    if (fixKeyPermissions(place.key)) {
+      console.log(c.yellow("fixing key perms…"))
+      process.stdout.write(c.dim("check") + "  ")
+      check = sshCheck(place)
+    }
   }
-  console.log("next")
-  console.log("  cd <train> && aq launch --on " + name)
+  if (check.ok) {
+    console.log(c.green("ok") + c.dim("  " + check.detail))
+  } else {
+    console.log(c.red("fail") + "  " + check.detail)
+  }
+  console.log(c.dim("next") + "  aq launch --on " + name)
 }

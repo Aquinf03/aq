@@ -1,42 +1,65 @@
-/** aq launch / aq go — sync train to a place, optional setup, land in SSH. */
+/** aq launch / aq go — sync a folder to a place, optional setup, land in SSH. */
 
+import { existsSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
-import { assertTrain, isTrain } from "../core/schema.js"
 import {
   getPlace,
+  listPlaceNames,
   loadSession,
   remoteTrainDir,
   saveSession,
   type SshPlace,
 } from "./places.js"
-import { rsyncToRemote, runRemote, setupAqOnRemote, sshInteractive } from "./ssh.js"
+import { estimateSync, rsyncToRemote, runRemote, setupAqOnRemote, sshInteractive } from "./ssh.js"
+import { c, confirm, fmtBytes, step } from "./ui.js"
+
+/** Prompt when payload is bigger than a typical train folder. */
+const BIG_FILES = 1500
+const BIG_BYTES = 30 * 1024 * 1024
+
+function tip(msg: string, hint: string): Error {
+  return new Error(msg + "\n  " + c.dim("tip") + "  " + hint)
+}
 
 function launchHelp(): string {
   return [
-    "aq launch [dir] --on <place> [--setup|--no-setup] [-- <cmd>…]",
-    "  sync this train to the place, install aq (default), then SSH there",
+    "aq launch [dir] --on <place> [-y] [--setup|--no-setup] [-- <cmd>…]",
+    "  sync that folder (default: .) to the place, install aq, then SSH",
+    "  pass a train dir — don't launch from a huge monorepo root",
+    "  -y / --yes   skip the big-folder confirm",
     "  --no-setup   skip aq install on the remote",
     "  -- <cmd>     run cmd on the remote instead of opening a shell",
     "",
-    "aq go [place]   re-SSH to last launch (or that place + last train)",
+    "aq go [place]   re-SSH to last launch (resync when local folder exists)",
   ].join("\n")
+}
+
+function resolveDir(dir: string): string {
+  const root = path.resolve(dir)
+  if (!existsSync(root) || !statSync(root).isDirectory()) {
+    throw tip(`not a directory: ${root}`, "cd into a folder, or pass one: aq launch ./my-run --on <place>")
+  }
+  return root
 }
 
 function parseLaunch(argv: string[]): {
   dir: string
   on: string
   setup: boolean
+  yes: boolean
   command: string[] | null
 } {
   let dir = "."
   let on = ""
   let setup = true
+  let yes = false
   let i = 0
   const command: string[] = []
   let sawDash = false
 
   if (argv[0] && !argv[0].startsWith("-") && argv[0] !== "--") {
-    if (isTrain(path.resolve(argv[0]))) {
+    const cand = path.resolve(argv[0])
+    if (existsSync(cand) && statSync(cand).isDirectory()) {
       dir = argv[0]
       i = 1
     }
@@ -51,7 +74,9 @@ function parseLaunch(argv: string[]): {
     }
     if (a === "--on") {
       const v = argv[i + 1]
-      if (!v || v.startsWith("-")) throw new Error(launchHelp())
+      if (!v || v.startsWith("-")) {
+        throw tip("need a place after --on", "aq places · aq add ssh")
+      }
       on = v
       i += 2
       continue
@@ -66,12 +91,55 @@ function parseLaunch(argv: string[]): {
       i += 1
       continue
     }
+    if (a === "-y" || a === "--yes") {
+      yes = true
+      i += 1
+      continue
+    }
     if (a === "-h" || a === "--help" || a === "help") throw new Error(launchHelp())
-    throw new Error(`unknown flag: ${a}\n${launchHelp()}`)
+    throw tip(`unknown flag: ${a}`, "aq launch --help")
   }
 
-  if (!on) throw new Error(`need --on <place>\n${launchHelp()}`)
-  return { dir, on, setup, command: sawDash ? command : null }
+  if (!on) {
+    const names = listPlaceNames()
+    const known = names.length ? `known: ${names.join(", ")}` : "none yet — aq add ssh"
+    throw tip("need --on <place>", `${known}`)
+  }
+  return { dir, on, setup, yes, command: sawDash ? command : null }
+}
+
+function childDirs(root: string): string[] {
+  try {
+    return readdirSync(root, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules")
+      .map((e) => e.name)
+      .slice(0, 8)
+  } catch {
+    return []
+  }
+}
+
+/** Stop monorepo slam-dunks: show size and ask before syncing a huge tree. */
+async function confirmBigSync(local: string, yes: boolean): Promise<boolean> {
+  const { files, bytes } = estimateSync(local)
+  const big = files >= BIG_FILES || bytes >= BIG_BYTES
+  console.log(
+    c.dim("  ") + fmtBytes(bytes) + " · " + files + " files" + (big ? c.yellow("  (looks big)") : ""),
+  )
+  if (!big || yes) return true
+
+  const kids = childDirs(local)
+  if (kids.length >= 2) {
+    console.log(c.dim("  tip") + "  sync a train folder, not the whole repo:")
+    console.log(c.dim("       ") + "aq launch ./" + kids[0] + " --on <place>")
+    if (kids.length > 1) {
+      console.log(c.dim("       ") + "or: " + kids.slice(0, 5).map((k) => "./" + k).join("  "))
+    }
+  } else {
+    console.log(c.dim("  tip") + "  aq launch ./my-run --on <place>")
+  }
+
+  return confirm("sync this folder anyway?", false)
 }
 
 export async function launchCmd(argv: string[]): Promise<void> {
@@ -79,48 +147,55 @@ export async function launchCmd(argv: string[]): Promise<void> {
     console.log(launchHelp())
     return
   }
-  const { dir, on, setup, command } = parseLaunch(argv)
-  const train = assertTrain(dir)
-  const place = getPlace(on)
-  if (place.kind !== "ssh") {
-    throw new Error(`place ${on} is ${place.kind} — only ssh is supported in this MVP`)
+  const { dir, on, setup, yes, command } = parseLaunch(argv)
+  const local = resolveDir(dir)
+  let place: SshPlace
+  try {
+    const p = getPlace(on)
+    if (p.kind !== "ssh") {
+      throw tip(`place ${on} is ${p.kind}`, "only ssh works for now — aq add ssh")
+    }
+    place = p
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("unknown place")) {
+      throw tip(e.message.split("\n")[0], "aq places · aq add ssh")
+    }
+    throw e
   }
-  const remoteDir = remoteTrainDir(train)
+  const remoteDir = remoteTrainDir(local)
 
-  console.log("launch")
-  console.log("  " + on + "  ssh  " + (place.user ? `${place.user}@` : "") + place.host)
-  console.log("  " + train)
-  console.log("  → " + remoteDir)
+  console.log(c.bold("launch") + "  " + c.cyan(on) + c.dim("  ssh  ") + (place.user ? `${place.user}@` : "") + place.host)
+  console.log(c.dim("  ") + local + " → " + remoteDir)
 
-  console.log("sync")
-  rsyncToRemote(train, place, remoteDir)
+  if (!(await confirmBigSync(local, yes))) {
+    console.log(c.yellow("aborted"))
+    return
+  }
+
+  await rsyncToRemote(local, place, remoteDir)
 
   if (setup) {
-    setupAqOnRemote(place)
+    await setupAqOnRemote(place)
   } else {
-    console.log("setup")
-    console.log("  skipped (--no-setup)")
+    console.log(c.yellow("setup") + c.dim("  skipped"))
   }
 
   saveSession({
     place: on,
-    train,
+    train: local,
     remoteDir,
     at: new Date().toISOString(),
   })
 
   if (command && command.length) {
-    console.log("run")
-    console.log("  " + command.join(" "))
+    step("run", command.join(" "))
     const code = runRemote(place, remoteDir, command)
     if (code !== 0) process.exitCode = code
-    console.log("shell")
-    console.log("  aq go")
+    console.log(c.dim("next") + "  aq go")
     return
   }
 
-  console.log("shell")
-  console.log("  cd " + remoteDir + " · aq on PATH if setup ran")
+  step("shell", "cd " + remoteDir)
   const code = await sshInteractive(place, remoteDir)
   if (code !== 0) process.exitCode = code
 }
@@ -133,38 +208,43 @@ export async function goCmd(argv: string[]): Promise<void> {
   const session = loadSession()
   const name = argv[0] || session?.place
   if (!name) {
-    throw new Error("nothing to go to — aq launch --on <place> first")
+    throw tip("nothing to go to", "aq launch --on <place> first · aq places")
   }
-  const place = getPlace(name)
-  if (place.kind !== "ssh") {
-    throw new Error(`place ${name} is ${place.kind} — only ssh supported`)
+  let place: SshPlace
+  try {
+    const p = getPlace(name)
+    if (p.kind !== "ssh") {
+      throw tip(`place ${name} is ${p.kind}`, "only ssh works for now")
+    }
+    place = p
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("unknown place")) {
+      throw tip(e.message.split("\n")[0], "aq places · aq add ssh")
+    }
+    throw e
   }
 
   let remoteDir = session?.remoteDir
-  let train = session?.train
+  let local = session?.train
   if (session?.place !== name || !remoteDir) {
-    const local = assertTrain(".")
+    local = resolveDir(".")
     remoteDir = remoteTrainDir(local)
-    train = local
   }
 
-  console.log("go")
-  console.log("  " + name)
-  console.log("  " + (train || remoteDir))
-  console.log("  → " + remoteDir)
+  console.log(c.bold("go") + "  " + c.cyan(name))
+  console.log(c.dim("  ") + (local || remoteDir) + " → " + remoteDir)
 
-  // Refresh sync if we still have the train locally
-  if (train && isTrain(train)) {
-    console.log("sync")
-    rsyncToRemote(train, place as SshPlace, remoteDir)
+  if (local && existsSync(local) && statSync(local).isDirectory()) {
+    await rsyncToRemote(local, place, remoteDir)
     saveSession({
       place: name,
-      train,
+      train: local,
       remoteDir,
       at: new Date().toISOString(),
     })
   }
 
-  const code = await sshInteractive(place as SshPlace, remoteDir)
+  step("shell", "cd " + remoteDir)
+  const code = await sshInteractive(place, remoteDir)
   if (code !== 0) process.exitCode = code
 }
