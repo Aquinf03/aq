@@ -89,9 +89,15 @@ export function pickPoolMember(
   poolName: string,
   pool: PoolPlace,
   ask: ResolveAsk = {},
+  opts: PickOpts = {},
 ): ResolvedSsh {
-  const many = pickPoolMembers(poolName, pool, ask, 1)
+  const many = pickPoolMembers(poolName, pool, ask, 1, opts)
   return many[0]
+}
+
+export type PickOpts = {
+  /** Skip these member names (e.g. recover --next off a dead/old host). */
+  exclude?: string[]
 }
 
 /** Pick N free members (lowest load first). Needs a pool with enough capacity. */
@@ -100,17 +106,23 @@ export function pickPoolMembers(
   pool: PoolPlace,
   ask: ResolveAsk = {},
   n: number,
+  opts: PickOpts = {},
 ): ResolvedSsh[] {
   if (n < 1) throw tip("nodes must be >= 1", "aq jobs run --nodes 2 --on <pool>")
   if (!pool.members.length) {
     throw tip(`pool ${poolName} has no members`, "aq add pool " + poolName)
   }
+  const exclude = new Set(opts.exclude || [])
   const file = loadPlaces()
   type Cand = { name: string; place: SshPlace; load: number }
   const ok: Cand[] = []
   const skipped: string[] = []
 
   for (const m of pool.members) {
+    if (exclude.has(m)) {
+      skipped.push(m + " (excluded)")
+      continue
+    }
     const p = file.places[m]
     if (!p || p.kind !== "ssh") {
       skipped.push(m + " (missing)")
@@ -153,17 +165,21 @@ export function resolveSshTargets(
   requested: string,
   ask: ResolveAsk = {},
   nodes = 1,
+  opts: PickOpts = {},
 ): ResolvedSsh[] {
   if (nodes < 1) throw tip("nodes must be >= 1", "aq jobs run --nodes 2")
   const place = getPlace(requested)
-  if (nodes === 1) return [resolveSshTarget(requested, ask)]
+  if (nodes === 1) {
+    if (place.kind === "pool") return [pickPoolMember(requested, place, ask, opts)]
+    return [resolveSshTarget(requested, ask)]
+  }
   if (place.kind !== "pool") {
     throw tip(
       `--nodes ${nodes} needs a pool (got ${place.kind} ${requested})`,
       "aq add pool gpus a b · aq jobs run --on gpus --nodes 2 -- …",
     )
   }
-  return pickPoolMembers(requested, place, ask, nodes)
+  return pickPoolMembers(requested, place, ask, nodes, opts)
 }
 
 export function describePick(r: ResolvedSsh): string {

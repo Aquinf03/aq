@@ -7,6 +7,7 @@ Same verbs as the shell, from a short Python snippet:
     p = Place("temp")
     j = p.train()          # or p.run(["aq", "train"]) / p.eval() / p.serve()
     # j = p.train(nodes=2)  # pool: multi-node gang + RANK/WORLD_SIZE/MASTER_*
+    # j.recover(next=True)  # same id on another pool member after host death
     print(j.id, j.status())
     print(j.logs())
     j.pull()
@@ -71,6 +72,30 @@ class Job:
         if self.place:
             args += ["--on", self.place]
         _aq(*args)
+
+    def recover(
+        self,
+        *,
+        same: bool = False,
+        next: bool = False,
+        on: str | None = None,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Restart this job id after host/process death (SSH preempt pattern)."""
+        args = ["jobs", "recover", self.id, "--json"]
+        if same:
+            args.append("--same")
+        if next:
+            args.append("--next")
+        if on:
+            args += ["--on", on]
+        if force:
+            args.append("--force")
+        r = _aq(*args)
+        data = json.loads(r.stdout.strip() or "{}")
+        if data.get("place"):
+            self.place = str(data["place"])
+        return data
 
 
 class Place:

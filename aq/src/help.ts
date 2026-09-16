@@ -44,7 +44,7 @@ export function help(): string {
     "  aq go [place]             re-SSH to last launch (resync if local folder)",
     "  aq jobs                   list remote jobs on last place",
     "  aq jobs run|train|eval|serve [--on p] [--nodes N] [--gpu N] [--json]",
-    "  aq jobs status|logs|pull|down <id>   (--rank K for multi-node)",
+    "  aq jobs status|logs|pull|down|recover <id>   (--rank K · recover --next|--same)",
     "  aq spawn agent [dir] -- <prompt>  start a worker agent",
     "  aq spawn agent --kill -- <prompt>  critic: cheapest disproof",
     "  aq spawn list [dir]       worker agents",

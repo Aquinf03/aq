@@ -73,6 +73,7 @@ j = p.train()                 # or p.eval() / p.serve() / p.run(["sleep", "10"])
 print(j.id, j.status()["status"])
 print(j.logs())
 j.pull()
+# j.recover()                 # same id after SSH/host death; --next via pool
 ```
 
 CLI twin: `aq jobs train --on temp` (same as `aq jobs run --on temp -- aq train`).
@@ -80,6 +81,8 @@ CLI twin: `aq jobs train --on temp` (same as `aq jobs run --on temp -- aq train`
 Pools: `aq add pool gpus box1 box2` then `Place("gpus")` / `--on gpus` picks a free member.
 
 Multi-node: `p.train(nodes=2)` or `aq jobs train --on gpus --nodes 2` (sets RANK / WORLD_SIZE / MASTER_ADDR).
+
+Recover: `aq jobs recover <id>` (same box) · `--next` / `--on <pool>` when the host is gone.
 
 Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
 

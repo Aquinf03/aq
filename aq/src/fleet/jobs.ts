@@ -13,17 +13,19 @@ import {
 } from "./places.js"
 import { describeGang, describePick, resolveSshTarget, resolveSshTargets } from "./pool.js"
 import {
+  formatSshError,
   remoteShellPath,
   rsyncFromRemote,
   rsyncToRemote,
   shQuote,
   sshBaseArgs,
+  sshCheck,
   sshExec,
   sshTarget,
 } from "./ssh.js"
 import { c, step, stepOk } from "./ui.js"
 
-export type RemoteJobStatus = "running" | "exited" | "canceled" | "error"
+export type RemoteJobStatus = "running" | "exited" | "canceled" | "error" | "unreachable"
 
 export type JobNode = {
   place: string
@@ -51,17 +53,20 @@ export type RemoteJobSpec = {
   masterPort?: number
 }
 
+type IndexEntry = {
+  place: string
+  remoteDir: string
+  command: string[]
+  started: string
+  nodes?: JobNode[]
+  /** Pool used at submit time (for recover --next). */
+  pool?: string
+  worldSize?: number
+  masterPort?: number
+}
+
 type JobsIndex = {
-  jobs: Record<
-    string,
-    {
-      place: string
-      remoteDir: string
-      command: string[]
-      started: string
-      nodes?: JobNode[]
-    }
-  >
+  jobs: Record<string, IndexEntry>
 }
 
 function tip(msg: string, hint: string): Error {
@@ -78,9 +83,11 @@ function jobsHelp(): string {
     "aq jobs logs <id> [-n N|-f] [--rank K]",
     "aq jobs pull <id> [dir] [--rank K]",
     "aq jobs down <id>",
+    "aq jobs recover <id> [--same|--next|--on place|pool] [--force] [--json]",
     "",
     "--nodes N  (N>1) needs a pool: sync + start the same cmd on N boxes with",
     "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT set (torchrun-friendly).",
+    "recover    restart same id after host/process death (SSH spot/preempt pattern).",
     "Jobs live under <remoteDir>/jobs/<id>/ on each place.",
   ].join("\n")
 }
@@ -110,14 +117,18 @@ function saveIndex(idx: JobsIndex): void {
   writeFileSync(indexPath(), JSON.stringify(idx, null, 2) + "\n", "utf8")
 }
 
-function rememberJob(spec: RemoteJobSpec): void {
+function rememberJob(spec: RemoteJobSpec, pool?: string): void {
   const idx = loadIndex()
+  const prev = idx.jobs[spec.id]
   idx.jobs[spec.id] = {
     place: spec.place,
     remoteDir: spec.remoteDir,
     command: spec.command,
     started: spec.started,
     nodes: spec.nodes,
+    pool: pool ?? prev?.pool,
+    worldSize: spec.worldSize ?? prev?.worldSize,
+    masterPort: spec.masterPort ?? prev?.masterPort,
   }
   saveIndex(idx)
 }
@@ -319,6 +330,13 @@ print(json.dumps(s))
 
   const r = sshExec(place, script)
   const out = (r.stdout || "").trim()
+  if (r.status !== 0 && (!out || out === "NOJOB")) {
+    const err = ((r.stderr || r.stdout || "") as string).trim()
+    throw tip(
+      `unreachable (${formatSshError(err, place)})`,
+      "aq jobs recover " + id,
+    )
+  }
   if (!out || out === "NOJOB") throw tip(`no such job: ${id}`, "aq jobs list")
   const spec = parseSpec(lastJsonObject(out))
   if (!spec) throw tip(`bad job spec for ${id}`, "aq jobs list")
@@ -339,7 +357,7 @@ function listRemoteIds(place: SshPlace, remoteDir: string): string[] {
 function statusColor(st: string): string {
   if (st === "running") return c.green(st)
   if (st === "canceled") return c.yellow(st)
-  if (st === "error") return c.red(st)
+  if (st === "error" || st === "unreachable") return c.red(st)
   return c.dim(st)
 }
 
@@ -507,7 +525,7 @@ async function jobsRun(argv: string[]): Promise<string> {
     masterAddr: worldSize > 1 ? masterAddr : undefined,
     masterPort: worldSize > 1 ? masterPort : undefined,
   }
-  rememberJob(spec)
+  rememberJob(spec, head.viaPool)
 
   if (jsonOut) {
     console.log(
@@ -680,24 +698,81 @@ async function jobsStatus(argv: string[]): Promise<void> {
     else if (argv[i] === "--json") jsonOut = true
   }
   const { placeName, place, remoteDir } = lookupJob(id, on)
-  const spec = refreshRemote(place, remoteDir, id)
+  const check = sshCheck(place)
+  if (!check.ok) {
+    const payload = {
+      id,
+      place: placeName,
+      remoteDir,
+      status: "unreachable" as const,
+      detail: check.detail,
+      command: loadIndex().jobs[id]?.command,
+    }
+    if (jsonOut) {
+      console.log(JSON.stringify(payload))
+      return
+    }
+    console.log(c.bold("job") + "  " + c.cyan(id))
+    console.log(c.dim("  place") + "   " + placeName)
+    console.log(c.dim("  status") + "  " + statusColor("unreachable"))
+    console.log(c.dim("  detail") + "  " + check.detail)
+    console.log(c.dim("  tip") + "     aq jobs recover " + id)
+    return
+  }
+
+  let spec: RemoteJobSpec
+  try {
+    spec = refreshRemote(place, remoteDir, id)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (/unreachable/i.test(msg)) {
+      if (jsonOut) {
+        console.log(JSON.stringify({ id, place: placeName, status: "unreachable", detail: msg }))
+        return
+      }
+      console.log(c.bold("job") + "  " + c.cyan(id))
+      console.log(c.dim("  status") + "  " + statusColor("unreachable"))
+      console.log(c.dim("  tip") + "     aq jobs recover " + id)
+      return
+    }
+    throw e
+  }
   const nodes = indexNodes(id) || spec.nodes
   if (nodes && nodes.length > 1) {
     const ranks: RemoteJobSpec[] = []
+    const nodeViews: JobNode[] = []
     for (const n of nodes) {
       const p = getPlace(n.place)
       if (p.kind !== "ssh") continue
-      ranks.push(refreshRemote(p, n.remoteDir || remoteDir, id))
+      const nc = sshCheck(p)
+      if (!nc.ok) {
+        nodeViews.push({ ...n, status: "unreachable", pid: n.pid })
+        continue
+      }
+      try {
+        const rs = refreshRemote(p, n.remoteDir || remoteDir, id)
+        ranks.push(rs)
+        nodeViews.push({
+          ...n,
+          status: rs.status,
+          code: rs.code,
+          pid: rs.pid ?? n.pid,
+        })
+      } catch {
+        nodeViews.push({ ...n, status: "error", pid: n.pid })
+      }
     }
-    const anyRun = ranks.some((r) => r.status === "running")
-    const allCanceled = ranks.every((r) => r.status === "canceled")
-    spec.status = anyRun ? "running" : allCanceled ? "canceled" : "exited"
-    spec.nodes = nodes.map((n, i) => ({
-      ...n,
-      status: ranks[i]?.status,
-      code: ranks[i]?.code ?? null,
-      pid: ranks[i]?.pid ?? n.pid,
-    }))
+    const anyRun = nodeViews.some((r) => r.status === "running")
+    const anyUnreach = nodeViews.some((r) => r.status === "unreachable")
+    const allCanceled = nodeViews.every((r) => r.status === "canceled")
+    spec.status = anyRun
+      ? "running"
+      : anyUnreach
+        ? "unreachable"
+        : allCanceled
+          ? "canceled"
+          : "exited"
+    spec.nodes = nodeViews
     if (jsonOut) {
       console.log(JSON.stringify({ ...spec, ranks }))
       return
@@ -718,6 +793,9 @@ async function jobsStatus(argv: string[]): Promise<void> {
           (n.code != null ? c.dim(` exit ${n.code}`) : ""),
       )
     }
+    if (spec.status === "unreachable") {
+      console.log(c.dim("  tip") + "     aq jobs recover " + id)
+    }
     return
   }
   if (jsonOut) {
@@ -732,6 +810,9 @@ async function jobsStatus(argv: string[]): Promise<void> {
   if (spec.code != null) console.log(c.dim("  exit") + "    " + spec.code)
   console.log(c.dim("  start") + "   " + spec.started)
   if (spec.ended) console.log(c.dim("  end") + "     " + spec.ended)
+  if (spec.status !== "running") {
+    console.log(c.dim("  tip") + "     aq jobs recover " + id + "   # restart same id")
+  }
 }
 
 async function jobsLogs(argv: string[]): Promise<void> {
@@ -910,6 +991,305 @@ async function jobsDown(argv: string[]): Promise<void> {
   stepOk("down", "canceled  " + id)
 }
 
+/** Rotate prior log/pid so recover keeps history and reuses the same job id. */
+function prepareRecoverDir(place: SshPlace, remoteDir: string, id: string): void {
+  const dir = remoteJobDir(remoteDir, id)
+  sshExec(
+    place,
+    [
+      `JD=${remoteShellPath(dir)}`,
+      `mkdir -p "$JD"`,
+      `if [ -f "$JD/log" ]; then mv "$JD/log" "$JD/log.prev.$(date +%s)" 2>/dev/null || true; fi`,
+      `rm -f "$JD/pid" "$JD/code"`,
+    ].join("\n"),
+    { timeoutMs: 15_000 },
+  )
+}
+
+async function jobsRecover(argv: string[]): Promise<void> {
+  let id = ""
+  let on: string | undefined
+  let same = false
+  let next = false
+  let force = false
+  let jsonOut = false
+  let gpuAsk: number | undefined
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === "--on") {
+      on = argv[++i]
+      continue
+    }
+    if (a === "--same") {
+      same = true
+      continue
+    }
+    if (a === "--next") {
+      next = true
+      continue
+    }
+    if (a === "--force") {
+      force = true
+      continue
+    }
+    if (a === "--json") {
+      jsonOut = true
+      continue
+    }
+    if (a === "--gpu" || a === "--gpus") {
+      gpuAsk = Number(argv[++i])
+      continue
+    }
+    if (a === "-h" || a === "--help") {
+      console.log(jobsHelp())
+      return
+    }
+    if (!id && !a.startsWith("-")) {
+      id = a
+      continue
+    }
+    throw tip(`unknown: ${a}`, "aq jobs recover <id> [--same|--next|--on pool]")
+  }
+  if (!id) throw tip("need a job id", "aq jobs recover <id>")
+  if (same && next) throw tip("use --same or --next, not both", "aq jobs recover " + id)
+
+  const entry = loadIndex().jobs[id]
+  if (!entry?.command?.length) {
+    throw tip(
+      `no local record for ${id} (need command to restart)`,
+      "aq jobs run … first · recover uses ~/.aquin/fleet-jobs.json",
+    )
+  }
+
+  const worldSize = entry.worldSize || entry.nodes?.length || 1
+  const masterPort = entry.masterPort || 29500
+  const ask = { gpu: gpuAsk }
+  const session = loadSession()
+  const remoteDir = entry.remoteDir || defaultRemoteDir(session)
+  const oldPlaces = entry.nodes?.length
+    ? entry.nodes.map((n) => n.place)
+    : [entry.place]
+
+  // Probe current head (or ranks)
+  let anyUnreachable = false
+  let anyRunning = false
+  for (const name of oldPlaces) {
+    const p = getPlace(name)
+    if (p.kind !== "ssh") continue
+    const check = sshCheck(p)
+    if (!check.ok) {
+      anyUnreachable = true
+      continue
+    }
+    try {
+      const spec = refreshRemote(p, remoteDir, id)
+      if (spec.status === "running") anyRunning = true
+    } catch {
+      /* missing remote dir is fine — we'll recreate */
+    }
+  }
+
+  if (anyRunning && !force) {
+    if (jsonOut) {
+      console.log(JSON.stringify({ id, status: "running", recovered: false }))
+      return
+    }
+    stepOk("recover", "already running  " + c.cyan(id))
+    console.log(c.dim("tip") + "  aq jobs status " + id + " · pass --force to kill+restart")
+    return
+  }
+
+  // Where to place the restart
+  let poolName = on || entry.pool
+  let preferNext = next || anyUnreachable
+  if (same) preferNext = false
+  if (on) {
+    const t = getPlace(on)
+    if (t.kind === "ssh") {
+      poolName = undefined
+      preferNext = false
+    } else if (t.kind === "pool") {
+      poolName = on
+      preferNext = true
+    }
+  }
+
+  if (preferNext && !poolName && !on) {
+    throw tip(
+      `place ${entry.place} unreachable and no pool recorded`,
+      "aq jobs recover " + id + " --on <pool>   · or --same when the box is back",
+    )
+  }
+
+  let gang: ReturnType<typeof resolveSshTargets>
+  if (on && getPlace(on).kind === "ssh") {
+    if (worldSize > 1) {
+      throw tip(
+        "multi-node recover needs a pool (--on <pool> or recorded pool)",
+        "aq jobs recover " + id + " --on <pool>",
+      )
+    }
+    const p = getPlace(on)
+    if (p.kind !== "ssh") throw tip("need ssh place", "aq places")
+    gang = [{ requested: on, name: on, place: p }]
+  } else if (preferNext && poolName) {
+    const exclude = next || anyUnreachable ? oldPlaces : []
+    try {
+      gang = resolveSshTargets(poolName, ask, worldSize, { exclude })
+    } catch (e) {
+      if (!exclude.length) throw e
+      // Pool too small after exclude — allow original members if they're back up
+      gang = resolveSshTargets(poolName, ask, worldSize)
+    }
+  } else if (same || !preferNext) {
+    // Restart on the original place(s)
+    gang = oldPlaces.map((name) => {
+      const p = getPlace(name)
+      if (p.kind !== "ssh") throw tip(`place ${name} is not ssh`, "aq places")
+      const check = sshCheck(p)
+      if (!check.ok) {
+        throw tip(
+          `${name} still unreachable (${check.detail})`,
+          entry.pool
+            ? "aq jobs recover " + id + " --next"
+            : "aq jobs recover " + id + " --on <pool>",
+        )
+      }
+      return { requested: name, name, place: p, viaPool: entry.pool }
+    })
+  } else {
+    throw tip("could not resolve recover target", "aq jobs recover " + id + " --on <place|pool>")
+  }
+
+  if (force && anyRunning) {
+    for (const name of oldPlaces) {
+      const p = getPlace(name)
+      if (p.kind !== "ssh") continue
+      if (!sshCheck(p).ok) continue
+      try {
+        killRemoteJob(p, remoteDir, id)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  if (!jsonOut) {
+    step(
+      "recover",
+      c.cyan(id) +
+        "  " +
+        (worldSize > 1 ? describeGang(gang) : describePick(gang[0])) +
+        (anyUnreachable ? c.dim("  (was unreachable)") : ""),
+    )
+  }
+
+  if (session?.train && existsSync(session.train)) {
+    for (const g of gang) {
+      if (!jsonOut) step("sync", g.name)
+      await rsyncToRemote(session.train, g.place, remoteDir, "defaults")
+    }
+  }
+
+  const started = new Date().toISOString()
+  const masterAddr = gang[0].place.host
+  const cmd = entry.command
+  const nodeSpecs: JobNode[] = []
+
+  for (let rank = 0; rank < gang.length; rank++) {
+    const g = gang[rank]
+    prepareRecoverDir(g.place, remoteDir, id)
+    const env: Record<string, string> = {
+      RANK: String(rank),
+      LOCAL_RANK: "0",
+      WORLD_SIZE: String(worldSize),
+      MASTER_ADDR: masterAddr,
+      MASTER_PORT: String(masterPort),
+      AQ_RANK: String(rank),
+      AQ_WORLD_SIZE: String(worldSize),
+      AQ_MASTER_ADDR: masterAddr,
+      AQ_MASTER_PORT: String(masterPort),
+      AQ_RECOVERED: "1",
+    }
+    const baseSpec: RemoteJobSpec = {
+      id,
+      place: g.name,
+      remoteDir,
+      command: cmd,
+      pid: null,
+      status: "running",
+      code: null,
+      started,
+      ended: null,
+      worldSize: worldSize > 1 ? worldSize : undefined,
+      masterAddr: worldSize > 1 ? masterAddr : undefined,
+      masterPort: worldSize > 1 ? masterPort : undefined,
+    }
+    const pid = startOnNode({
+      place: g.place,
+      placeName: g.name,
+      remoteDir,
+      id,
+      command: cmd,
+      env,
+      spec: {
+        ...baseSpec,
+        nodes:
+          worldSize > 1
+            ? gang.map((x, ri) => ({
+                place: x.name,
+                remoteDir,
+                rank: ri,
+                pid: null,
+              }))
+            : undefined,
+      },
+    })
+    nodeSpecs.push({ place: g.name, remoteDir, rank, pid })
+  }
+
+  const head = gang[0]
+  const spec: RemoteJobSpec = {
+    id,
+    place: head.name,
+    remoteDir,
+    command: cmd,
+    pid: nodeSpecs[0]?.pid ?? null,
+    status: "running",
+    code: null,
+    started,
+    ended: null,
+    nodes: worldSize > 1 ? nodeSpecs : undefined,
+    worldSize: worldSize > 1 ? worldSize : undefined,
+    masterAddr: worldSize > 1 ? masterAddr : undefined,
+    masterPort: worldSize > 1 ? masterPort : undefined,
+  }
+  rememberJob(spec, poolName || head.viaPool || entry.pool)
+
+  if (jsonOut) {
+    console.log(
+      JSON.stringify({
+        id,
+        recovered: true,
+        place: head.name,
+        pool: poolName || head.viaPool || entry.pool,
+        nodes: nodeSpecs,
+        from: oldPlaces,
+      }),
+    )
+    return
+  }
+  stepOk(
+    "recover",
+    "id  " +
+      c.cyan(id) +
+      "  on  " +
+      c.cyan(head.name) +
+      (spec.pid != null ? c.dim("  pid " + spec.pid) : ""),
+  )
+  console.log(c.dim("next") + "  aq jobs logs " + id + " · aq jobs status " + id)
+}
+
 export async function jobsCmd(argv: string[]): Promise<void> {
   const sub = argv[0]
   if (!sub || sub === "list" || sub === "ls" || sub === "--on") {
@@ -943,6 +1323,10 @@ export async function jobsCmd(argv: string[]): Promise<void> {
   }
   if (sub === "down" || sub === "kill" || sub === "cancel") {
     await jobsDown(argv.slice(1))
+    return
+  }
+  if (sub === "recover" || sub === "retry" || sub === "restart") {
+    await jobsRecover(argv.slice(1))
     return
   }
   throw tip(`unknown jobs command: ${sub}`, "aq jobs help")
