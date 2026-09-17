@@ -109,8 +109,8 @@ export function JobsDetailPanel({
   return (
     <aside
       className={cn(
-        "flex h-full w-[min(40%,28rem)] shrink-0 flex-col border-l border-black/10 bg-stone-50 transition-transform duration-300 ease-out dark:border-white/10 dark:bg-[#0a0a0a]",
-        entered ? "translate-x-0" : "translate-x-4 opacity-0",
+        "absolute inset-y-0 right-0 z-[80] flex h-full w-[min(40%,28rem)] min-w-[16rem] flex-col border-l border-black/10 bg-stone-50 shadow-[-12px_0_40px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out dark:border-white/10 dark:bg-[#0a0a0a] dark:shadow-[-12px_0_40px_rgba(0,0,0,0.5)]",
+        entered ? "translate-x-0" : "translate-x-full",
       )}
       aria-label={`Job ${job.id}`}
     >

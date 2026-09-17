@@ -14,7 +14,6 @@ import { describePick, resolveSshTarget } from "./pool.js"
 import { cancelJobsOnPlace } from "./jobs.js"
 import { forwardUrl, parsePortForward, type PortForward } from "./port.js"
 import {
-  estimateSync,
   remoteShellPath,
   rsyncToRemote,
   runRemote,
@@ -23,7 +22,7 @@ import {
   sshInteractive,
   type SyncProfile,
 } from "./ssh.js"
-import { c, fmtBytes, prompt, step, stepOk } from "./ui.js"
+import { c, prompt, step, stepOk } from "./ui.js"
 
 function tip(msg: string, hint: string): Error {
   return new Error(msg + "\n  " + c.dim("tip") + "  " + hint)
@@ -31,17 +30,22 @@ function tip(msg: string, hint: string): Error {
 
 function launchHelp(): string {
   return [
-    "aq launch [dir] --on <place> [--setup|--no-setup] [--port N] [-- <cmd>…]",
-    "  pick a folder (prompts, like aq add), sync it, install aq, then SSH",
-    "  pass [dir] to skip the folder prompt",
-    "  --no-setup   skip aq install on the remote",
-    "  --port N     SSH -L (repeatable; N or local:remote) — expose remote UI",
-    "  -- <cmd>     run cmd on the remote instead of opening a shell",
+    "Run these on your laptop (not inside the SSH session).",
     "",
-    "aq go [place] [--port N]       re-SSH to last launch (resync when local folder exists)",
-    "aq sync [dir] [--on place]     push/update local folder → place (like git push)",
+    "aq launch [dir] --on <place> [--setup|--no-setup] [--shell] [--port N] [-- <cmd>…]",
+    "  pick a folder, sync it, install/refresh aq on the place — stay on your laptop",
+    "  pass [dir] to skip the folder prompt",
+    "  --no-setup   skip aq install/refresh on the remote",
+    "  --shell      open an SSH shell after sync (same as aq go)",
+    "  --port N     SSH -L when using --shell (repeatable; N or local:remote)",
+    "  -- <cmd>     run cmd once on the remote, then return to your laptop",
+    "",
+    "aq go [place] [--port N]       open SSH to last launch (resync when local folder exists)",
+    "aq sync [dir] [--on place]     push/update local folder → place (no shell)",
     "aq shutdown [place] [--wipe]   stop jobs on place + clear session (--wipe removes remote dir)",
     "aq port <N> [--on place] [--bg]  tunnel only (see aq port help)",
+    "",
+    "Jobs / queue also run from the laptop: aq jobs train --on <place> …",
   ].join("\n")
 }
 
@@ -57,12 +61,14 @@ function parseLaunch(argv: string[]): {
   dir: string | null
   on: string
   setup: boolean
+  shell: boolean
   command: string[] | null
   ports: PortForward[]
 } {
   let dir: string | null = null
   let on = ""
   let setup = true
+  let shell = false
   let i = 0
   const command: string[] = []
   let sawDash = false
@@ -102,6 +108,11 @@ function parseLaunch(argv: string[]): {
       i += 1
       continue
     }
+    if (a === "--shell" || a === "-s") {
+      shell = true
+      i += 1
+      continue
+    }
     if (a === "--port" || a === "-p") {
       const v = argv[i + 1]
       if (!v) throw tip("need N after --port", "aq launch --on temp --port 8000")
@@ -123,15 +134,14 @@ function parseLaunch(argv: string[]): {
     const known = names.length ? `known: ${names.join(", ")}` : "none yet — aq add ssh"
     throw tip("need --on <place>", `${known}`)
   }
-  return { dir, on, setup, command: sawDash ? command : null, ports }
+  return { dir, on, setup, shell, command: sawDash ? command : null, ports }
 }
 
-type FolderOpt = { label: string; abs: string; files: number; bytes: number }
+type FolderOpt = { label: string; abs: string }
 
+/** Fast listing — no recursive size walk (that froze the folder prompt). */
 function listFolderOptions(cwd: string): FolderOpt[] {
-  const opts: FolderOpt[] = []
-  const here = estimateSync(cwd)
-  opts.push({ label: ".", abs: cwd, files: here.files, bytes: here.bytes })
+  const opts: FolderOpt[] = [{ label: ".", abs: cwd }]
 
   let kids: string[] = []
   try {
@@ -144,18 +154,9 @@ function listFolderOptions(cwd: string): FolderOpt[] {
     kids = []
   }
   for (const name of kids) {
-    const abs = path.join(cwd, name)
-    const est = estimateSync(abs)
-    opts.push({ label: "./" + name, abs, files: est.files, bytes: est.bytes })
+    opts.push({ label: "./" + name, abs: path.join(cwd, name) })
   }
   return opts
-}
-
-function fmtOpt(o: FolderOpt): string {
-  return (
-    c.cyan(o.label.padEnd(16)) +
-    c.dim(fmtBytes(o.bytes) + " · " + o.files + " files")
-  )
 }
 
 /** Pick sync folder — same prompt vibe as `aq add`. */
@@ -168,25 +169,16 @@ async function pickFolder(explicit: string | null): Promise<string> {
   const opts = listFolderOptions(cwd)
   console.log(c.bold("folder"))
   for (let i = 0; i < opts.length; i++) {
-    console.log("  " + c.dim(String(i + 1).padStart(2)) + "  " + fmtOpt(opts[i]))
+    console.log("  " + c.dim(String(i + 1).padStart(2)) + "  " + c.cyan(opts[i].label))
   }
   console.log(c.dim("  or type a path"))
 
-  // Prefer a small child over slamming `.` when `.` is huge
-  let def = "1"
-  if (opts.length > 1 && (opts[0].files >= 1500 || opts[0].bytes >= 30 * 1024 * 1024)) {
-    const best = opts
-      .slice(1)
-      .reduce((a, b) => (a.bytes <= b.bytes ? a : b), opts[1])
-    def = String(opts.indexOf(best) + 1)
-  }
-
-  const ans = await prompt("folder", def)
+  const ans = await prompt("folder", "1")
   const n = Number(ans)
   if (Number.isFinite(n) && n >= 1 && n <= opts.length) {
     return opts[n - 1].abs
   }
-  return resolveDir(ans)
+  return resolveDir(ans || ".")
 }
 
 async function pickProfile(): Promise<SyncProfile> {
@@ -208,7 +200,7 @@ export async function launchCmd(argv: string[]): Promise<void> {
     console.log(launchHelp())
     return
   }
-  const { dir, on, setup, command, ports } = parseLaunch(argv)
+  const { dir, on, setup, shell, command, ports } = parseLaunch(argv)
   let resolved
   try {
     resolved = resolveSshTarget(on)
@@ -255,18 +247,26 @@ export async function launchCmd(argv: string[]): Promise<void> {
     step("run", command.join(" "))
     const code = runRemote(place, remoteDir, command)
     if (code !== 0) process.exitCode = code
-    console.log(c.dim("next") + "  aq go")
+    console.log(c.dim("next") + "  aq go   ·  aq jobs train --on " + on)
     return
   }
 
-  if (ports.length) {
-    for (const p of ports) {
-      console.log(c.dim("  port") + "  " + p.local + " → " + p.remote + "  " + c.dim(forwardUrl(p)))
+  if (shell || ports.length) {
+    if (ports.length) {
+      for (const p of ports) {
+        console.log(c.dim("  port") + "  " + p.local + " → " + p.remote + "  " + c.dim(forwardUrl(p)))
+      }
     }
+    step("shell", "cd " + remoteDir)
+    const code = await sshInteractive(place, remoteDir, { forwards: ports })
+    if (code !== 0) process.exitCode = code
+    return
   }
-  step("shell", "cd " + remoteDir)
-  const code = await sshInteractive(place, remoteDir, { forwards: ports })
-  if (code !== 0) process.exitCode = code
+
+  stepOk("ready", remoteDir)
+  console.log(c.dim("next") + "  aq sync --on " + on + "   # from this laptop")
+  console.log(c.dim("    ") + "  aq go                  # open SSH when you want a shell")
+  console.log(c.dim("    ") + "  aq jobs train --on " + on)
 }
 
 export async function goCmd(argv: string[]): Promise<void> {

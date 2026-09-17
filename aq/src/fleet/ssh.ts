@@ -229,7 +229,7 @@ export async function rsyncToRemote(
   stepOk("sync", "ok  " + fmtMs(Date.now() - t0) + extra)
 }
 
-/** Best-effort: ensure `aq` on remote PATH. */
+/** Best-effort: ensure `aq` on remote PATH (refresh from local when available). */
 export async function setupAqOnRemote(place: SshPlace): Promise<void> {
   const target = sshTarget(place)
   const localAq = path.join(aqRoot(), "bin", "aq")
@@ -241,14 +241,17 @@ export async function setupAqOnRemote(place: SshPlace): Promise<void> {
     [...sshBaseArgs(place), target, "command -v aq >/dev/null && aq version 2>/dev/null | head -1"],
     { encoding: "utf8" },
   )
-  if (check.status === 0 && (check.stdout || "").trim()) {
-    stepOk("setup", "already have  " + (check.stdout || "").trim())
-    return
-  }
+  const remoteVer = (check.stdout || "").trim()
+  const hasRemote = check.status === 0 && Boolean(remoteVer)
 
+  // Prefer pushing the laptop's aq package so the box doesn't stay on a stale install.
   if (hasLocal) {
     const t0 = Date.now()
-    step("setup", "rsync local aq → ~/.aquin/aq-pkg")
+    if (hasRemote) {
+      step("setup", "refreshing remote aq  " + remoteVer)
+    } else {
+      step("setup", "rsync local aq → ~/.aquin/aq-pkg")
+    }
     const pkg = aqRoot()
     const remotePkg = "~/.aquin/aq-pkg"
     const mkdir = spawnSync(
@@ -293,6 +296,11 @@ export async function setupAqOnRemote(place: SshPlace): Promise<void> {
     )
     if (link.status !== 0) throw new Error("remote aq link failed")
     stepOk("setup", "ok  " + fmtMs(Date.now() - t0))
+    return
+  }
+
+  if (hasRemote) {
+    stepOk("setup", "already have  " + remoteVer)
     return
   }
 

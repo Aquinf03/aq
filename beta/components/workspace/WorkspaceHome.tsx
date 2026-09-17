@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { House, SquaresFour } from "@phosphor-icons/react";
 import { CliTokenDropdown } from "@/components/account/CliTokenSection";
 import ProfileChip from "@/components/account/ProfileChip";
@@ -10,13 +10,14 @@ import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { WorkspaceTabBar } from "@/components/workspace/WorkspaceTabBar";
 import { useAuth } from "@/contexts/AuthContext";
 import { firstName, timeGreeting } from "@/lib/greeting";
-
-type TabKind = "home" | "jobs";
-
-type OpenTab = {
-  id: string;
-  kind: TabKind;
-};
+import { cn } from "@/lib/utils";
+import {
+  loadWorkspaceTabs,
+  nextTabId,
+  saveWorkspaceTabs,
+  type WorkspaceOpenTab,
+  type WorkspaceTabKind,
+} from "@/lib/workspaceTabs";
 
 type WorkspaceHomeProps = {
   children?: React.ReactNode;
@@ -27,7 +28,7 @@ const navBtn =
   "aquin-no-drag flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] font-medium outline-none transition-colors text-stone-600 opacity-90 hover:bg-black/[0.04] hover:text-stone-900 hover:opacity-100 dark:text-stone-300 dark:opacity-80 dark:hover:bg-white/[0.06] dark:hover:text-[#f5f5f3] dark:hover:opacity-100";
 
 const TAB_META: Record<
-  TabKind,
+  WorkspaceTabKind,
   { label: string; icon: React.ReactNode }
 > = {
   home: {
@@ -40,19 +41,13 @@ const TAB_META: Record<
   },
 };
 
-function newTabId(kind: TabKind, suffix: string) {
-  return `${kind}-${suffix}`;
-}
-
-/** Owner home: sidebar opens tabs in the top bar above the main segment. */
+/** Owner home: sidebar opens tabs; tab bar state persisted in localStorage. */
 export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
   const { user } = useAuth();
-  const idPrefix = useId();
-  const [seq, setSeq] = useState(1);
-  const [tabs, setTabs] = useState<OpenTab[]>(() => [
-    { id: newTabId("home", `${idPrefix}-0`), kind: "home" },
-  ]);
-  const [activeId, setActiveId] = useState(() => newTabId("home", `${idPrefix}-0`));
+  const [hydrated, setHydrated] = useState(false);
+  const [tabs, setTabs] = useState<WorkspaceOpenTab[]>([{ id: "home-1", kind: "home" }]);
+  const [activeId, setActiveId] = useState("home-1");
+  const [seq, setSeq] = useState(2);
   const [sshOpen, setSshOpen] = useState(false);
   const [openedFolder, setOpenedFolder] = useState<{
     connectionId: string;
@@ -60,24 +55,37 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
     host: string;
   } | null>(null);
 
+  useEffect(() => {
+    const stored = loadWorkspaceTabs();
+    setTabs(stored.tabs);
+    setActiveId(stored.activeId);
+    setSeq(stored.seq);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    saveWorkspaceTabs({ tabs, activeId, seq });
+  }, [tabs, activeId, seq, hydrated]);
+
   const name = firstName(displayName, user?.email ?? "");
   const greeting = `${timeGreeting()}, ${name}`;
   const active = tabs.find(t => t.id === activeId) ?? tabs[0] ?? null;
 
-  const openOrFocus = (kind: TabKind) => {
+  const openOrFocus = (kind: WorkspaceTabKind) => {
     const existing = tabs.find(t => t.kind === kind);
     if (existing) {
       setActiveId(existing.id);
       return;
     }
-    const id = newTabId(kind, `${idPrefix}-${seq}`);
+    const id = nextTabId(kind, seq);
     setSeq(n => n + 1);
     setTabs(prev => [...prev, { id, kind }]);
     setActiveId(id);
   };
 
   const openNewHome = () => {
-    const id = newTabId("home", `${idPrefix}-${seq}`);
+    const id = nextTabId("home", seq);
     setSeq(n => n + 1);
     setTabs(prev => [...prev, { id, kind: "home" }]);
     setActiveId(id);
@@ -89,25 +97,36 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
       const idx = prev.findIndex(t => t.id === id);
       if (idx < 0) return prev;
       const next = prev.filter(t => t.id !== id);
-      if (activeId === id) {
-        const fallback = next[Math.max(0, idx - 1)] ?? next[0];
-        setActiveId(fallback.id);
-      }
+      setActiveId(cur => {
+        if (cur !== id) return cur;
+        return (next[Math.max(0, idx - 1)] ?? next[0]).id;
+      });
       return next;
     });
   };
 
-  const main =
-    children ??
-    (active?.kind === "home" ? (
-      <div className="flex h-full items-center justify-center px-6">
-        <p className="font-host-grotesk text-center text-3xl font-medium tracking-[-0.03em] text-stone-800 dark:text-[#f5f5f3]">
-          {greeting}
-        </p>
+  const selectTab = (id: string) => {
+    if (tabs.some(t => t.id === id)) setActiveId(id);
+  };
+
+  const hasJobsTab = tabs.some(t => t.kind === "jobs");
+
+  const main = children ?? (
+    <>
+      <div className={cn("h-full", active?.kind === "home" ? "flex" : "hidden")}>
+        <div className="flex h-full w-full items-center justify-center px-6">
+          <p className="font-host-grotesk text-center text-3xl font-medium tracking-[-0.03em] text-stone-800 dark:text-[#f5f5f3]">
+            {greeting}
+          </p>
+        </div>
       </div>
-    ) : active?.kind === "jobs" ? (
-      <JobsManager onConnectSsh={() => setSshOpen(true)} openedFolder={openedFolder} />
-    ) : null);
+      {hasJobsTab ? (
+        <div className={cn("h-full", active?.kind === "jobs" ? "block" : "hidden")}>
+          <JobsManager onConnectSsh={() => setSshOpen(true)} openedFolder={openedFolder} />
+        </div>
+      ) : null}
+    </>
+  );
 
   return (
     <>
@@ -122,7 +141,7 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
               icon: TAB_META[t.kind].icon,
             }))}
             activeId={active?.id ?? ""}
-            onSelect={setActiveId}
+            onSelect={selectTab}
             onClose={closeTab}
             onNewTab={openNewHome}
           />
