@@ -6,6 +6,11 @@ import { CliTokenDropdown } from "@/components/account/CliTokenSection";
 import ProfileChip from "@/components/account/ProfileChip";
 import { JobsManager } from "@/components/workspace/JobsManager";
 import { SshOpenFolderDialog } from "@/components/workspace/SshOpenFolderDialog";
+import {
+  WorkspaceSearchButton,
+  WorkspaceSearchDialog,
+  type WorkspaceSearchAction,
+} from "@/components/workspace/WorkspaceSearchDialog";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { WorkspaceTabBar } from "@/components/workspace/WorkspaceTabBar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -49,6 +54,7 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
   const [activeId, setActiveId] = useState("home-1");
   const [seq, setSeq] = useState(2);
   const [sshOpen, setSshOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [openedFolder, setOpenedFolder] = useState<{
     connectionId: string;
     path: string;
@@ -67,6 +73,17 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
     if (!hydrated) return;
     saveWorkspaceTabs({ tabs, activeId, seq });
   }, [tabs, activeId, seq, hydrated]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const name = firstName(displayName, user?.email ?? "");
   const greeting = `${timeGreeting()}, ${name}`;
@@ -107,6 +124,20 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
 
   const selectTab = (id: string) => {
     if (tabs.some(t => t.id === id)) setActiveId(id);
+  };
+
+  const onSearchAction = (action: WorkspaceSearchAction) => {
+    if (action === "home") openOrFocus("home");
+    else if (action === "jobs") openOrFocus("jobs");
+    else if (action === "new-job") {
+      openOrFocus("jobs");
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("aquin:jobs-new"));
+      }, 0);
+    } else if (action === "connect-ssh") {
+      openOrFocus("jobs");
+      setSshOpen(true);
+    }
   };
 
   const hasJobsTab = tabs.some(t => t.kind === "jobs");
@@ -156,12 +187,14 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
                     Home
                   </button>
 
-                  <CliTokenDropdown />
-
                   <button type="button" onClick={() => openOrFocus("jobs")} className={navBtn}>
                     <SquaresFour className="size-[18px] shrink-0" weight="regular" />
                     Jobs
                   </button>
+
+                  <WorkspaceSearchButton onClick={() => setSearchOpen(true)} className={navBtn} />
+
+                  <CliTokenDropdown />
 
                   {openedFolder ? (
                     <p
@@ -182,6 +215,18 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
       >
         {main}
       </WorkspaceShell>
+
+      <WorkspaceSearchDialog
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        recents={tabs.map(t => ({
+          id: t.id,
+          label: TAB_META[t.kind].label,
+          kind: t.kind,
+        }))}
+        onAction={onSearchAction}
+        onSelectRecent={selectTab}
+      />
 
       <SshOpenFolderDialog
         open={sshOpen}

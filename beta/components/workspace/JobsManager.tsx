@@ -111,10 +111,10 @@ function cmdLabel(cmd: string[]): string {
 }
 
 const cell =
-  "h-10 border border-t-0 border-l-0 border-black/10 px-3 align-middle dark:border-white/[0.08]";
+  "h-10 max-w-0 overflow-hidden border border-t-0 border-l-0 border-black/10 px-3 align-middle dark:border-white/[0.08]";
 
 const draftCell =
-  "h-11 border border-t-0 border-l-0 border-black/10 px-2 align-middle dark:border-white/[0.08]";
+  "h-11 max-w-0 overflow-hidden border border-t-0 border-l-0 border-black/10 px-2 align-middle dark:border-white/[0.08]";
 
 const toolBtn =
   "inline-flex h-8 items-center gap-1.5 rounded-md border border-dashed border-stone-300/90 bg-transparent px-2.5 text-[13px] font-medium text-stone-600 outline-none transition-colors hover:bg-stone-100/90 dark:border-white/20 dark:text-stone-300 dark:hover:bg-white/[0.06]";
@@ -516,14 +516,27 @@ export function JobsManager({
     setDetailId(null);
   };
 
+  useEffect(() => {
+    const onNew = () => {
+      const first = places.find(p => p.kind === "ssh")?.name || places[0]?.name;
+      setDraft({
+        ...emptyDraft(),
+        places: first ? [first] : [],
+      });
+      setDetailId(null);
+    };
+    window.addEventListener("aquin:jobs-new", onNew);
+    return () => window.removeEventListener("aquin:jobs-new", onNew);
+  }, [places]);
+
   const prioLabel = (key: DraftJob["priority"]) =>
     PRIO_OPTS.find(p => p.key === key) ?? PRIO_OPTS[0];
 
   return (
     <div className="relative flex h-full min-h-0">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center justify-between gap-6 px-3 py-2.5 sm:px-4">
-          <div className="flex min-w-0 items-center gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2.5 sm:px-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <DropdownMenu>
               <DropdownMenuTrigger className={toolBtn}>
                 <ArrowsDownUp className="size-3.5" weight="regular" />
@@ -652,16 +665,16 @@ export function JobsManager({
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-auto">
-          <table className="w-full table-fixed border-collapse text-left text-[13px] leading-none">
+        <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
+          <table className="w-full min-w-[52rem] table-fixed border-collapse text-left text-[13px] leading-none">
             <colgroup>
               <col className="w-10" />
-              <col className="w-[7rem]" />
+              <col className="w-[7.5rem]" />
               <col />
-              <col className="w-[7rem]" />
-              <col className="w-[8rem]" />
+              <col className="w-[7.5rem]" />
+              <col className="w-[8.5rem]" />
               <col className="w-[9.5rem]" />
-              <col className="w-[9rem]" />
+              <col className="w-[9.5rem]" />
               <col className="w-16" />
             </colgroup>
             <thead className="sticky top-0 z-10 bg-stone-50 dark:bg-[#0a0a0a]">
@@ -891,16 +904,16 @@ export function JobsManager({
                         aria-label={`Select ${job.id}`}
                       />
                     </td>
-                    <td className={cn(cell, "truncate font-mono text-[12px] text-stone-500")}>
-                      {job.id}
+                    <td className={cn(cell, "font-mono text-[12px] text-stone-500")}>
+                      <span className="block truncate">{job.id}</span>
                     </td>
-                    <td className={cn(cell, "min-w-0")}>
-                      <span className="truncate text-stone-900 dark:text-stone-100">
+                    <td className={cell}>
+                      <span className="block truncate text-stone-900 dark:text-stone-100">
                         {job.tags?.name || job.tags?.sweep || cmdLabel(job.command)}
                       </span>
                     </td>
                     <td className={cell}>
-                      <span className="inline-flex items-center gap-1.5 truncate">
+                      <span className="inline-flex max-w-full items-center gap-1.5">
                         <span className={cn("size-1.5 shrink-0 rounded-full", prio.dot)} />
                         <span className="truncate">{prio.label}</span>
                       </span>
@@ -908,7 +921,7 @@ export function JobsManager({
                     <td className={cell}>
                       <span
                         className={cn(
-                          "inline-flex max-w-full truncate rounded-full px-2 py-0.5 text-[11px] font-medium",
+                          "inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[11px] font-medium",
                           st.className,
                         )}
                       >
@@ -916,12 +929,14 @@ export function JobsManager({
                         {job.code != null && job.status !== "running" ? ` · ${job.code}` : ""}
                       </span>
                     </td>
-                    <td className={cn(cell, "truncate text-stone-600 dark:text-stone-400")}>
-                      {job.place}
-                      {job.pool ? ` · ${job.pool}` : ""}
+                    <td className={cn(cell, "text-stone-600 dark:text-stone-400")}>
+                      <span className="block truncate">
+                        {job.place}
+                        {job.pool ? ` · ${job.pool}` : ""}
+                      </span>
                     </td>
-                    <td className={cn(cell, "truncate text-stone-600 dark:text-stone-400")}>
-                      {formatStarted(job.started)}
+                    <td className={cn(cell, "text-stone-600 dark:text-stone-400")}>
+                      <span className="block truncate">{formatStarted(job.started)}</span>
                     </td>
                     <td
                       className={cn(cell, "px-1 text-center text-stone-400")}

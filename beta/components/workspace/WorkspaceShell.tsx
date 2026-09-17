@@ -136,12 +136,12 @@ export function WorkspaceShell({
       {/* Top tabs — track toggle; when sidebar closes they slam next to it */}
       {tabBar ? (
         <div
-          className="aquin-no-drag absolute z-[55] flex min-w-0 items-end overflow-hidden pt-[3px] transition-[left,right] duration-300 ease-out"
+          className="aquin-no-drag absolute z-[55] flex min-w-0 items-end overflow-hidden pt-[5px] transition-[left,right] duration-300 ease-out"
           style={{
             left: tabsLeft,
             right: 40,
             top: 0,
-            height: TITLEBAR_H,
+            height: TITLEBAR_H + 2,
           }}
         >
           {tabBar}
@@ -169,7 +169,11 @@ export function WorkspaceShell({
             collapsed ? "px-1 sm:px-1.5" : "pr-1 pl-0.5 sm:pr-1.5 sm:pl-1",
           )}
         >
-          <div className="shrink-0" style={{ height: TITLEBAR_H }} aria-hidden />
+          <div
+            className="shrink-0"
+            style={{ height: tabBar ? TITLEBAR_H + 2 : TITLEBAR_H }}
+            aria-hidden
+          />
           <main className="mb-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.35rem] border-2 border-black/10 bg-stone-50 dark:border-white/10 dark:bg-[#0a0a0a] sm:mb-1.5">
             {mainHeader ? (
               <div className="aquin-no-drag flex shrink-0 items-center justify-end gap-3 px-4 py-3 sm:px-5">
