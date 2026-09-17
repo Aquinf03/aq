@@ -50,7 +50,7 @@ export function help(): string {
     "  aq jobs run|train|eval|serve [--on p] [--tag k=v] [--gpu N] [--devices 0,1] [--port N] [--json]",
     "  aq jobs sweep [--shard N] [--grid k=a,b] [--on p] [--gpu N] [--manage] -- <cmd>",
     "  aq jobs status|logs|pull|down|recover|watch|manage <id>",
-    "  aq jobs list [--tag k=v]   filter by label",
+    "  aq jobs list [--tag k=v] [--all] [--json]   filter / dump machine JSON",
     "  aq queue add <name> --on <place|pool>   push / worker / drain / move",
     "  aq queue push <name> [--priority N] -- <cmd> · aq queue worker [name]",
     "  aq spawn agent [dir] -- <prompt>  start a worker agent",

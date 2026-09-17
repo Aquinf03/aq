@@ -42,7 +42,7 @@ export function UserHomeClient({ username, displayName, avatarUrl, profileHref }
   }
 
   if (isOwner) {
-    return <WorkspaceHome>{null}</WorkspaceHome>;
+    return <WorkspaceHome displayName={displayName} />;
   }
 
   return (

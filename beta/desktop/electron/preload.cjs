@@ -23,4 +23,13 @@ contextBridge.exposeInMainWorld("aquinDesktop", {
      */
     request: (method, params) => ipcRenderer.invoke("ssh:request", { method, params }),
   },
+  /**
+   * Run local `aq` CLI. Returns { ok, code, stdout, stderr }.
+   * @param {{ args: string[], cwd?: string }} opts
+   */
+  aqRun: (opts) => ipcRenderer.invoke("aq:run", opts),
+  /** Read ~/.aquin/places.json */
+  aqPlaces: () => ipcRenderer.invoke("aq:places"),
+  /** Upsert an SSH place into ~/.aquin/places.json */
+  aqPlacesUpsert: (place) => ipcRenderer.invoke("aq:placesUpsert", place),
 });

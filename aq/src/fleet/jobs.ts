@@ -112,7 +112,7 @@ function tip(msg: string, hint: string): Error {
 function jobsHelp(): string {
   return [
     "aq jobs                     list jobs on last launch place",
-    "aq jobs list [--on <place>]",
+    "aq jobs list [--on <place>] [--tag k=v] [--all] [--json]",
     "aq jobs run [--on <place|pool>] [--nodes N] [--gpu N] [--port N] [--json] -- <cmd>…",
     "aq jobs train|eval|serve [--on …] [--nodes N] [--gpu N] [--port N] [--json] [-- <extra>…]",
     "aq jobs status <id> [--json]",
@@ -963,6 +963,8 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
 
 async function jobsList(argv: string[]): Promise<void> {
   let on: string | undefined
+  let jsonOut = false
+  let all = false
   const filter: Tags = {}
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--on") {
@@ -976,15 +978,165 @@ async function jobsList(argv: string[]): Promise<void> {
       filter[key] = value
       continue
     }
+    if (argv[i] === "--json") {
+      jsonOut = true
+      continue
+    }
+    if (argv[i] === "--all") {
+      all = true
+      continue
+    }
     if (argv[i] === "-h" || argv[i] === "--help") {
       console.log(jobsHelp())
       return
     }
-    throw tip(`unknown flag: ${argv[i]}`, "aq jobs list [--on <place>] [--tag k=v]")
+    throw tip(`unknown flag: ${argv[i]}`, "aq jobs list [--on <place>] [--tag k=v] [--all] [--json]")
   }
   const session = loadSession()
-  const requested = on || session?.place
-  if (!requested) throw tip("no place", "aq launch --on <place> · or --on")
+  const requested = on || (!all ? session?.place : undefined)
+
+  type Row = {
+    id: string
+    place: string
+    remoteDir: string
+    status: RemoteJobStatus | "missing"
+    code: number | null
+    command: string[]
+    started: string
+    ended: string | null
+    tags?: Tags
+    pool?: string
+    managed?: ManagedPolicy
+    gpuDevices?: number[]
+    worldSize?: number
+    detail?: string
+  }
+  const rows: Row[] = []
+
+  const pushFromSpec = (
+    id: string,
+    spec: RemoteJobSpec,
+    meta?: IndexEntry,
+    detail?: string,
+  ) => {
+    if (Object.keys(filter).length && !matchTags(meta?.tags, filter)) return
+    rows.push({
+      id,
+      place: spec.place,
+      remoteDir: spec.remoteDir,
+      status: spec.status,
+      code: spec.code,
+      command: spec.command,
+      started: spec.started,
+      ended: spec.ended,
+      tags: meta?.tags,
+      pool: meta?.pool,
+      managed: meta?.managed,
+      gpuDevices: meta?.gpuDevices,
+      worldSize: spec.worldSize ?? meta?.worldSize,
+      detail,
+    })
+  }
+
+  const tryRefresh = (id: string, meta: IndexEntry): void => {
+    if (Object.keys(filter).length && !matchTags(meta.tags, filter)) return
+    try {
+      const p = getPlace(meta.place)
+      if (p.kind !== "ssh") {
+        rows.push({
+          id,
+          place: meta.place,
+          remoteDir: meta.remoteDir,
+          status: "missing",
+          code: null,
+          command: meta.command,
+          started: meta.started,
+          ended: null,
+          tags: meta.tags,
+          pool: meta.pool,
+          managed: meta.managed,
+          gpuDevices: meta.gpuDevices,
+          worldSize: meta.worldSize,
+          detail: "not an ssh place",
+        })
+        return
+      }
+      const check = sshCheck(p)
+      if (!check.ok) {
+        rows.push({
+          id,
+          place: meta.place,
+          remoteDir: meta.remoteDir,
+          status: "unreachable",
+          code: null,
+          command: meta.command,
+          started: meta.started,
+          ended: null,
+          tags: meta.tags,
+          pool: meta.pool,
+          managed: meta.managed,
+          gpuDevices: meta.gpuDevices,
+          worldSize: meta.worldSize,
+          detail: check.detail,
+        })
+        return
+      }
+      const spec = refreshRemote(p, meta.remoteDir, id)
+      pushFromSpec(id, spec, meta)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      rows.push({
+        id,
+        place: meta.place,
+        remoteDir: meta.remoteDir,
+        status: /unreachable/i.test(msg) ? "unreachable" : "missing",
+        code: null,
+        command: meta.command,
+        started: meta.started,
+        ended: null,
+        tags: meta.tags,
+        pool: meta.pool,
+        managed: meta.managed,
+        gpuDevices: meta.gpuDevices,
+        worldSize: meta.worldSize,
+        detail: msg.split("\n")[0],
+      })
+    }
+  }
+
+  if (all || !requested) {
+    const idx = loadIndex()
+    const ids = Object.keys(idx.jobs).sort()
+    for (const id of ids) tryRefresh(id, idx.jobs[id])
+    if (jsonOut) {
+      console.log(JSON.stringify({ jobs: rows, place: null, all: true }))
+      return
+    }
+    if (!rows.length) {
+      console.log(c.yellow("no jobs"))
+      console.log(c.dim("  tip") + "  aq jobs run --on <place> -- sleep 20")
+      return
+    }
+    console.log(c.bold("jobs") + "  " + c.dim("all"))
+    for (const r of rows) {
+      printJob(
+        {
+          id: r.id,
+          place: r.place,
+          remoteDir: r.remoteDir,
+          command: r.command,
+          pid: null,
+          status: r.status === "missing" ? "error" : r.status,
+          code: r.code,
+          started: r.started,
+          ended: r.ended,
+          worldSize: r.worldSize,
+        },
+        r.tags,
+      )
+    }
+    return
+  }
 
   const target = getPlace(requested)
   const members: { name: string; place: SshPlace; remoteDir: string }[] = []
@@ -998,11 +1150,13 @@ async function jobsList(argv: string[]): Promise<void> {
           : defaultRemoteDir(session)
       members.push({ name: m, place: p, remoteDir: rd })
     }
-    console.log(c.bold("jobs") + "  " + c.cyan(requested) + c.dim("  pool"))
+    if (!jsonOut) console.log(c.bold("jobs") + "  " + c.cyan(requested) + c.dim("  pool"))
   } else if (target.kind === "ssh") {
     const ctx = resolveContext(requested)
     members.push({ name: ctx.placeName, place: ctx.place, remoteDir: ctx.remoteDir })
-    console.log(c.bold("jobs") + "  " + c.cyan(ctx.placeName) + c.dim("  " + ctx.remoteDir))
+    if (!jsonOut) {
+      console.log(c.bold("jobs") + "  " + c.cyan(ctx.placeName) + c.dim("  " + ctx.remoteDir))
+    }
   } else {
     throw tip(`place ${requested} is ${(target as { kind: string }).kind}`, "aq add ssh")
   }
@@ -1022,10 +1176,10 @@ async function jobsList(argv: string[]): Promise<void> {
     const fromIdx = Object.entries(loadIndex().jobs)
       .filter(([, j]) => j.place === m.name || j.nodes?.some((n) => n.place === m.name))
       .map(([id]) => id)
-    const all = [...new Set([...ids, ...fromIdx])].sort()
-    if (!all.length) continue
+    const allIds = [...new Set([...ids, ...fromIdx])].sort()
+    if (!allIds.length) continue
     let section = false
-    for (const id of all) {
+    for (const id of allIds) {
       if (seen.has(id)) continue
       seen.add(id)
       const meta = loadIndex().jobs[id]
@@ -1033,21 +1187,46 @@ async function jobsList(argv: string[]): Promise<void> {
       if (!section) {
         any = true
         section = true
-        if (target.kind === "pool") {
-          console.log(c.dim("  · " + m.name) + loadFor(m.name, m.place))
-        } else {
-          console.log(c.dim("  load") + loadFor(m.name, m.place))
+        if (!jsonOut) {
+          if (target.kind === "pool") {
+            console.log(c.dim("  · " + m.name) + loadFor(m.name, m.place))
+          } else {
+            console.log(c.dim("  load") + loadFor(m.name, m.place))
+          }
         }
       }
       try {
         const rd = meta?.remoteDir || m.remoteDir
         const headPlace = meta?.place ? getPlace(meta.place) : m.place
         const ssh = headPlace.kind === "ssh" ? headPlace : m.place
-        printJob(refreshRemote(ssh, rd, id), meta?.tags)
+        const spec = refreshRemote(ssh, rd, id)
+        if (jsonOut) pushFromSpec(id, spec, meta)
+        else printJob(spec, meta?.tags)
       } catch {
-        console.log("  " + c.cyan(id) + "  " + c.red("missing"))
+        if (jsonOut) {
+          rows.push({
+            id,
+            place: meta?.place || m.name,
+            remoteDir: meta?.remoteDir || m.remoteDir,
+            status: "missing",
+            code: null,
+            command: meta?.command || [],
+            started: meta?.started || "",
+            ended: null,
+            tags: meta?.tags,
+            pool: meta?.pool,
+            managed: meta?.managed,
+            gpuDevices: meta?.gpuDevices,
+          })
+        } else {
+          console.log("  " + c.cyan(id) + "  " + c.red("missing"))
+        }
       }
     }
+  }
+  if (jsonOut) {
+    console.log(JSON.stringify({ jobs: rows, place: requested }))
+    return
   }
   if (!any) {
     console.log(c.yellow("no jobs"))

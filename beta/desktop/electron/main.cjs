@@ -6,6 +6,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const { spawn } = require("node:child_process");
 const http = require("node:http");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { SshBridge } = require("./ssh-bridge.cjs");
 
@@ -14,6 +15,72 @@ const isDev = !app.isPackaged;
 const UI_PORT = Number(process.env.AQUIN_UI_PORT || 3000);
 const API_PORT = Number(process.env.AQUIN_API_PORT || 3001);
 const UI_URL = process.env.AQUIN_DESKTOP_URL || `http://localhost:${UI_PORT}`;
+
+function homedir() {
+  return os.homedir();
+}
+
+/** Resolve local `aq` CLI (PATH, env, or sibling aqfw checkout). */
+function resolveAqBin() {
+  if (process.env.AQUIN_AQ) return process.env.AQUIN_AQ;
+  const sibling = path.resolve(ROOT, "..", "aq", "bin", "aq");
+  if (fs.existsSync(sibling)) return sibling;
+  const localBin = path.join(ROOT, "node_modules", ".bin", "aq");
+  if (fs.existsSync(localBin)) return localBin;
+  return "aq";
+}
+
+/**
+ * @param {string[]} args
+ * @param {{ cwd?: string, timeoutMs?: number }} [opts]
+ */
+function runAq(args, opts = {}) {
+  const bin = resolveAqBin();
+  const cwd = opts.cwd || process.env.HOME || homedir();
+  const timeoutMs = opts.timeoutMs ?? 120_000;
+
+  return new Promise((resolve) => {
+    const child = spawn(bin, args, {
+      cwd,
+      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        /* ignore */
+      }
+    }, timeoutMs);
+    child.stdout?.on("data", (buf) => {
+      stdout += buf.toString("utf8");
+    });
+    child.stderr?.on("data", (buf) => {
+      stderr += buf.toString("utf8");
+    });
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      resolve({
+        ok: false,
+        code: null,
+        stdout,
+        stderr: stderr || err.message,
+        error: err.message,
+      });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({
+        ok: code === 0,
+        code,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}
 
 /** @type {Electron.BrowserWindow | null} */
 let mainWindow = null;
@@ -232,6 +299,77 @@ function registerIpc() {
   ipcMain.handle("ssh:request", async (_event, payload) => {
     if (!ssh) throw new Error("SSH service is not running");
     return ssh.request(payload.method, payload.params ?? {});
+  });
+
+  ipcMain.handle("aq:run", async (_event, payload) => {
+    const args = Array.isArray(payload?.args) ? payload.args.map(String) : [];
+    const cwd =
+      typeof payload?.cwd === "string" && payload.cwd.trim()
+        ? payload.cwd
+        : undefined;
+    return runAq(args, { cwd });
+  });
+
+  ipcMain.handle("aq:places", async () => {
+    const p = path.join(homedir(), ".aquin", "places.json");
+    try {
+      if (!fs.existsSync(p)) return { places: {} };
+      const raw = JSON.parse(fs.readFileSync(p, "utf8"));
+      return { places: raw?.places && typeof raw.places === "object" ? raw.places : {} };
+    } catch (err) {
+      return {
+        places: {},
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  /** Upsert an SSH place into ~/.aquin/places.json (same schema as `aq add ssh`). */
+  ipcMain.handle("aq:placesUpsert", async (_event, payload) => {
+    const name = typeof payload?.name === "string" ? payload.name.trim() : "";
+    const host = typeof payload?.host === "string" ? payload.host.trim() : "";
+    if (!name) return { ok: false, error: "Place name is required." };
+    if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(name)) {
+      return { ok: false, error: "Use a short name: letters, numbers, _ or -." };
+    }
+    if (!host) return { ok: false, error: "Host is required." };
+
+    const user = typeof payload?.user === "string" ? payload.user.trim() : "";
+    const key = typeof payload?.key === "string" ? payload.key.trim() : "";
+    const portNum = Number(payload?.port);
+    const port = Number.isFinite(portNum) && portNum > 0 ? portNum : 22;
+
+    const p = path.join(homedir(), ".aquin", "places.json");
+    try {
+      const dir = path.dirname(p);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      let file = { places: {} };
+      if (fs.existsSync(p)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (raw?.places && typeof raw.places === "object") file = { places: raw.places };
+        } catch {
+          /* rewrite */
+        }
+      }
+      const prev = file.places[name];
+      file.places[name] = {
+        kind: "ssh",
+        host,
+        ...(user ? { user } : {}),
+        ...(port !== 22 ? { port } : {}),
+        ...(key ? { key } : {}),
+        ...(prev && typeof prev === "object" && prev.resources ? { resources: prev.resources } : {}),
+        ...(prev && typeof prev === "object" && prev.tags ? { tags: prev.tags } : {}),
+      };
+      fs.writeFileSync(p, JSON.stringify(file, null, 2) + "\n", "utf8");
+      return { ok: true, places: file.places };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   });
 }
 
