@@ -117,6 +117,29 @@ export function listSshPlaceNames(): string[] {
     .sort()
 }
 
+/**
+ * Resolve which place to use:
+ * 1. explicit `--on` / name
+ * 2. last fleet session (if still registered)
+ * 3. the only registered place
+ * Otherwise throw — caller should tip with `aq places · aq add ssh`.
+ */
+export function resolvePlaceName(onFlag?: string | null): string {
+  const flag = (onFlag || "").trim()
+  if (flag) return flag
+
+  const names = listPlaceNames()
+  const session = loadSession()
+  if (session?.place && names.includes(session.place)) {
+    return session.place
+  }
+  if (names.length === 1) return names[0]
+  if (!names.length) {
+    throw new Error("no places yet — aq add ssh")
+  }
+  throw new Error(`need --on <place> (known: ${names.join(", ")})`)
+}
+
 export function saveSession(session: FleetSession): void {
   writeFileSync(sessionPath(), JSON.stringify(session, null, 2) + "\n", "utf8")
 }

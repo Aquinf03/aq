@@ -175,6 +175,9 @@ export function WorkspaceHome({ children, displayName }: WorkspaceHomeProps) {
             onSelect={selectTab}
             onClose={closeTab}
             onNewTab={openNewHome}
+            onAgent={() => {
+              /* agent rail — wire later */
+            }}
           />
         }
         sidebar={

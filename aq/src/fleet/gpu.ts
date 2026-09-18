@@ -36,6 +36,11 @@ function loadClaims(): ClaimsFile {
   }
 }
 
+/** Snapshot of current GPU claims (for prune / diagnostics). */
+export function listGpuClaims(): GpuClaim[] {
+  return loadClaims().claims.map((c) => ({ ...c, devices: [...c.devices] }))
+}
+
 function saveClaims(file: ClaimsFile): void {
   writeFileSync(claimsPath(), JSON.stringify(file, null, 2) + "\n", "utf8")
 }

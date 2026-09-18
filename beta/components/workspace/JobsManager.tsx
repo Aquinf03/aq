@@ -35,6 +35,7 @@ import { JobsDetailPanel } from "@/components/workspace/JobsDetailPanel";
 type PlaceRow = { name: string; kind: string; label: string };
 
 type DraftJob = {
+  name: string;
   command: string;
   places: string[];
   gpu: string;
@@ -43,6 +44,7 @@ type DraftJob = {
 };
 
 const emptyDraft = (): DraftJob => ({
+  name: "",
   command: "aq train",
   places: [],
   gpu: "",
@@ -481,12 +483,19 @@ export function JobsManager({
       setError("Enter a command to run");
       return;
     }
+    const name = draft.name.trim();
+    if (name && !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(name)) {
+      setError("Name: letters, numbers, . _ - (max 64 chars)");
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
       const gpuN = Number(draft.gpu);
       for (const place of targets) {
-        const args = ["jobs", "run", "--on", place, "--json", "--tag", `priority=${draft.priority}`];
+        const args = ["jobs", "run", "--json", "--tag", `priority=${draft.priority}`];
+        if (name) args.push("--name", name);
+        args.push("--on", place);
         if (draft.gpu.trim() && Number.isFinite(gpuN) && gpuN > 0) {
           args.push("--gpu", String(gpuN));
         }
@@ -719,21 +728,36 @@ export function JobsManager({
                     )}
                   />
                   <td className={cn(draftCell, "text-stone-400")}>—</td>
-                  <td className={draftCell}>
-                    <input
-                      autoFocus
-                      value={draft.command}
-                      onChange={e => setDraft({ ...draft, command: e.target.value })}
-                      onKeyDown={e => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void startDraft();
-                        }
-                        if (e.key === "Escape") setDraft(null);
-                      }}
-                      placeholder="Command…"
-                      className="h-8 w-full rounded-md border border-transparent bg-transparent px-2 text-[13px] text-stone-900 outline-none focus:border-black/10 focus:bg-white dark:text-stone-100 dark:focus:border-white/15 dark:focus:bg-[#111]"
-                    />
+                  <td className={cn(draftCell, "py-1")}>
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <input
+                        autoFocus
+                        value={draft.name}
+                        onChange={e => setDraft({ ...draft, name: e.target.value })}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            void startDraft();
+                          }
+                          if (e.key === "Escape") setDraft(null);
+                        }}
+                        placeholder="Name (e.g. testing)"
+                        className="h-7 w-full rounded-md border border-transparent bg-transparent px-2 text-[13px] font-medium text-stone-900 outline-none placeholder:font-normal focus:border-black/10 focus:bg-white dark:text-stone-100 dark:focus:border-white/15 dark:focus:bg-[#111]"
+                      />
+                      <input
+                        value={draft.command}
+                        onChange={e => setDraft({ ...draft, command: e.target.value })}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            void startDraft();
+                          }
+                          if (e.key === "Escape") setDraft(null);
+                        }}
+                        placeholder="Command…"
+                        className="h-7 w-full rounded-md border border-transparent bg-transparent px-2 text-[12px] text-stone-600 outline-none focus:border-black/10 focus:bg-white dark:text-stone-300 dark:focus:border-white/15 dark:focus:bg-[#111]"
+                      />
+                    </div>
                   </td>
                   <td className={draftCell}>
                     <DropdownMenu>
@@ -908,9 +932,20 @@ export function JobsManager({
                       <span className="block truncate">{job.id}</span>
                     </td>
                     <td className={cell}>
-                      <span className="block truncate text-stone-900 dark:text-stone-100">
-                        {job.tags?.name || job.tags?.sweep || cmdLabel(job.command)}
-                      </span>
+                      {job.tags?.name ? (
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <span className="block truncate font-medium text-stone-900 dark:text-stone-100">
+                            {job.tags.name}
+                          </span>
+                          <span className="block truncate text-[11px] text-stone-500 dark:text-stone-400">
+                            {cmdLabel(job.command)}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="block truncate text-stone-900 dark:text-stone-100">
+                          {job.tags?.sweep || cmdLabel(job.command)}
+                        </span>
+                      )}
                     </td>
                     <td className={cell}>
                       <span className="inline-flex max-w-full items-center gap-1.5">

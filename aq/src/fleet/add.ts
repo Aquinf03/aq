@@ -260,5 +260,5 @@ async function addSsh(argv: string[]): Promise<void> {
   } else {
     console.log(c.red("fail") + "  " + check.detail)
   }
-  console.log(c.dim("next") + "  aq launch --on " + name)
+  console.log(c.dim("next") + "  aq launch")
 }

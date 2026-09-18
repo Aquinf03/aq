@@ -139,7 +139,7 @@ export function WorkspaceShell({
           className="aquin-no-drag absolute z-[55] flex min-w-0 items-end overflow-hidden pt-[5px] transition-[left,right] duration-300 ease-out"
           style={{
             left: tabsLeft,
-            right: 40,
+            right: 10,
             top: 0,
             height: TITLEBAR_H + 2,
           }}

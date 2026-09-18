@@ -9,7 +9,7 @@ import {
 } from "node:fs"
 import { homedir } from "node:os"
 import path from "node:path"
-import { loadSession, type SshPlace } from "./places.js"
+import { loadSession, resolvePlaceName, type SshPlace } from "./places.js"
 import { describePick, resolveSshTarget } from "./pool.js"
 import { sshBaseArgs, sshTarget } from "./ssh.js"
 import { c, step, stepOk } from "./ui.js"
@@ -212,11 +212,15 @@ async function portOpen(argv: string[]): Promise<void> {
     }
     throw tip(`unknown: ${a}`, "aq port 8000 --on <place>")
   }
-  if (!spec) throw tip("need a port", "aq port 8000 --on temp")
+  if (!spec) throw tip("need a port", "aq port 8000")
   const fw = parsePortForward(spec)
   const session = loadSession()
-  const placeName = on || session?.place
-  if (!placeName) throw tip("need --on <place>", "aq places · or aq launch first")
+  let placeName: string
+  try {
+    placeName = resolvePlaceName(on || null)
+  } catch (e) {
+    throw tip(e instanceof Error ? e.message : String(e), "aq places · or aq launch first")
+  }
 
   let resolved
   try {

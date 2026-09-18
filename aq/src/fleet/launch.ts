@@ -8,6 +8,7 @@ import {
   listPlaceNames,
   loadSession,
   remoteTrainDir,
+  resolvePlaceName,
   saveSession,
 } from "./places.js"
 import { describePick, resolveSshTarget } from "./pool.js"
@@ -32,8 +33,9 @@ function launchHelp(): string {
   return [
     "Run these on your laptop (not inside the SSH session).",
     "",
-    "aq launch [dir] --on <place> [--setup|--no-setup] [--shell] [--port N] [-- <cmd>…]",
+    "aq launch [dir] [--on <place>] [--setup|--no-setup] [--shell] [--port N] [-- <cmd>…]",
     "  pick a folder, sync it, install/refresh aq on the place — stay on your laptop",
+    "  --on         optional: defaults to last session, or the only place you have",
     "  pass [dir] to skip the folder prompt",
     "  --no-setup   skip aq install/refresh on the remote",
     "  --shell      open an SSH shell after sync (same as aq go)",
@@ -45,7 +47,7 @@ function launchHelp(): string {
     "aq shutdown [place] [--wipe]   stop jobs on place + clear session (--wipe removes remote dir)",
     "aq port <N> [--on place] [--bg]  tunnel only (see aq port help)",
     "",
-    "Jobs / queue also run from the laptop: aq jobs train --on <place> …",
+    "Jobs / queue also run from the laptop: aq jobs train [--on <place>] …",
   ].join("\n")
 }
 
@@ -115,7 +117,7 @@ function parseLaunch(argv: string[]): {
     }
     if (a === "--port" || a === "-p") {
       const v = argv[i + 1]
-      if (!v) throw tip("need N after --port", "aq launch --on temp --port 8000")
+      if (!v) throw tip("need N after --port", "aq launch --port 8000")
       ports.push(parsePortForward(v))
       i += 2
       continue
@@ -129,10 +131,13 @@ function parseLaunch(argv: string[]): {
     throw tip(`unknown flag: ${a}`, "aq launch --help")
   }
 
-  if (!on) {
+  try {
+    on = resolvePlaceName(on || null)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
     const names = listPlaceNames()
     const known = names.length ? `known: ${names.join(", ")}` : "none yet — aq add ssh"
-    throw tip("need --on <place>", `${known}`)
+    throw tip(msg, known)
   }
   return { dir, on, setup, shell, command: sawDash ? command : null, ports }
 }
@@ -247,7 +252,7 @@ export async function launchCmd(argv: string[]): Promise<void> {
     step("run", command.join(" "))
     const code = runRemote(place, remoteDir, command)
     if (code !== 0) process.exitCode = code
-    console.log(c.dim("next") + "  aq go   ·  aq jobs train --on " + on)
+    console.log(c.dim("next") + "  aq go   ·  aq jobs train")
     return
   }
 
@@ -264,9 +269,9 @@ export async function launchCmd(argv: string[]): Promise<void> {
   }
 
   stepOk("ready", remoteDir)
-  console.log(c.dim("next") + "  aq sync --on " + on + "   # from this laptop")
-  console.log(c.dim("    ") + "  aq go                  # open SSH when you want a shell")
-  console.log(c.dim("    ") + "  aq jobs train --on " + on)
+  console.log(c.dim("next") + "  aq sync                 # from this laptop")
+  console.log(c.dim("    ") + "  aq go                    # open SSH when you want a shell")
+  console.log(c.dim("    ") + "  aq jobs train")
 }
 
 export async function goCmd(argv: string[]): Promise<void> {
@@ -284,9 +289,11 @@ export async function goCmd(argv: string[]): Promise<void> {
     rest.push(argv[i])
   }
   const session = loadSession()
-  const name = rest[0] || session?.place
-  if (!name) {
-    throw tip("nothing to go to", "aq launch --on <place> first · aq places")
+  let name: string
+  try {
+    name = resolvePlaceName(rest[0] || null)
+  } catch (e) {
+    throw tip(e instanceof Error ? e.message : String(e), "aq launch first · aq places")
   }
 
   // Prefer sticky member from last launch on this pool; else pick fresh
@@ -383,8 +390,12 @@ export async function syncCmd(argv: string[]): Promise<void> {
   }
 
   const session = loadSession()
-  const placeName = on || session?.place
-  if (!placeName) throw tip("need --on <place>", "aq places · or aq launch first")
+  let placeName: string
+  try {
+    placeName = resolvePlaceName(on || null)
+  } catch (e) {
+    throw tip(e instanceof Error ? e.message : String(e), "aq places · or aq launch first")
+  }
 
   let resolved
   try {
@@ -421,7 +432,7 @@ export async function syncCmd(argv: string[]): Promise<void> {
     at: new Date().toISOString(),
   })
   stepOk("sync", "pushed  " + c.cyan(path.basename(local)))
-  console.log(c.dim("next") + "  aq jobs train --on " + placeName + " · aq go")
+  console.log(c.dim("next") + "  aq jobs train · aq go")
 }
 
 export async function shutdownCmd(argv: string[]): Promise<void> {
@@ -445,8 +456,12 @@ export async function shutdownCmd(argv: string[]): Promise<void> {
   }
 
   const session = loadSession()
-  const placeName = name || session?.place
-  if (!placeName) throw tip("nothing to shut down", "aq launch --on <place> · aq places")
+  let placeName: string
+  try {
+    placeName = resolvePlaceName(name || null)
+  } catch (e) {
+    throw tip(e instanceof Error ? e.message : String(e), "aq launch · aq places")
+  }
 
   let resolved
   try {
@@ -485,5 +500,5 @@ export async function shutdownCmd(argv: string[]): Promise<void> {
 
   if (!name || session?.place === placeName) clearSession()
   stepOk("shutdown", "session cleared")
-  console.log(c.dim("next") + "  aq launch --on <place>  when you want the box again")
+  console.log(c.dim("next") + "  aq launch  when you want the box again")
 }

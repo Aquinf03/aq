@@ -8,6 +8,7 @@ import path from "node:path"
 import {
   getPlace,
   loadSession,
+  resolvePlaceName,
   type FleetSession,
   type SshPlace,
 } from "./places.js"
@@ -21,6 +22,7 @@ import {
 import {
   allocateGpus,
   cudaVisibleDevices,
+  listGpuClaims,
   parseDevices,
   releaseGpus,
 } from "./gpu.js"
@@ -113,10 +115,10 @@ function jobsHelp(): string {
   return [
     "aq jobs                     list jobs on last launch place",
     "aq jobs list [--on <place>] [--tag k=v] [--all] [--json]",
-    "aq jobs run [--on <place|pool>] [--nodes N] [--gpu N] [--port N] [--json] -- <cmd>…",
-    "aq jobs train|eval|serve [--on …] [--nodes N] [--gpu N] [--port N] [--json] [-- <extra>…]",
+    "aq jobs run [--name N] [--on <place|pool>] [--nodes N] [--gpu N] [--port N] [--json] -- <cmd>…",
+    "aq jobs train|eval|serve [--name N] [--on …] [--nodes N] [--gpu N] [--port N] [--json] [-- <extra>…]",
     "aq jobs status <id> [--json]",
-    "aq jobs logs <id> [-n N|-f] [--rank K]",
+    "aq jobs logs <id> [-f|--once] [-n N] [--rank K]   # default: stream (follow)",
     "aq jobs pull <id> [dir] [--rank K]",
     "aq jobs down <id>",
     "aq jobs recover <id> [--same|--next|--on place|pool] [--force] [--json]",
@@ -128,6 +130,7 @@ function jobsHelp(): string {
     "--nodes N  (N>1) needs a pool: sync + start the same cmd on N boxes with",
     "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT set (torchrun-friendly).",
     "--port N   SSH -L tunnel (N or local:remote); sets AQ_PORT/PORT on the job.",
+    "--name N   human label for the job (stored as tag name=; shows in list).",
     "--tag k=v  label the job (filter with aq jobs list --tag k=v).",
     "--gpu N    claim N free GPUs on the box (CUDA_VISIBLE_DEVICES; shared multi-GPU).",
     "--devices  pin indices e.g. 0,2 or 0-1 (with or instead of --gpu).",
@@ -237,6 +240,9 @@ export function startOnNode(opts: {
     "set +e",
     `cd ${remoteShellPath(remoteDir)} || exit 90`,
     'export PATH="$HOME/.aquin/bin:$PATH"',
+    // Line-buffer Python/HF so `aq jobs logs -f` shows progress live.
+    "export PYTHONUNBUFFERED=1",
+    "export PYTHONIOENCODING=utf-8",
     exports,
     runLine,
     `echo $? > ${remoteShellPath(dir + "/code")}`,
@@ -290,9 +296,11 @@ function resolveContext(
   viaPool?: string
 } {
   const session = loadSession()
-  const requested = onFlag || session?.place
-  if (!requested) {
-    throw tip("no place", "aq launch --on <place> first · or pass --on <place>")
+  let requested: string
+  try {
+    requested = resolvePlaceName(onFlag)
+  } catch (e) {
+    throw tip(e instanceof Error ? e.message : String(e), "aq launch · or pass --on <place>")
   }
   const resolved = resolveSshTarget(requested, ask)
   const remoteDir =
@@ -519,6 +527,37 @@ function lastJsonObject(out: string): string {
   return lines[lines.length - 1] || out.trim()
 }
 
+/**
+ * Drop GPU claims for jobs that are no longer running (exited / gone / unknown).
+ * Call before allocating so a finished job doesn't block the next --gpu run.
+ */
+function pruneStaleGpuClaims(placeFilter?: string[]): void {
+  const filter = placeFilter?.length ? new Set(placeFilter) : null
+  const idx = loadIndex()
+  const seen = new Set<string>()
+  for (const c of listGpuClaims()) {
+    if (filter && !filter.has(c.place)) continue
+    if (seen.has(c.jobId)) continue
+    seen.add(c.jobId)
+    const meta = idx.jobs[c.jobId]
+    if (!meta) {
+      releaseGpus(c.jobId)
+      continue
+    }
+    try {
+      const p = getPlace(meta.place)
+      if (p.kind !== "ssh") {
+        releaseGpus(c.jobId)
+        continue
+      }
+      if (!sshCheck(p).ok) continue // keep claim while unreachable — may recover
+      refreshRemote(p, meta.remoteDir, c.jobId) // releases if exited/canceled/missing
+    } catch {
+      /* refreshRemote already released on NOJOB; keep claim on other errors */
+    }
+  }
+}
+
 /** Read + refresh remote spec (pid alive / exit code). */
 function refreshRemote(place: SshPlace, remoteDir: string, id: string): RemoteJobSpec {
   const dir = remoteJobDir(remoteDir, id)
@@ -585,9 +624,15 @@ print(json.dumps(s))
       "aq jobs recover " + id,
     )
   }
-  if (!out || out === "NOJOB") throw tip(`no such job: ${id}`, "aq jobs list")
+  if (!out || out === "NOJOB") {
+    releaseGpus(id)
+    throw tip(`no such job: ${id}`, "aq jobs list")
+  }
   const spec = parseSpec(lastJsonObject(out))
   if (!spec) throw tip(`bad job spec for ${id}`, "aq jobs list")
+  if (spec.status === "exited" || spec.status === "canceled") {
+    releaseGpus(id)
+  }
   return spec
 }
 
@@ -652,10 +697,18 @@ function printJob(spec: RemoteJobSpec, tags?: Tags): void {
   const cmd = spec.command.join(" ")
   const gang =
     spec.nodes && spec.nodes.length > 1 ? c.dim(`  ×${spec.nodes.length}`) : ""
-  const tagTxt = tags && Object.keys(tags).length ? c.dim("  " + fmtTags(tags)) : ""
+  const name = tags?.name?.trim()
+  const otherTags =
+    tags &&
+    Object.fromEntries(Object.entries(tags).filter(([k]) => k !== "name"))
+  const tagTxt =
+    otherTags && Object.keys(otherTags).length
+      ? c.dim("  " + fmtTags(otherTags))
+      : ""
+  const label = name ? c.bold(name) + c.dim("  ") + c.cyan(spec.id) : c.cyan(spec.id)
   console.log(
     "  " +
-      c.cyan(spec.id) +
+      label +
       "  " +
       statusColor(spec.status) +
       (spec.code != null ? c.dim(` exit ${spec.code}`) : "") +
@@ -701,6 +754,21 @@ async function jobsRun(argv: string[]): Promise<string> {
     if (a === "--on") {
       on = argv[i + 1]
       if (!on) throw tip("need place after --on", "aq places")
+      i += 2
+      continue
+    }
+    if (a === "--name") {
+      const v = argv[i + 1]
+      if (!v || v.startsWith("-")) {
+        throw tip("need a name after --name", "aq jobs run --name testing -- aq train")
+      }
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(v)) {
+        throw tip(
+          "bad --name",
+          "use letters, numbers, . _ - (max 64 chars)",
+        )
+      }
+      tagNeed.name = v
       i += 2
       continue
     }
@@ -785,10 +853,18 @@ async function jobsRun(argv: string[]): Promise<string> {
   }
 
   const session = loadSession()
-  const requested = on || session?.place
-  if (!requested) throw tip("no place", "aq launch --on <place> · or --on")
+  let requested: string
+  try {
+    requested = resolvePlaceName(on)
+  } catch (e) {
+    throw tip(e instanceof Error ? e.message : String(e), "aq launch · or --on <place>")
+  }
 
   const ask = { gpu: gpuAsk }
+  if (gpuAsk != null && gpuAsk > 0) {
+    // Free devices held by jobs that already exited (claims used to stick until `down`).
+    pruneStaleGpuClaims()
+  }
   const gang = resolveSshTargets(requested, ask, nodes)
   const remoteDir = session?.remoteDir || defaultRemoteDir(session)
   const spec = await startRemoteJob({
@@ -839,9 +915,11 @@ async function jobsRun(argv: string[]): Promise<string> {
       }),
     )
   } else {
+    const name = tagNeed.name
     stepOk(
       "jobs",
-      "id  " +
+      (name ? c.bold(name) + "  " : "") +
+        "id  " +
         c.cyan(id) +
         (worldSize > 1 ? c.dim(`  ranks 0..${worldSize - 1}`) : "") +
         (spec.pid != null ? c.dim("  pid " + spec.pid) : "") +
@@ -853,7 +931,8 @@ async function jobsRun(argv: string[]): Promise<string> {
         id +
         " · aq jobs status " +
         id +
-        (manage ? " · aq jobs watch " + id : ""),
+        (manage ? " · aq jobs watch " + id : "") +
+        (name ? c.dim("  (" + name + ")") : ""),
     )
   }
   return id
@@ -867,6 +946,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
   let masterPort: number | undefined
   const ports: string[] = []
   const tags: string[] = []
+  let jobName: string | undefined
   let devices: string | undefined
   let manageFlags: string[] = []
   const extra: string[] = []
@@ -880,6 +960,14 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
     if (a === "--on") {
       on = argv[i + 1]
       if (!on) throw tip("need place after --on", "aq places")
+      i += 2
+      continue
+    }
+    if (a === "--name") {
+      jobName = argv[i + 1]
+      if (!jobName || jobName.startsWith("-")) {
+        throw tip("need a name after --name", `aq jobs ${verb} --name testing`)
+      }
       i += 2
       continue
     }
@@ -947,6 +1035,7 @@ async function jobsVerb(verb: "train" | "eval" | "serve", argv: string[]): Promi
   const cmd = ["aq", verb, ...extra]
   const flags = [
     ...(on ? ["--on", on] : []),
+    ...(jobName ? ["--name", jobName] : []),
     ...(jsonOut ? ["--json"] : []),
     ...(gpuAsk != null ? ["--gpu", String(gpuAsk)] : []),
     ...(devices ? ["--devices", devices] : []),
@@ -993,7 +1082,16 @@ async function jobsList(argv: string[]): Promise<void> {
     throw tip(`unknown flag: ${argv[i]}`, "aq jobs list [--on <place>] [--tag k=v] [--all] [--json]")
   }
   const session = loadSession()
-  const requested = on || (!all ? session?.place : undefined)
+  let requested: string | undefined
+  if (on) {
+    requested = on
+  } else if (!all) {
+    try {
+      requested = resolvePlaceName(null)
+    } catch {
+      requested = undefined
+    }
+  }
 
   type Row = {
     id: string
@@ -1114,7 +1212,7 @@ async function jobsList(argv: string[]): Promise<void> {
     }
     if (!rows.length) {
       console.log(c.yellow("no jobs"))
-      console.log(c.dim("  tip") + "  aq jobs run --on <place> -- sleep 20")
+      console.log(c.dim("  tip") + "  aq jobs run -- sleep 20")
       return
     }
     console.log(c.bold("jobs") + "  " + c.dim("all"))
@@ -1397,7 +1495,8 @@ async function jobsStatus(argv: string[]): Promise<void> {
 
 async function jobsLogs(argv: string[]): Promise<void> {
   let id = ""
-  let follow = false
+  /** Default: stream. `--once` / `--no-follow` = snapshot. */
+  let follow = true
   let lines = 80
   let on: string | undefined
   let rank: number | undefined
@@ -1405,6 +1504,10 @@ async function jobsLogs(argv: string[]): Promise<void> {
     const a = argv[i]
     if (a === "-f" || a === "--follow") {
       follow = true
+      continue
+    }
+    if (a === "--once" || a === "--no-follow") {
+      follow = false
       continue
     }
     if (a === "-n") {
@@ -1423,17 +1526,18 @@ async function jobsLogs(argv: string[]): Promise<void> {
       id = a
       continue
     }
-    throw tip(`unknown: ${a}`, "aq jobs logs <id> [-n 80|-f] [--rank K]")
+    throw tip(`unknown: ${a}`, "aq jobs logs <id> [-f|--once] [-n 80] [--rank K]")
   }
   if (!id) throw tip("need a job id", "aq jobs list")
-  const { remoteDir } = lookupJob(id, on)
+  const looked = lookupJob(id, on)
+  const { remoteDir } = looked
   const nodes = indexNodes(id)
   const targets =
     nodes && nodes.length > 1
       ? rank != null
         ? nodes.filter((n) => n.rank === rank)
         : nodes
-      : [{ place: lookupJob(id, on).placeName, remoteDir, rank: 0, pid: null }]
+      : [{ place: looked.placeName, remoteDir, rank: 0, pid: null }]
 
   if (nodes && nodes.length > 1 && rank != null && !targets.length) {
     throw tip(`no rank ${rank}`, "aq jobs status " + id)
@@ -1448,24 +1552,37 @@ async function jobsLogs(argv: string[]): Promise<void> {
       if (targets.length > 1) {
         throw tip("follow one rank at a time", "aq jobs logs " + id + " -f --rank 0")
       }
-      step("logs", id + "  follow")
+      step("logs", id + "  stream  (ctrl-c to stop)")
       const target = sshTarget(p)
+      // One-liner (no then;/else;) — wait for log, then follow until Ctrl-C.
+      const remoteCmd = [
+        `LOG=${remoteShellPath(log)}`,
+        `while [ ! -f "$LOG" ]; do sleep 0.4; done`,
+        `tail -n ${lines} -f "$LOG"`,
+      ].join("; ")
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(
-          "ssh",
-          [...sshBaseArgs(p), "-t", target, `tail -n ${lines} -f ${remoteShellPath(log)}`],
-          { stdio: "inherit" },
-        )
+        const child = spawn("ssh", [...sshBaseArgs(p), "-t", target, remoteCmd], {
+          stdio: "inherit",
+        })
         child.on("error", reject)
         child.on("exit", () => resolve())
       })
       return
     }
+    // --once: wait briefly for log to appear, then dump (no follow).
     const r = sshExec(
       p,
-      `tail -n ${lines} ${remoteShellPath(log)} 2>/dev/null || echo '(no log yet)'`,
+      [
+        `LOG=${remoteShellPath(log)}`,
+        `i=0`,
+        `while [ ! -f "$LOG" ] && [ "$i" -lt 50 ]; do sleep 0.2; i=$((i+1)); done`,
+        `if [ -f "$LOG" ]; then tail -n ${lines} "$LOG"; else echo '(no log yet)'; fi`,
+      ].join("; "),
+      { timeoutMs: 30_000 },
     )
-    process.stdout.write(r.stdout || "")
+    // Progress bars use \\r; expand so a snapshot isn't wiped in the terminal.
+    const text = (r.stdout || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+    process.stdout.write(text)
   }
 }
 
@@ -2246,8 +2363,12 @@ async function jobsSweep(argv: string[]): Promise<void> {
   }
 
   const session = loadSession()
-  const requested = on || session?.place
-  if (!requested) throw tip("no place", "aq jobs sweep --on <pool>")
+  let requested: string
+  try {
+    requested = resolvePlaceName(on)
+  } catch (e) {
+    throw tip(e instanceof Error ? e.message : String(e), "aq jobs sweep --on <pool>")
+  }
 
   const gridRows = cartesian(grids)
   const shardCount = shards >= 1 ? shards : 1
