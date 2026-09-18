@@ -320,15 +320,15 @@ body.cl-page {
 }
 .cl-standalone {
   min-height: calc(100vh - var(--header-h));
-  padding-bottom: 6rem;
+  padding-bottom: 7rem;
 }
 .cl-hero-wrap {
   position: relative;
   overflow: hidden;
-  padding: 3.5rem 1.5rem 4.5rem;
+  padding: 3.25rem 1.5rem 3.75rem;
 }
 @media (min-width: 640px) {
-  .cl-hero-wrap { padding: 5rem 1.5rem 6rem; }
+  .cl-hero-wrap { padding: 5rem 1.5rem 5.5rem; }
 }
 .cl-grid {
   position: absolute;
@@ -339,7 +339,7 @@ body.cl-page {
 .cl-hero {
   position: relative;
   z-index: 1;
-  max-width: 52rem;
+  max-width: 42rem;
   margin: 0 auto;
   text-align: center;
 }
@@ -354,14 +354,14 @@ body.cl-page {
 }
 .cl-hero p {
   margin: 1rem auto 0;
-  max-width: 32rem;
+  max-width: 28rem;
   font-size: 15px;
   line-height: 1.65;
   color: var(--muted);
 }
 .cl-content {
   max-width: 52rem;
-  margin: 0 auto;
+  margin: -0.5rem auto 0;
   padding: 0 1.5rem 2rem;
 }
 .cl-timeline {
@@ -393,7 +393,7 @@ body.cl-page {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.5rem;
-  padding-top: 0.25rem;
+  padding-top: 0.2rem;
 }
 @media (min-width: 640px) {
   .cl-meta { position: sticky; top: 6.5rem; }
@@ -417,6 +417,7 @@ body.cl-page {
   font-variant-numeric: tabular-nums;
   color: var(--faint);
   padding-left: 0.125rem;
+  line-height: 1;
 }
 .cl-body { min-width: 0; max-width: 36rem; }
 .cl-title {
@@ -429,25 +430,36 @@ body.cl-page {
 }
 .cl-title a { color: inherit; text-decoration: none; }
 .cl-title a:hover { opacity: 0.7; }
-.cl-section {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 1.75rem 0 0.75rem;
-  font-size: 15px;
-  font-weight: 600;
-  color: #292524;
-}
+.cl-section,
 .cl-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  margin: 1.25rem 0 0.55rem;
-  font-size: 14px;
+  gap: 0.4rem;
+  margin: 0;
   font-weight: 600;
+}
+.cl-section {
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 15px;
+  color: #292524;
+}
+.cl-group {
+  margin-top: 1.35rem;
+  margin-bottom: 0.55rem;
+  font-size: 14px;
   color: #44403c;
 }
-.cl-prose, .cl-outro {
+.cl-section .cl-ico,
+.cl-group .cl-ico {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  color: #57534e;
+}
+.cl-group .cl-ico { color: #78716c; width: 0.95em; height: 0.95em; }
+.cl-prose,
+.cl-outro {
   margin: 0.75rem 0 0;
   font-size: 15px;
   line-height: 1.65;
@@ -473,36 +485,30 @@ body.cl-page {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.65rem;
 }
 .cl-list li {
   display: flex;
   gap: 0.5rem;
+  align-items: flex-start;
   font-size: 15px;
   line-height: 1.65;
   color: var(--muted);
 }
+.cl-list li > span { min-width: 0; }
 .cl-caret {
+  width: 0.875rem;
+  height: 0.875rem;
   flex-shrink: 0;
-  margin-top: 0.15em;
-  color: var(--faint);
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1.4;
+  margin-top: 0.35em;
+  color: #a8a29e;
 }
-.cl-ico-h {
-  font-size: 1em;
-  line-height: 1;
-  color: #57534e;
-}
-.cl-section .cl-ico-h { color: #57534e; font-size: 1.05em; }
-.cl-group .cl-ico-h { color: #78716c; font-size: 0.95em; }
 .cl-ico-inline {
   display: inline-block;
-  font-size: 1.05em;
-  line-height: 1;
+  width: 1.05em;
+  height: 1.05em;
   vertical-align: -0.18em;
-  margin: 0 0.15em;
+  margin: 0 0.12em;
   color: #78716c;
 }
 
