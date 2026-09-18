@@ -6,7 +6,8 @@ import { aqRoot } from "../core/root.js"
 import { memoryDigest, readMemory, searchMemory, writeMemory } from "../lib/memory.js"
 import { formatCards, searchTools, toolsDigest } from "../lib/registry.js"
 import { find as findPaths, glob as globPaths, grep as grepFiles, ls, readPath } from "../lib/explore.js"
-import { cpAt, editFileAt, mkdirAt, mvAt, rmAt, writeFileAt } from "../lib/files.js"
+import { cpAt, editFileAt, mkdirAt, mvAt, previewEditDiff, previewWriteDiff, rmAt, writeFileAt } from "../lib/files.js"
+import { clipToolLog } from "../lib/textdiff.js"
 import { searchSkills, skillsDigest } from "../lib/skill.js"
 import { activateSkill, callMcpTool, extraTools, runSkillCode } from "../lib/skill-runtime.js"
 import { childTrains, isTrain, trainInArgv } from "../core/schema.js"
@@ -29,10 +30,10 @@ function nativeAqTools(): AgentToolDef[] {
     ["init", "Create a run folder (aq-run or named): recipe.yaml + example.py + artifacts/. Paths live in the YAML."],
     ["help", "CLI help text."],
     ["status", "Last run, eval, metrics. If cwd is not a train, args MUST be the train folder."],
-    ["train", "Fit. If cwd is not a train, args MUST be the train folder. Writes artifacts/checkpoints/last.json."],
-    ["eval", "Score evals/. If cwd is not a train, args starts with the train folder. Humans own the gate."],
+    ["train", "Fit locally. If cwd is not a train, args MUST be the train folder. Writes artifacts/checkpoints/last.json."],
+    ["eval", "Score evals/ locally. If cwd is not a train, args starts with the train folder. Humans approve each step."],
     ["checkpoint", "List or keep a checkpoint. If cwd is not a train, pass the train folder in args."],
-    ["serve", "Run last checkpoint: LLM completion, VLM (+ --image), vision classify, CLIP score, or tabular predict."],
+    ["serve", "Run last checkpoint locally: LLM completion, VLM (+ --image), vision classify, CLIP score, or tabular predict."],
     ["data", "Hash recipe data.path. Extra args after data."],
     ["diff", "Compare run records."],
     ["plot", "Generate charts from artifacts: loss/lr (metrics), job status (jobs), run comparison (runs), or all. Writes artifacts/plots/*.png. Use when the user asks for a graph, chart, or plot."],
@@ -40,6 +41,22 @@ function nativeAqTools(): AgentToolDef[] {
     ["provider", "List or set model providers."],
     ["update", "Install the latest aq release (same as curl install.sh | bash)."],
     ["version", "Print framework version."],
+    ["places", "List SSH places / pools (live check). Read-only."],
+    [
+      "add",
+      "Register compute. Prefer non-interactive: aq_add args \"ssh <name> --host H [--user U] [--port P] [--key PATH]\". Or pool: \"pool <name> m1 m2\".",
+    ],
+    ["launch", "Sync train folder to a place and install/refresh remote aq. Args e.g. \"--on <place>\" or train path + --on."],
+    ["sync", "Re-sync train folder to the place session. Args: train and/or --on <place>."],
+    ["go", "Open a shell on a place (interactive). Prefer jobs for non-interactive work."],
+    ["shutdown", "Tear down a launch session on a place."],
+    [
+      "jobs",
+      "Remote jobs on a place/pool: train|eval|serve|run|list|status|logs|wait|pull|down|recover|watch|sweep. After run/train/eval/serve, call wait <id> (polls status + log snapshots until done — never bare logs follow). Example: \"train --on lab\" then \"wait <id>\".",
+    ],
+    ["queue", "Local/remote job queues: add/push/worker/drain/move."],
+    ["port", "SSH port forwards for a place/session."],
+    ["tag", "Labels on places or jobs."],
   ]
   return verbs.map(([verb, description]) => ({
     name: `aq_${verb}`,
@@ -360,7 +377,152 @@ const ALLOW = new Set([
   "plot",
   "provider",
   "spawn",
+  "update",
+  "version",
+  "places",
+  "add",
+  "launch",
+  "sync",
+  "go",
+  "shutdown",
+  "jobs",
+  "queue",
+  "port",
+  "tag",
 ])
+
+/** Fleet / remote verbs often need sync + SSH — longer than local train. */
+const LONG_AQ = new Set(["launch", "sync", "jobs", "go", "shutdown", "queue"])
+
+const READ_AQ = new Set(["help", "status", "version", "places", "diff"])
+
+function aqPartsNeedPermit(parts: string[]): boolean {
+  const head = parts[0]
+  if (!head) return true
+  if (READ_AQ.has(head)) return false
+  if (head === "jobs") {
+    const sub = parts[1] ?? "list"
+    if (sub === "list" || sub === "status" || sub === "logs" || sub === "help" || sub === "wait") return false
+  }
+  if (head === "checkpoint" && parts.length <= 1) return false
+  if (head === "provider" && (parts.length <= 1 || parts[1] === "list")) return false
+  return true
+}
+
+const READ_TOOLS = new Set([
+  "memory_search",
+  "memory_read",
+  "tools_search",
+  "ls",
+  "find",
+  "glob",
+  "grep",
+  "read",
+  "web_search",
+  "web_fetch",
+  "skills_search",
+  "spawn_list",
+  "spawn_log",
+])
+
+/** Whether this tool call needs a human yes/no before running. */
+export function toolNeedsPermit(name: string, rawArgs: string): boolean {
+  if (name === "run") return true
+  if (READ_TOOLS.has(name)) return false
+  if (name === "aq" || name.startsWith("aq_")) {
+    let args: Record<string, unknown> = {}
+    if (rawArgs.trim()) {
+      try {
+        args = JSON.parse(rawArgs) as Record<string, unknown>
+      } catch {
+        return true
+      }
+    }
+    const extra = typeof args.args === "string" ? args.args.trim().split(/\s+/).filter(Boolean) : []
+    const parts = name === "aq" ? extra : [name.slice(3), ...extra]
+    return aqPartsNeedPermit(parts)
+  }
+  return true
+}
+
+/** One-line (or multi-line for file diffs) label shown in the yes/no picker. */
+export function permitLabel(train: string, name: string, rawArgs: string): string {
+  if (name === "run") {
+    try {
+      const spec = parseRunCommand(rawArgs)
+      return spec.detach ? `${spec.command}  [detach]` : spec.command
+    } catch {
+      return "run …"
+    }
+  }
+  let args: Record<string, unknown> = {}
+  if (rawArgs.trim()) {
+    try {
+      args = JSON.parse(rawArgs) as Record<string, unknown>
+    } catch {
+      return name
+    }
+  }
+  if (name === "write") {
+    const p = typeof args.path === "string" ? args.path : "?"
+    const body = typeof args.content === "string" ? args.content : ""
+    try {
+      const diff = previewWriteDiff(train, p, body)
+      return `write ${p}\n${diff}`
+    } catch (err) {
+      return `write ${p}\n(${err instanceof Error ? err.message : String(err)})`
+    }
+  }
+  if (name === "edit") {
+    const p = typeof args.path === "string" ? args.path : "?"
+    const old = typeof args.old === "string" ? args.old : ""
+    const neu = typeof args.new === "string" ? args.new : ""
+    const all = args.all === true
+    try {
+      const diff = previewEditDiff(train, p, old, neu, all)
+      return `edit ${p}\n${diff}`
+    } catch (err) {
+      return `edit ${p}\n(${err instanceof Error ? err.message : String(err)})`
+    }
+  }
+  if (name === "aq" || name.startsWith("aq_")) {
+    const extra = typeof args.args === "string" ? args.args.trim() : ""
+    const verb = name === "aq" ? "" : name.slice(3)
+    return `aq ${verb} ${extra}`.replace(/\s+/g, " ").trim()
+  }
+  if (name === "read") {
+    const p = typeof args.path === "string" ? args.path : "?"
+    return `read ${p}`
+  }
+  if (name === "mkdir" || name === "rm") {
+    const p = typeof args.path === "string" ? args.path : "?"
+    return `${name} ${p}`
+  }
+  if (typeof args.args === "string" && args.args.trim()) {
+    return `${name} ${args.args.trim()}`.slice(0, 120)
+  }
+  return name
+}
+
+/** Colorize a permit/tool blob if it looks like a unified diff. */
+export function formatPermitDisplay(label: string): string {
+  const nl = label.indexOf("\n")
+  if (nl < 0) return label
+  const head = label.slice(0, nl)
+  const rest = label.slice(nl + 1)
+  if (!rest.includes("--- a/") || !rest.includes("+++ b/")) return label
+  const colored = rest
+    .split("\n")
+    .map((ln) => {
+      if (ln.startsWith("+") && !ln.startsWith("+++")) return `\x1b[38;5;114m${ln}\x1b[0m`
+      if (ln.startsWith("-") && !ln.startsWith("---")) return `\x1b[38;5;203m${ln}\x1b[0m`
+      return `\x1b[38;5;245m${ln}\x1b[0m`
+    })
+    .join("\n")
+  return `${head}\n${colored}`
+}
+
+export { clipToolLog }
 
 function aqBin(): string {
   return path.join(aqRoot(), "bin", "aq")
@@ -493,22 +655,60 @@ export async function runAgentTool(train: string, name: string, rawArgs: string)
   throw new Error(`unknown tool ${name}`)
 }
 
+function sanitizeAqParts(parts: string[]): string[] {
+  const out = [...parts]
+  if (out[0] === "jobs" && (out[1] === "logs" || out[1] === "log")) {
+    const hasOnce = out.includes("--once") || out.includes("--no-follow")
+    const hasFollow = out.includes("-f") || out.includes("--follow")
+    // Agent must never hang on tail -f unless explicitly asked to follow.
+    if (!hasOnce && !hasFollow) out.push("--once")
+  }
+  return out
+}
+
 function runAq(train: string, parts: string[]): string {
-  const head = parts[0]
-  if (!head || !ALLOW.has(head)) throw new Error(`blocked aq ${head ?? "(empty)"}`)
-  if (head !== "init" && head !== "help" && !isTrain(train) && !trainInArgv(train, parts)) {
+  const rawHead = parts[0]
+  const safe = sanitizeAqParts(parts)
+  const head = safe[0]
+  if (!head || !ALLOW.has(head)) throw new Error(`blocked aq ${rawHead ?? "(empty)"}`)
+  const noTrainOk = new Set([
+    "init",
+    "help",
+    "places",
+    "add",
+    "version",
+    "launch",
+    "sync",
+    "go",
+    "shutdown",
+    "jobs",
+    "queue",
+    "port",
+    "tag",
+    "provider",
+    "update",
+  ])
+  if (!noTrainOk.has(head) && !isTrain(train) && !trainInArgv(train, safe)) {
     const kids = childTrains(train)
     const hint = kids.length
       ? `pass a train folder in args (e.g. "${kids[0]}") or cd into it`
       : "use aq_init first, then pass that folder in args"
     throw new Error(`cwd is not a train; ${hint}`)
   }
-  const r = spawnSync(aqBin(), parts, {
+  const timeout = head === "jobs" && safe[1] === "wait" ? 3_600_000 : LONG_AQ.has(head) ? 600_000 : 120_000
+  // Live TTY for wait so status/log polls stream into the chat (no hang-follow).
+  const liveWait = head === "jobs" && safe[1] === "wait" && process.stdout.isTTY === true
+  const r = spawnSync(aqBin(), safe, {
     cwd: train,
     encoding: "utf8",
-    timeout: 120_000,
-    env: { ...process.env, AQ_QUIET: "1" },
+    timeout,
+    stdio: liveWait ? "inherit" : undefined,
+    env: { ...process.env, AQ_QUIET: "1", AQ_AGENT: "1" },
   })
+  if (liveWait) {
+    if (r.status !== 0) throw new Error(`aq jobs wait exit ${r.status}`)
+    return `aq jobs wait finished (exit ${r.status ?? 0})`
+  }
   const out = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim()
   if (r.status !== 0) throw new Error(out || `aq ${head} exit ${r.status}`)
   return out || "ok"

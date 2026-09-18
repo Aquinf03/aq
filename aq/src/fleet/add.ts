@@ -24,6 +24,8 @@ import { c, prompt } from "./ui.js"
 function addHelp(): string {
   return [
     "aq add ssh [name]              register an SSH place (prompts)",
+    "aq add ssh <name> --host H [--user U] [--port P] [--key PATH]",
+    "                              non-interactive (agent / scripts)",
     "aq add pool [name] [members…]  named pool of SSH places (pick free box)",
     "aq places [--tag k=v]          list places (+ live load; --probe capacity)",
     "aq tag place <name> key=val    labels on places (see aq tag help)",
@@ -31,6 +33,33 @@ function addHelp(): string {
     "Places file: " + placesPath(),
     "Later: aq add k8s | aws | …",
   ].join("\n")
+}
+
+function parseSshFlags(argv: string[]): {
+  name: string
+  host: string
+  user: string
+  port: string
+  key: string
+  rest: string[]
+} {
+  let name = ""
+  let host = ""
+  let user = ""
+  let port = ""
+  let key = ""
+  const rest: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!
+    if (a === "--host") host = argv[++i] ?? ""
+    else if (a === "--user") user = argv[++i] ?? ""
+    else if (a === "--port") port = argv[++i] ?? ""
+    else if (a === "--key") key = argv[++i] ?? ""
+    else if (a.startsWith("-")) throw new Error(`unknown flag: ${a}\n${addHelp()}`)
+    else if (!name) name = a
+    else rest.push(a)
+  }
+  return { name, host, user, port, key, rest }
 }
 
 function saveResources(name: string, place: SshPlace): SshPlace {
@@ -205,8 +234,14 @@ async function addPool(argv: string[]): Promise<void> {
 }
 
 async function addSsh(argv: string[]): Promise<void> {
-  let name = argv[0]
-  if (!name) name = await prompt("place name", "lab")
+  const flags = parseSshFlags(argv)
+  const flagged = Boolean(flags.host)
+
+  let name = flags.name
+  if (!name) {
+    if (flagged) throw new Error("need a place name\n" + addHelp())
+    name = await prompt("place name", "lab")
+  }
   if (!name) throw new Error("need a place name")
 
   const existing = (() => {
@@ -216,15 +251,26 @@ async function addSsh(argv: string[]): Promise<void> {
       return null
     }
   })()
-  const prefill = argv[0] && existing?.kind === "ssh" ? existing : null
+  const prefill = flags.name && existing?.kind === "ssh" ? existing : null
 
-  const host = await prompt("ssh host", prefill?.host ?? "")
+  let host: string
+  let user: string
+  let portRaw: string
+  let key: string
+  if (flagged) {
+    host = flags.host
+    user = flags.user || prefill?.user || ""
+    portRaw = flags.port || (prefill?.port != null ? String(prefill.port) : "22")
+    key = flags.key || prefill?.key || ""
+  } else {
+    host = await prompt("ssh host", prefill?.host ?? "")
+    user = await prompt("ssh user", prefill?.user ?? "")
+    portRaw = await prompt("ssh port", prefill?.port != null ? String(prefill.port) : "22")
+    key = await prompt("ssh key path", prefill?.key ?? "")
+  }
   if (!host) throw new Error("need a host")
-  const user = await prompt("ssh user", prefill?.user ?? "")
-  const portRaw = await prompt("ssh port", prefill?.port != null ? String(prefill.port) : "22")
   const port = Number(portRaw || "22")
   if (!Number.isFinite(port) || port < 1) throw new Error(`bad port: ${portRaw}`)
-  const key = await prompt("ssh key path", prefill?.key ?? "")
 
   if (key) {
     if (fixKeyPermissions(key)) {

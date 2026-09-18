@@ -4,6 +4,7 @@ import { createInterface } from "node:readline"
 import { stdin, stdout, stderr } from "node:process"
 import path from "node:path"
 import { runTurn } from "./agent-loop.js"
+import { clipToolLog, formatPermitDisplay } from "./agent-tools.js"
 import { renderMarkdown } from "./markdown.js"
 import { isTrain } from "../core/schema.js"
 
@@ -30,7 +31,15 @@ function parseAsk(argv: string[]): { train: string; prompt: string; json: boolea
 
 function askYesNo(cmd: string): Promise<boolean> {
   if (stdin.isTTY !== true) return Promise.resolve(false)
-  stderr.write(`run  ${cmd}\n  yes / no? `)
+  const lines = cmd.split("\n")
+  const head = lines[0] ?? cmd
+  stderr.write(`allow  ${head}\n`)
+  if (lines.length > 1) {
+    const body = formatPermitDisplay(cmd)
+    const rest = body.includes("\n") ? body.slice(body.indexOf("\n") + 1) : ""
+    if (rest) stderr.write(`${rest}\n`)
+  }
+  stderr.write(`  yes / no? `)
   return new Promise((resolve) => {
     const rl = createInterface({ input: stdin, output: stderr })
     rl.question("", (line) => {
@@ -55,6 +64,16 @@ export async function ask(argv: string[]): Promise<void> {
     async (command) => {
       if (yes) return true
       return askYesNo(command)
+    },
+    ({ name, label, result, failed }) => {
+      if (json) return
+      const head = (label.split("\n")[0] || name).replace(/\s+/g, " ")
+      stderr.write(`${failed ? "fail" : "ok"}  ${head}\n`)
+      if (name === "write" || name === "edit") return
+      if (!result || result === "denied by user") return
+      for (const ln of clipToolLog(result, 40, 6000).split("\n")) {
+        stderr.write(`  ${ln}\n`)
+      }
     },
   )
   const answer = text.trim()

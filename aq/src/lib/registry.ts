@@ -100,12 +100,12 @@ export const BUILTINS: ToolCard[] = [
   {
     name: "run",
     source: "builtin",
-    description: "Run a shell command. Human must approve. detach true for servers/watchers (jobs/, survives prompt).",
+    description: "Run a shell command. Human must approve (same yes/no as other mutating tools). detach true for servers/watchers.",
   },
   {
     name: "aq",
     source: "builtin",
-    description: "Run an aq CLI subcommand in this train (status, train, eval, job, spawn, …).",
+    description: "Run an aq CLI subcommand (status, train, eval, jobs, launch, add, spawn, …). Mutating calls need yes/no.",
   },
   {
     name: "skill_load",
@@ -143,14 +143,21 @@ export const CLI_VERBS: ToolCard[] = [
   { name: "aq_help", source: "cli", description: "CLI help text. Native aq help." },
   { name: "aq_init", source: "cli", description: "Create a run folder (recipe.yaml + example.py + artifacts/); does not dump into cwd." },
   { name: "aq_status", source: "cli", description: "Last run, eval, metrics." },
-  { name: "aq_train", source: "cli", description: "Fit. Writes artifacts/checkpoints/last.json." },
-  { name: "aq_eval", source: "cli", description: "Score evals/. Human-owned gate." },
+  { name: "aq_train", source: "cli", description: "Fit locally. Writes artifacts/checkpoints/last.json." },
+  { name: "aq_eval", source: "cli", description: "Score evals/. Human approves each mutating step." },
   { name: "aq_checkpoint", source: "cli", description: "List or keep a checkpoint." },
+  { name: "aq_serve", source: "cli", description: "Run last checkpoint (LLM/VLM/vision/tabular)." },
   { name: "aq_data", source: "cli", description: "Hash recipe data.path." },
   { name: "aq_diff", source: "cli", description: "Compare run records." },
   { name: "aq_spawn", source: "cli", description: "spawn agent / list / log / cancel worker agents." },
   { name: "aq_plot", source: "cli", description: "Charts from artifacts (metrics, jobs, runs). Same as plot tool." },
   { name: "aq_provider", source: "cli", description: "List or set model providers." },
+  { name: "aq_places", source: "cli", description: "List SSH places / pools." },
+  { name: "aq_add", source: "cli", description: "Register ssh place (flags: --host/--user/--port/--key) or pool." },
+  { name: "aq_launch", source: "cli", description: "Sync train folder to a place; setup remote aq." },
+  { name: "aq_jobs", source: "cli", description: "Remote jobs: train|eval|serve|wait|status|logs|pull|… After start, use wait <id>." },
+  { name: "aq_sync", source: "cli", description: "Re-sync train folder to place." },
+  { name: "aq_queue", source: "cli", description: "Job queues on places." },
 ]
 
 export function catalog(train: string): ToolCard[] {

@@ -13,6 +13,7 @@ import {
 import path from "node:path"
 import { insideTrain } from "../core/paths.js"
 import { recordDir, recordFile, recordMv, recordParents, recordRm } from "../agent/undo.js"
+import { formatUnifiedDiff } from "./textdiff.js"
 
 function norm(rel: string): string {
   return rel.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "") || "."
@@ -27,13 +28,48 @@ function parent(abs: string): void {
   mkdirSync(path.dirname(abs), { recursive: true })
 }
 
+/** Read current file text, or "" if missing (for write previews). */
+export function readTextAt(train: string, rel: string): string {
+  const p = insideTrain(train, rel)
+  if (!existsSync(p) || statSync(p).isDirectory()) return ""
+  return readFileSync(p, "utf8")
+}
+
+/** Proposed write/create diff without touching disk. */
+export function previewWriteDiff(train: string, rel: string, body: string): string {
+  const before = readTextAt(train, rel)
+  return formatUnifiedDiff(before, body, norm(rel))
+}
+
+/** Proposed edit diff without touching disk. */
+export function previewEditDiff(
+  train: string,
+  rel: string,
+  old: string,
+  neu: string,
+  all = false,
+): string {
+  if (!old) throw new Error("need old")
+  const p = insideTrain(train, rel)
+  if (!existsSync(p)) throw new Error(`no path ${rel}`)
+  if (statSync(p).isDirectory()) throw new Error(`${rel} is a directory`)
+  const text = readFileSync(p, "utf8")
+  const n = text.split(old).length - 1
+  if (n === 0) throw new Error(`old text not found in ${rel}`)
+  if (!all && n > 1) throw new Error(`old text found ${n} times in ${rel}; pass all true or a unique snippet`)
+  const after = all ? text.split(old).join(neu) : text.replace(old, neu)
+  return formatUnifiedDiff(text, after, norm(rel))
+}
+
 export function writeFileAt(train: string, rel: string, body: string): string {
   const p = insideTrain(train, rel)
+  const before = existsSync(p) && !statSync(p).isDirectory() ? readFileSync(p, "utf8") : ""
   recordParents(train, rel)
   recordFile(train, rel)
   parent(p)
   writeFileSync(p, body)
-  return `wrote ${norm(rel)}  ${Buffer.byteLength(body)} bytes`
+  const diff = formatUnifiedDiff(before, body, norm(rel))
+  return `wrote ${norm(rel)}  ${Buffer.byteLength(body)} bytes\n${diff}`
 }
 
 export function editFileAt(train: string, rel: string, old: string, neu: string, all = false): string {
@@ -46,8 +82,11 @@ export function editFileAt(train: string, rel: string, old: string, neu: string,
   const n = text.split(old).length - 1
   if (n === 0) throw new Error(`old text not found in ${rel}`)
   if (!all && n > 1) throw new Error(`old text found ${n} times in ${rel}; pass all true or a unique snippet`)
-  writeFileSync(p, all ? text.split(old).join(neu) : text.replace(old, neu))
-  return `edited ${norm(rel)}  ${all ? n : 1} replacement${n === 1 ? "" : "s"}`
+  const after = all ? text.split(old).join(neu) : text.replace(old, neu)
+  writeFileSync(p, after)
+  const count = all ? n : 1
+  const diff = formatUnifiedDiff(text, after, norm(rel))
+  return `edited ${norm(rel)}  ${count} replacement${count === 1 ? "" : "s"}\n${diff}`
 }
 
 export function mkdirAt(train: string, rel: string): string {

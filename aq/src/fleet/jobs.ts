@@ -146,6 +146,7 @@ function jobsHelp(): string {
     "aq jobs train|eval|serve [--name N] [--on …] [--nodes N] [--gpu N] [--port N] [--json] [-- <extra>…]",
     "aq jobs status <id> [--json]",
     "aq jobs logs <id> [-f|--once] [-n N] [--rank K]   # default: stream (follow)",
+    "aq jobs wait <id> [--poll sec] [-n N] [--timeout sec]  # poll until done + log snapshots",
     "aq jobs pull <id> [dir] [--rank K]",
     "aq jobs down <id>",
     "aq jobs recover <id> [--same|--next|--on place|pool] [--force] [--json]",
@@ -167,6 +168,7 @@ function jobsHelp(): string {
     "           cmd may use {i} {n} {shard} {shards} and {gridKey} placeholders.",
     "recover    restart same id after host/process death (SSH spot/preempt pattern).",
     "watch      poll managed jobs and recover on unreachable / failed exit.",
+    "wait       block until job finishes; prints status + new log lines each poll.",
     "pull       job dir (log/spec) + remote <remoteDir>/artifacts → local train artifacts/.",
     "Jobs live under <remoteDir>/jobs/<id>/ on each place.",
   ].join("\n")
@@ -950,9 +952,11 @@ async function jobsRun(argv: string[]): Promise<string> {
     )
     console.log(
       c.dim("next") +
-        "  aq jobs logs " +
+        "  aq jobs wait " +
         id +
-        " · aq jobs status " +
+        " · aq jobs logs " +
+        id +
+        " --once · aq jobs status " +
         id +
         (manage ? " · aq jobs watch " + id : "") +
         (name ? c.dim("  (" + name + ")") : ""),
@@ -1518,8 +1522,8 @@ async function jobsStatus(argv: string[]): Promise<void> {
 
 async function jobsLogs(argv: string[]): Promise<void> {
   let id = ""
-  /** Default: stream. `--once` / `--no-follow` = snapshot. */
-  let follow = true
+  /** Default: stream. Agent / AQ_AGENT=1 defaults to snapshot. `--once` / `--no-follow` = snapshot. */
+  let follow = process.env.AQ_AGENT !== "1"
   let lines = 80
   let on: string | undefined
   let rank: number | undefined
@@ -1606,6 +1610,128 @@ async function jobsLogs(argv: string[]): Promise<void> {
     // Progress bars use \\r; expand so a snapshot isn't wiped in the terminal.
     const text = (r.stdout || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
     process.stdout.write(text)
+  }
+}
+
+function snapshotJobLog(
+  place: SshPlace,
+  remoteDir: string,
+  id: string,
+  lines: number,
+): string {
+  const log = remoteJobDir(remoteDir, id) + "/log"
+  const r = sshExec(
+    place,
+    [
+      `LOG=${remoteShellPath(log)}`,
+      `i=0`,
+      `while [ ! -f "$LOG" ] && [ "$i" -lt 25 ]; do sleep 0.2; i=$((i+1)); done`,
+      `if [ -f "$LOG" ]; then tail -n ${lines} "$LOG"; else echo '(no log yet)'; fi`,
+    ].join("; "),
+    { timeoutMs: 30_000 },
+  )
+  return (r.stdout || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+}
+
+/** Poll status + print new log lines until the job is no longer running. */
+async function jobsWait(argv: string[]): Promise<void> {
+  let id = ""
+  let pollSec = 3
+  let lines = 40
+  let timeoutSec = 3600
+  let on: string | undefined
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === "--poll") {
+      pollSec = Number(argv[++i] || 3)
+      continue
+    }
+    if (a === "-n") {
+      lines = Number(argv[++i] || 40)
+      continue
+    }
+    if (a === "--timeout") {
+      timeoutSec = Number(argv[++i] || 3600)
+      continue
+    }
+    if (a === "--on") {
+      on = argv[++i]
+      continue
+    }
+    if (!id && !a.startsWith("-")) {
+      id = a
+      continue
+    }
+    throw tip(`unknown: ${a}`, "aq jobs wait <id> [--poll 3] [-n 40] [--timeout 3600]")
+  }
+  if (!id) throw tip("need a job id", "aq jobs wait <id>")
+  if (!Number.isFinite(pollSec) || pollSec < 1) pollSec = 3
+  if (!Number.isFinite(timeoutSec) || timeoutSec < 1) timeoutSec = 3600
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const started = Date.now()
+  let lastLog = ""
+  let lastStatus = ""
+
+  step("wait", c.cyan(id) + c.dim(`  poll ${pollSec}s`))
+
+  while (true) {
+    if ((Date.now() - started) / 1000 > timeoutSec) {
+      throw tip(`timeout after ${timeoutSec}s`, "aq jobs status " + id)
+    }
+
+    const { placeName, place, remoteDir } = lookupJob(id, on)
+    const check = sshCheck(place)
+    if (!check.ok) {
+      console.log(c.dim("  status") + "  " + statusColor("unreachable") + "  " + check.detail)
+      throw tip("place unreachable", "aq jobs recover " + id)
+    }
+
+    let spec: RemoteJobSpec
+    try {
+      spec = refreshRemote(place, remoteDir, id)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      throw tip(msg, "aq jobs status " + id)
+    }
+
+    const st = spec.status
+    const stLine =
+      st +
+      (spec.code != null ? ` exit ${spec.code}` : "") +
+      (spec.pid != null ? ` pid ${spec.pid}` : "")
+    if (stLine !== lastStatus) {
+      console.log(c.dim("  status") + "  " + statusColor(st) + c.dim("  " + placeName) + (spec.code != null ? c.dim(`  exit ${spec.code}`) : ""))
+      lastStatus = stLine
+    }
+
+    const snap = snapshotJobLog(place, remoteDir, id, lines)
+    if (snap && snap !== lastLog) {
+      // Print only the suffix that is new when possible
+      let chunk = snap
+      if (lastLog && snap.startsWith(lastLog)) chunk = snap.slice(lastLog.length)
+      else if (lastLog && snap.includes(lastLog.slice(-200))) {
+        const idx = snap.lastIndexOf(lastLog.slice(-Math.min(200, lastLog.length)))
+        if (idx >= 0) chunk = snap.slice(idx + Math.min(200, lastLog.length))
+      }
+      chunk = chunk.replace(/^\n+/, "")
+      if (chunk.trim()) {
+        process.stdout.write(chunk.endsWith("\n") ? chunk : chunk + "\n")
+      }
+      lastLog = snap
+    }
+
+    if (st !== "running") {
+      stepOk("wait", c.cyan(id) + "  " + statusColor(st) + (spec.code != null ? c.dim(`  exit ${spec.code}`) : ""))
+      if (st === "exited" && spec.code != null && spec.code !== 0) {
+        process.exitCode = spec.code
+      } else if (st === "error" || st === "unreachable" || st === "canceled") {
+        process.exitCode = 1
+      }
+      return
+    }
+
+    await sleep(Math.max(1, pollSec) * 1000)
   }
 }
 
@@ -1848,7 +1974,7 @@ async function jobsRecover(argv: string[]): Promise<void> {
       c.cyan(result.place || "?") +
       (result.pid != null ? c.dim("  pid " + result.pid) : ""),
   )
-  console.log(c.dim("next") + "  aq jobs logs " + id + " · aq jobs status " + id)
+  console.log(c.dim("next") + "  aq jobs wait " + id + " · aq jobs logs " + id + " --once")
 }
 
 type RecoverResult = {
@@ -2593,6 +2719,10 @@ export async function jobsCmd(argv: string[]): Promise<void> {
   }
   if (sub === "logs" || sub === "log") {
     await jobsLogs(argv.slice(1))
+    return
+  }
+  if (sub === "wait") {
+    await jobsWait(argv.slice(1))
     return
   }
   if (sub === "pull") {

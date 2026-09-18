@@ -195,11 +195,12 @@
 <p class="lead">Places, launch, remote jobs, pools. Walkthrough: <a href="../fleet/">SSH fleet</a>.</p>
 
 <section class="tool" id="aq-add-ssh">
-  <h3 class="tool-cmd">aq add ssh [name]</h3>
-  <p class="tool-desc">Register an SSH place (prompts for host/user/key). Probes cpu/ram/gpu into ~/.aquin/places.json.</p>
+  <h3 class="tool-cmd">aq add ssh [name] [--host H …]</h3>
+  <p class="tool-desc">Register an SSH place. Interactive prompts by default. Non-interactive (agent/scripts): <code>--host</code> required, plus optional <code>--user</code>, <code>--port</code>, <code>--key</code>. Probes cpu/ram/gpu into ~/.aquin/places.json.</p>
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar"><span>example</span><button type="button" class="copy-btn">Copy</button></div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq add ssh temp</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq add ssh temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq add ssh lab --host 1.2.3.4 --user ubuntu --key ~/.ssh/id_ed25519</span></span></code></pre>
   </div>
 </section>
 

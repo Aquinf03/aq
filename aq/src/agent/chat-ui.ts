@@ -2,6 +2,7 @@
 
 import { stdin, stdout } from "node:process"
 import { runTurn, type ChatMsg } from "./agent-loop.js"
+import { clipToolLog, formatPermitDisplay } from "./agent-tools.js"
 import { renderMarkdown } from "./markdown.js"
 import { compactHistory } from "./compact.js"
 import { beginUndo, clearUndo, commitUndo, undoLast } from "./undo.js"
@@ -1101,11 +1102,14 @@ export async function startChatUi(train: string, resumeId?: string): Promise<voi
       let started = false
       let lastTool = ""
       let toolCount = 0
+      let spinPhase: "thinking" | "running" = "thinking"
+      let spinDetail = ""
       const toolLabel = () =>
         !lastTool ? "" : toolCount > 1 ? `· ${lastTool} ×${toolCount}` : `· ${lastTool}`
       const tick = () => {
-        const prefix = lastTool ? `${toolLabel()}  ` : ""
-        write(`\r${DIM}${prefix}${spin[frame % spin.length]} thinking${RESET}\x1b[K`)
+        const verb = spinPhase === "running" ? "running" : "thinking"
+        const detail = spinPhase === "running" && spinDetail ? `  ${spinDetail}` : lastTool ? `  ${toolLabel()}` : ""
+        write(`\r${DIM}${spin[frame % spin.length]} ${verb}${detail}${RESET}\x1b[K`)
         frame += 1
       }
       tick()
@@ -1118,6 +1122,30 @@ export async function startChatUi(train: string, resumeId?: string): Promise<voi
           clearInterval(timer)
           timer = null
         }
+      }
+      const shortTool = (name: string, args?: string) => {
+        if (name === "run" && args) {
+          const a = args.replace(/\s+/g, " ")
+          return a.length > 56 ? a.slice(0, 53) + "…" : a
+        }
+        if (args) {
+          try {
+            const j = JSON.parse(args) as { args?: string; path?: string; command?: string }
+            if (typeof j.path === "string") return `${name} ${j.path}`
+            if (typeof j.command === "string") {
+              const c = j.command.replace(/\s+/g, " ")
+              return c.length > 56 ? `${name} ${c.slice(0, 50)}…` : `${name} ${c}`
+            }
+            if (typeof j.args === "string" && j.args.trim()) {
+              const a = j.args.replace(/\s+/g, " ")
+              const full = name.startsWith("aq_") ? `aq ${name.slice(3)} ${a}` : `${name} ${a}`
+              return full.length > 56 ? full.slice(0, 53) + "…" : full
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        return name.startsWith("aq_") ? `aq ${name.slice(3)}` : name
       }
       const flushPending = () => {
         if (!pending) return
@@ -1132,6 +1160,8 @@ export async function startChatUi(train: string, resumeId?: string): Promise<voi
             if (!started) {
               started = true
               stopSpin()
+              spinPhase = "thinking"
+              spinDetail = ""
               if (lastTool && !toolFrozen) {
                 write(`\r${DIM}${toolLabel()}${RESET}\x1b[K\n`)
                 toolFrozen = true
@@ -1142,41 +1172,49 @@ export async function startChatUi(train: string, resumeId?: string): Promise<voi
             pending = parts.pop() ?? ""
             for (const line of parts) write(renderMarkdown(line, md, { baseDir: train }) + "\n")
           },
-          (name) => {
+          (name, args) => {
             stopSpin()
             if (started) flushPending()
             started = false
             md.fence = false
             md.math = false
             write(`\r\x1b[K`)
+            const detail = shortTool(name, args)
+            write(`${DIM}→${RESET}  ${detail}\n`)
+            write(`${DIM}⠋ running  ${detail}${RESET}\n`)
+            spinPhase = "running"
+            spinDetail = detail
             if (name === lastTool) toolCount += 1
             else {
-              if (lastTool && !toolFrozen) write(`${DIM}${toolLabel()}${RESET}\n`)
               lastTool = name
               toolCount = 1
               toolFrozen = false
             }
-            if (!done) {
-              timer = setInterval(tick, 80)
-              tick()
-            }
+            // No spinner ticks while the tool runs — avoids fighting live stdout (e.g. jobs wait).
           },
           async (command) => {
             if (timer) {
               clearInterval(timer)
               timer = null
             }
-            const cmd = command.replace(/\s+/g, " ")
-            const shown = cmd.length > 72 ? cmd.slice(0, 69) + "…" : cmd
-            write(`\r\x1b[K${DIM}run${RESET}  ${shown}\n`)
+            spinPhase = "thinking"
+            const lines = command.split("\n")
+            const head = lines[0] ?? command
+            const shown = head.length > 72 ? head.slice(0, 69) + "…" : head
+            write(`\r\x1b[K${DIM}allow${RESET}  ${shown}\n`)
+            if (lines.length > 1) {
+              const body = formatPermitDisplay(command)
+              const rest = body.includes("\n") ? body.slice(body.indexOf("\n") + 1) : ""
+              if (rest) write(`${rest}\n`)
+            }
             const ok = await new Promise<boolean>((resolvePermit) => {
               permit = {
-                cmd,
+                cmd: head,
                 pick: 0,
                 resolve: (v) => {
                   permit = null
-                  write("\x1b[1A\r\x1b[K")
-                  write(`${DIM}· run ${v ? "yes" : "no"}${RESET}\x1b[K\n\x1b[K`)
+                  write("\r\x1b[K")
+                  write(`${DIM}· allow ${v ? "yes" : "no"}${RESET}\x1b[K\n`)
                   resolvePermit(v)
                 },
               }
@@ -1187,6 +1225,36 @@ export async function startChatUi(train: string, resumeId?: string): Promise<voi
               tick()
             }
             return ok
+          },
+          ({ name, label, result, failed }) => {
+            stopSpin()
+            if (started) flushPending()
+            started = false
+            write(`\r\x1b[K`)
+            const head = (label.split("\n")[0] || name).replace(/\s+/g, " ")
+            const tag = failed ? "fail" : "ok"
+            write(`${DIM}${tag}${RESET}  ${head}\n`)
+            const fileMut = name === "write" || name === "edit"
+            if (!fileMut && result && result !== "denied by user") {
+              const clipped = clipToolLog(result, 40, 6000)
+              if (clipped.includes("--- a/")) {
+                write(`${formatPermitDisplay(`out\n${clipped}`).split("\n").slice(1).join("\n")}\n`)
+              } else {
+                for (const ln of clipped.split("\n")) write(`${DIM}  ${ln}${RESET}\n`)
+              }
+            } else if (failed && result && result !== "denied by user") {
+              for (const ln of clipToolLog(result, 20, 2000).split("\n")) {
+                write(`${DIM}  ${ln}${RESET}\n`)
+              }
+            }
+            lastTool = name
+            toolFrozen = true
+            spinPhase = "thinking"
+            spinDetail = ""
+            if (!done) {
+              timer = setInterval(tick, 80)
+              tick()
+            }
           },
         )
         stopSpin()

@@ -1,24 +1,24 @@
 /** One agent turn: model, tools, until the request is done or blocked. */
 
 import {
-  AGENT_TOOLS,
   contextBlock,
   parseRunCommand,
+  permitLabel,
   runAgentTool,
   toolsForTrain,
   runDetached,
   runShell,
-  type AgentToolDef,
+  toolNeedsPermit,
 } from "./agent-tools.js"
 import { systemPrompt } from "./prompt.js"
 import { streamTurn, type ChatMsg } from "./provider.js"
 
 export { type ChatMsg }
 
-const MAX_ROUNDS = 16
+const MAX_ROUNDS = 24
 
 const ACT =
-  /\b(train|eval|status|generate|init|write|change|run|serve|spawn)\b/i
+  /\b(train|eval|status|generate|init|write|change|run|serve|spawn|launch|jobs?|pull|place|ssh|housing|california)\b/i
 const GO =
   /\b(yeah|yep|yes|ok|okay|sure|fine|go ahead|go on|do it|do that|try it|train it|build it|fix it|proceed|please do|let'?s go|ship it|run it|learn from)\b/i
 const WISH =
@@ -62,26 +62,6 @@ function lastUserRequest(history: ChatMsg[]): string {
   return c.length > 2000 ? c.slice(0, 2000) + "…" : c
 }
 
-function aqVerb(name: string, args: string): string {
-  if (name === "aq") {
-    try {
-      const j = JSON.parse(args || "{}") as { args?: string }
-      return (j.args ?? "").trim().split(/\s+/)[0] ?? ""
-    } catch {
-      return ""
-    }
-  }
-  if (name.startsWith("aq_")) return name.slice(3)
-  return ""
-}
-
-function toolKind(name: string, args: string): "create" | "run" | "other" {
-  const v = aqVerb(name, args)
-  if (v === "init" || name === "write" || name === "edit" || name === "mkdir") return "create"
-  if (v === "train" || v === "eval" || v === "serve") return "run"
-  return "other"
-}
-
 function clip(s: string, n = 240): string {
   const t = s.replace(/\s+/g, " ").trim()
   return t.length > n ? t.slice(0, n) + "…" : t
@@ -92,21 +72,29 @@ function isRecoverable(result: string): boolean {
   return m.includes("not a train") || m.includes("need experiment.md") || m.includes("outside train")
 }
 
+export type ToolStartFn = (name: string, args?: string) => void
+export type ToolDoneFn = (info: {
+  name: string
+  label: string
+  result: string
+  failed: boolean
+}) => void
+
 export async function runTurn(
   train: string,
   history: ChatMsg[],
   onDelta: (chunk: string) => void,
-  onTool?: (name: string, args?: string) => void,
+  onTool?: ToolStartFn,
   onPermit?: (command: string) => Promise<boolean>,
+  onToolDone?: ToolDoneFn,
 ): Promise<string> {
   const objective = lastUserRequest(history)
   const msgs: ChatMsg[] = history.map((m) => ({ ...m }))
   const progress: string[] = []
-  const kinds: Array<"create" | "run" | "other"> = []
   let usedTools = false
   let lastFailed = false
   let recovered = false
-  let paused = false
+  let denied = false
 
   const act = toolsAllowed(history)
   const system = () =>
@@ -132,32 +120,26 @@ export async function runTurn(
       for (const call of out.toolCalls) {
         let result: string
         let failed = false
-        const kind = toolKind(call.name, call.args)
-        const created = kinds.includes("create")
-        const ran = kinds.includes("run")
-        if (kind === "run" && (created || ran)) {
-          result =
-            "paused for the human: finish this step in chat and wait. Do not train/eval in the same breath as creating files, and do not chain train then eval. Ask what they want next."
-          failed = true
-          paused = true
-          progress.push(`${call.name} paused`)
-          msgs.push({ role: "tool", content: result, tool_call_id: call.id })
-          continue
-        }
+        const label = permitLabel(train, call.name, call.args)
         try {
-          if (call.name === "run") {
-            const spec = parseRunCommand(call.args)
-            const label = spec.detach ? `${spec.command}  [detach]` : spec.command
+          if (toolNeedsPermit(call.name, call.args)) {
             const ok = onPermit ? await onPermit(label) : false
             if (!ok) {
               result = "denied by user"
               failed = true
-            } else {
-              onTool?.("run", spec.detach ? `${spec.command} detach=true` : spec.command)
-              result = spec.detach
-                ? await runDetached(train, spec.command)
-                : runShell(train, spec.command)
+              denied = true
+              progress.push(`${call.name} denied`)
+              onToolDone?.({ name: call.name, label, result, failed: true })
+              msgs.push({ role: "tool", content: result, tool_call_id: call.id })
+              continue
             }
+          }
+          if (call.name === "run") {
+            const spec = parseRunCommand(call.args)
+            onTool?.("run", spec.detach ? `${spec.command} detach=true` : spec.command)
+            result = spec.detach
+              ? await runDetached(train, spec.command)
+              : runShell(train, spec.command)
           } else {
             onTool?.(call.name, call.args)
             result = await runAgentTool(train, call.name, call.args)
@@ -166,7 +148,7 @@ export async function runTurn(
           failed = true
           result = err instanceof Error ? err.message : String(err)
         }
-        kinds.push(kind)
+        onToolDone?.({ name: call.name, label, result, failed })
         lastFailed = lastFailed || (failed && isRecoverable(result))
         progress.push(
           failed
@@ -175,15 +157,15 @@ export async function runTurn(
         )
         msgs.push({ role: "tool", content: result, tool_call_id: call.id })
       }
-      continue
-    }
-    if (paused) {
-      msgs.push({
-        role: "user",
-        content:
-          "You hit a human-in-the-loop pause. Stop tools. Tell them what is ready in a few sentences and ask whether to train, eval, or change something. Do not invent scores.",
-      })
-      paused = false
+      if (denied) {
+        msgs.push({
+          role: "user",
+          content:
+            "The human denied a step. Stop tools. Briefly say what is done so far and ask what they want instead. Do not retry the denied action unless they ask.",
+        })
+        denied = false
+        continue
+      }
       continue
     }
     if (!out.text.trim() && usedTools) {
@@ -221,9 +203,5 @@ export async function runTurn(
     onDelta,
     { system: system(), tools: [] },
   )
-  return wrap.text.trim() || "too many tool rounds — say the train folder and `aq train <folder>` if you created one."
-}
-
-export function defs(): AgentToolDef[] {
-  return AGENT_TOOLS
+  return wrap.text
 }

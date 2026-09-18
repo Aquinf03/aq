@@ -78,7 +78,7 @@
   </div>
 
   <h2>3. Remote jobs</h2>
-  <p class="lead">Background work on a place. <code class="chip">aq jobs train</code> is <code class="chip">aq jobs run -- aq train</code>. List / status / logs / pull / down follow the same id.</p>
+  <p class="lead">Background work on a place. <code class="chip">aq jobs train</code> is <code class="chip">aq jobs run -- aq train</code>. After start, <code class="chip">aq jobs wait &lt;id&gt;</code> polls status and log snapshots until exit (agents should use this — not bare <code class="chip">logs -f</code>).</p>
   <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>shell</span>
@@ -87,7 +87,9 @@
   <pre><code><span class="line"><span class="prompt">$</span><span>aq jobs train --on temp</span></span>
 <span class="line"><span class="prompt">$</span><span>aq jobs run --on temp -- sleep 30</span></span>
 <span class="line"><span class="prompt">$</span><span>aq jobs</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs wait &lt;id&gt;</span></span>
 <span class="line"><span class="prompt">$</span><span>aq jobs status &lt;id&gt;</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs logs &lt;id&gt; --once</span></span>
 <span class="line"><span class="prompt">$</span><span>aq jobs logs &lt;id&gt; -f</span></span>
 <span class="line"><span class="prompt">$</span><span>aq jobs pull &lt;id&gt;</span></span>
 <span class="line"><span class="prompt"> </span><span class="comment"># job log/spec → jobs-pull/&lt;id&gt;/  +  remote artifacts/ → ./artifacts/</span></span>
