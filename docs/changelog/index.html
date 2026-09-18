@@ -3,15 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>aq changelog · aq Docs</title>
+  <title>aq changelog · Aquin Labs</title>
   <meta name="description" content="What's new in Aquin (aq). Run aq version to see what you have installed." />
   <link rel="icon" href="../assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../assets/docs.css" />
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.2"></script>
 </head>
-<body>
+<body class="cl-page">
   <header class="docs-header">
     <div class="docs-header-inner">
       <a class="brand" href="../" title="Aquin Labs">
@@ -19,180 +20,182 @@
         <span>Aquin<span class="brand-gap">Labs</span></span>
       </a>
       <div class="header-actions">
-        <a class="header-link" href="../changelog/">Changelog</a>
+        <a class="header-link" href="../">Docs</a>
+        <a class="header-link" href="./">Changelog</a>
         <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
       </div>
     </div>
   </header>
-  <div class="docs-frame">
-    <aside class="docs-sidebar" aria-label="Documentation">
-      <nav><a class="nav-link" href="https://aquinf03.github.io/aq" rel="noopener">Live docs</a>
-<a class="nav-link" href="../">Getting started</a>
-<a class="nav-link" href="../install/">Install</a>
-<a class="nav-link" href="../train/">Train folder</a>
-<a class="nav-link" href="../recipe/">Recipe</a>
-<a class="nav-link" href="../cli/">CLI reference</a>
-<a class="nav-link" href="../fleet/">SSH fleet</a>
-<p class="nav-section">Methods</p>
-<a class="nav-link nested" href="../methods/tabular/">Tabular</a>
-<a class="nav-link nested" href="../methods/transformers/">Transformers</a>
-<a class="nav-link nested" href="../methods/llm/">LLM / LoRA</a>
-<a class="nav-link nested" href="../methods/custom/">Custom</a>
-<a class="nav-link" href="../eval/">Eval &amp; inspect</a>
-<a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link" href="../agent/">Agent</a>
-<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
-<a class="nav-link active" href="../changelog/">Changelog</a></nav>
-    </aside>
-    <main class="docs-main">
-      <article class="changelog">
-        <h1 class="hero">aq changelog</h1>
-        <p class="lead">What's new in Aquin (<code class="chip">aq</code>). Run <code class="chip">aq version</code> to see what you have installed.</p>
-        <ol class="cl-timeline">
-      <li class="cl-entry" id="cl-0-0-4-0">
-        <div class="cl-meta">
-          <span class="cl-badge">aq v0.0.4</span>
-          <time datetime="2026-09-06">Sep 6, 2026</time>
-        </div>
-        <div class="cl-body">
-          <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Fitting every machine</a></h2>
-        <h3 class="cl-section">New</h3>
-        <ul class="cl-list">
-          <li>Machine-aware compute: probes VRAM; VLMs no longer hardcode float32. Auto bf16/fp16, batch, gradient checkpointing; OOM auto-retry shrink.</li>
-          <li>Windows install: the installer now works cleanly on Windows (Git Bash and <code class="chip">aq.cmd</code>).</li>
-          <li><code class="chip">aq update</code>: reinstall the latest release (same entrypoint as <code class="chip">curl …/install.sh | bash</code>).</li>
-        </ul>
-        <h3 class="cl-section">Fixes</h3>
-        <ul class="cl-list">
-          <li>VLM vision towers: <code class="chip">vision:</code> accepts full ViT sizes (<code class="chip">vit-h/14</code>, <code class="chip">ViT-H-14</code>, …) and optional OpenCLIP weights via <code class="chip">vision_pretrained</code> / <code class="chip">pretrained</code>.</li>
-          <li><code class="chip">aq serve</code> for every method: generation on VLM (LLaVA/Flamingo/CLIP), vision CNN/ViT, and tabular; <code class="chip">--image</code> / <code class="chip">serve.image</code> for multimodal. LLM methods unchanged.</li>
-        </ul>
-        </div>
-      </li>
-      <li class="cl-entry" id="cl-0-0-3-1">
-        <div class="cl-meta">
-          <span class="cl-badge">aq v0.0.3</span>
-          <time datetime="2026-09-03">Sep 3, 2026</time>
-        </div>
-        <div class="cl-body">
-          <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Teaching models to see</a></h2>
-        <h3 class="cl-section">New</h3>
-        <ul class="cl-list">
-          <li>Vision CNNs: <code class="chip">family: vision</code> / <code class="chip">method: cnn</code> with aq-owned LeNet, AlexNet, VGG, ResNet, Inception, EfficientNet, ConvNeXt. ImageFolder or path+label table. Train, eval, inspect.</li>
-          <li>Vision transformers: <code class="chip">method: vit</code> with aq-owned ViT, Swin, DeiT (CNN teacher), BEiT (VQ + block MIM → classify).</li>
-          <li>Vision-language: <code class="chip">family: vlm</code>: CLIP / SigLIP (aq dual encoders, recall@1); LLaVA / GPT-4V-style (projector + causal LM); Flamingo (perceiver + gated cross-attn).</li>
-          <li>Train TUI: live dashboard on a real terminal (bars, stats, step table). Pipes/CI stay plain tables. <code class="chip">AQ_TUI=0</code> turns it off.</li>
-          <li>Eval TUI: scoreboard of its own (metric / score / verdict / probes), not the train monitor.</li>
-        </ul>
-        <h3 class="cl-section">Fixes</h3>
-        <ul class="cl-list">
-          <li><code class="chip">speculative: true</code>: assisted decode at serve with <code class="chip">draft_model:</code>.</li>
-          <li><code class="chip">formats: true</code>: real weight export after train (HF + GGUF; GPTQ/AWQ on CUDA; EXL2 when <code class="chip">convert.py</code> is set). Prefer <code class="chip">formats: [gguf]</code> on Mac.</li>
-        </ul>
-        </div>
-      </li>
-      <li class="cl-entry" id="cl-0-0-2-2">
-        <div class="cl-meta">
-          <span class="cl-badge">aq v0.0.2</span>
-          <time datetime="2026-09-01">Sep 1, 2026</time>
-        </div>
-        <div class="cl-body">
-          <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Refining and accelerating</a></h2>
-        <h3 class="cl-section">New</h3>
-        <ul class="cl-list">
-          <li><code class="chip">aq plot</code>: charts for loss, jobs, and runs. Ask the agent for a graph, or run <code class="chip">aq plot</code> yourself.</li>
-          <li><code class="chip">aq spawn --kill</code>: optional critic agent that tries to break your idea in the background.</li>
-        </ul>
-        <h3 class="cl-section">Cleaner train folder</h3>
-        <ul class="cl-list">
-          <li>Fewer folders on <code class="chip">aq init</code>. Use <code class="chip">tools/</code> for scripts and custom training code, <code class="chip">jobs/plans/</code> for cron and sweeps.</li>
-          <li>Agent memory moved to <code class="chip">~/.aq/memory/</code> (not inside the train). Old <code class="chip">memory/</code> folders migrate automatically.</li>
-          <li><code class="chip">instructions.md</code> is now <code class="chip">experiment.md</code>. Old files rename themselves the first time you run <code class="chip">aq status</code> or <code class="chip">aq train</code>.</li>
-          <li>Dropped unused slots: <code class="chip">connections/</code>, <code class="chip">methods/</code>, <code class="chip">sandbox/</code>, <code class="chip">train.ts</code>.</li>
-          <li><code class="chip">aq schedule</code> still works: it runs <code class="chip">aq job plan</code>.</li>
-        </ul>
-        <h3 class="cl-section">Agent</h3>
-        <ul class="cl-list">
-          <li>After <code class="chip">aq init</code>, tell the agent the new folder name: it won&#x27;t lose track.</li>
-          <li>The agent waits for you to say go before training or eval.</li>
-        </ul>
-        <h3 class="cl-section">Install</h3>
-        <ul class="cl-list">
-          <li>Re-running the install script cleanly replaces the old copy (fixes upgrade from 0.0.1).</li>
-        </ul>
-        <h3 class="cl-section">Training fixes</h3>
-        <ul class="cl-list">
-          <li>CatBoost and LightGBM work out of the box.</li>
-          <li>Llama/GPT transformer trains no longer fail on missing pad tokens.</li>
-          <li>MLM works on causal models like Llama, not just BERT.</li>
-          <li>Multi-token prediction (<code class="chip">mtp</code>) actually trains extra heads now.</li>
-          <li><code class="chip">paged_kv</code> and <code class="chip">speculative</code> no longer block training.</li>
-        </ul>
-        </div>
-      </li>
-      <li class="cl-entry" id="cl-0-0-1-3">
-        <div class="cl-meta">
-          <span class="cl-badge">aq v0.0.1</span>
-          <time datetime="2026-08-31">Aug 31, 2026</time>
-        </div>
-        <div class="cl-body">
-          <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Building a developer environment for ML</a></h2>
-        <h3 class="cl-section">Concept</h3>
-        <p class="cl-prose"><code class="chip">aq</code> is the developer environment for foundation models: frameworks, libraries, tools, and autonomous agents that help you design, test, and refine models. Built for precision and intent. Think Next.js for JS, but for ML: architecture, experiments, and building AI the way it should be built, deliberately, not by guessing.</p>
-        <p class="cl-prose">Trains live on disk. A train is a folder with your data, recipe, and results. <code class="chip">aq</code> is the CLI that runs them: train, eval, queue jobs, and chat with an agent that works inside that folder, with the same precision as writing code.</p>
-        <h3 class="cl-section">Install</h3>
-        <pre class="cl-cmd">curl -fsSL https://aq.aquin.app/framework/install.sh | bash</pre>
-        <p class="cl-prose">Needs Node 18+, Python 3, and npm. After install: <code class="chip">aq help</code> and <code class="chip">aq doctor</code>.</p>
-        <h3 class="cl-section">New in 0.0.1</h3>
-        <h4 class="cl-group">Start a project</h4>
-        <ul class="cl-list">
-          <li><code class="chip">aq init</code>: new experiment folder (<code class="chip">aq-experiment</code>, or <code class="chip">-new1</code>, <code class="chip">-new2</code>, … if that name exists)</li>
-          <li><code class="chip">aq init my-project</code>: same, with your name</li>
-          <li><code class="chip">aq fork</code>: copy an experiment (skips old job logs and checkpoints)</li>
-        </ul>
-        <h4 class="cl-group">Train &amp; evaluate</h4>
-        <ul class="cl-list">
-          <li><code class="chip">aq train</code>: fit from <code class="chip">recipe.yaml</code></li>
-          <li><code class="chip">aq eval</code>: score against files in <code class="chip">evals/</code></li>
-          <li><code class="chip">aq serve</code>: try generation from a checkpoint</li>
-          <li>Tabular ML: linear/logistic regression, ridge, lasso, elastic net, trees, forests, boosting, Gaussian processes</li>
-          <li>LLM work: pretrain, SFT, full fine-tune, LoRA, QLoRA (NVIDIA + 4-bit), masked LM, span corruption, fill-in-the-middle, continued training from a checkpoint</li>
-          <li>Transformers: encoder, decoder, encoder-decoder (set <code class="chip">model:</code> in the recipe)</li>
-        </ul>
-        <h4 class="cl-group">Work in the background</h4>
-        <ul class="cl-list">
-          <li><code class="chip">aq job run</code>: run a command as a queued job</li>
-          <li><code class="chip">aq job list | log | cancel | resume | tree</code></li>
-        </ul>
-        <h4 class="cl-group">Agent &amp; chat</h4>
-        <ul class="cl-list">
-          <li><code class="chip">aq</code>: interactive chat in the terminal</li>
-          <li><code class="chip">aq ask</code>: one-shot question, no UI</li>
-          <li><code class="chip">aq chat list</code>: pick up old conversations (stored under <code class="chip">~/.aq/chats/</code>)</li>
-          <li><code class="chip">aq spawn</code>: start a background agent on a task</li>
-          <li>Plug in your own scripts (<code class="chip">tools/</code>) and skill packs (<code class="chip">skills/</code>)</li>
-        </ul>
-        <h4 class="cl-group">Other</h4>
-        <ul class="cl-list">
-          <li><code class="chip">aq provider</code>: OpenAI, Anthropic, Grok, or Ollama</li>
-          <li><code class="chip">aq schedule</code>: chains like train → eval, sweeps, cron-style reruns</li>
-          <li><code class="chip">aq stage</code>: sub-experiments inside <code class="chip">stages/</code></li>
-          <li><code class="chip">aq status</code>, <code class="chip">aq diff</code>, <code class="chip">aq checkout</code>: see what ran and go back to an older state</li>
-          <li><code class="chip">aq version</code>, <code class="chip">aq doctor</code></li>
-        </ul>
-        <h3 class="cl-section">Fixes in 0.0.1</h3>
-        <ul class="cl-list">
-          <li>Install: <code class="chip">aq</code> command works after curl install (no broken path / missing binary)</li>
-          <li>Install: Python deps on Ubuntu/Debian (venv + pip setup)</li>
-          <li>Training: faster LM runs on typical GPUs; less likely to OOM on a T4-class card</li>
-          <li>Chat: conversations live in one global place, not scattered per folder</li>
-        </ul>
-        <p class="cl-outro">This is only the first cut. We want aq to feel like a calm desk for teaching models: yours to keep, easy to share, honest about what it can do. If you are curious about how machines learn, you already belong here. Build something small. See what it becomes.</p>
-        </div>
-      </li>
-        </ol>
-      </article>
-    </main>
-  </div>
+
+  <main class="cl-standalone">
+    <div class="cl-hero-wrap">
+      <div class="cl-grid" aria-hidden="true">
+        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+          <defs>
+            <pattern id="cl-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="black" stroke-width="0.5" stroke-opacity="0.12" />
+            </pattern>
+            <linearGradient id="cl-fade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f5f5f3" stop-opacity="0" />
+              <stop offset="55%" stop-color="#f5f5f3" stop-opacity="0.55" />
+              <stop offset="100%" stop-color="#f5f5f3" stop-opacity="1" />
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#cl-grid)" />
+          <rect width="100%" height="28%" y="72%" fill="url(#cl-fade)" />
+        </svg>
+      </div>
+      <div class="cl-hero">
+        <h1>aq changelog</h1>
+        <p>What's new in Aquin (<code class="chip">aq</code>). Run <code class="chip">aq version</code> to see what you have installed.</p>
+      </div>
+    </div>
+
+    <div class="cl-content">
+      <ol class="cl-timeline">
+          <li class="cl-entry" id="cl-0-0-4-0">
+            <div class="cl-meta">
+              <span class="cl-badge">aq v0.0.4</span>
+              <time datetime="2026-09-06">Sep 6, 2026</time>
+            </div>
+            <div class="cl-body">
+              <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Fitting every machine</a></h2>
+            <h3 class="cl-section"><i class="ph-duotone ph-laptop cl-ico-h" aria-hidden="true"></i>New</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-gear cl-ico-inline" aria-hidden="true"></i> Machine-aware compute: probes VRAM; VLMs no longer hardcode float32. Auto bf16/fp16, batch, gradient checkpointing; OOM auto-retry shrink.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Windows install: the installer now works cleanly on Windows (Git Bash and <code class="chip">aq.cmd</code>).</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-download-simple cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq update</code>: reinstall the latest release (same entrypoint as <code class="chip">curl …/install.sh | bash</code>).</span></li>
+            </ul>
+            <h3 class="cl-section"><i class="ph-duotone ph-wrench cl-ico-h" aria-hidden="true"></i>Fixes</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>VLM vision towers: <code class="chip">vision:</code> accepts full ViT sizes (<code class="chip">vit-h/14</code>, <code class="chip">ViT-H-14</code>, …) and optional OpenCLIP weights via <code class="chip">vision_pretrained</code> / <code class="chip">pretrained</code>.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq serve</code> for every method: generation on VLM (LLaVA/Flamingo/CLIP), vision CNN/ViT, and tabular; <code class="chip">--image</code> / <code class="chip">serve.image</code> for multimodal. LLM methods unchanged.</span></li>
+            </ul>
+            </div>
+          </li>
+          <li class="cl-entry" id="cl-0-0-3-1">
+            <div class="cl-meta">
+              <span class="cl-badge">aq v0.0.3</span>
+              <time datetime="2026-09-03">Sep 3, 2026</time>
+            </div>
+            <div class="cl-body">
+              <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Teaching models to see</a></h2>
+            <h3 class="cl-section"><i class="ph-duotone ph-eye cl-ico-h" aria-hidden="true"></i>New</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-image cl-ico-inline" aria-hidden="true"></i> Vision CNNs: <code class="chip">family: vision</code> / <code class="chip">method: cnn</code> with aq-owned LeNet, AlexNet, VGG, ResNet, Inception, EfficientNet, ConvNeXt. ImageFolder or path+label table. Train, eval, inspect.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Vision transformers: <code class="chip">method: vit</code> with aq-owned ViT, Swin, DeiT (CNN teacher), BEiT (VQ + block MIM → classify).</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Vision-language: <code class="chip">family: vlm</code>: CLIP / SigLIP (aq dual encoders, recall@1); LLaVA / GPT-4V-style (projector + causal LM); Flamingo (perceiver + gated cross-attn).</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-monitor cl-ico-inline" aria-hidden="true"></i> Train TUI: live dashboard on a real terminal (bars, stats, step table). Pipes/CI stay plain tables. <code class="chip">AQ_TUI=0</code> turns it off.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Eval TUI: scoreboard of its own (metric / score / verdict / probes), not the train monitor.</span></li>
+            </ul>
+            <h3 class="cl-section"><i class="ph-duotone ph-wrench cl-ico-h" aria-hidden="true"></i>Fixes</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">speculative: true</code>: assisted decode at serve with <code class="chip">draft_model:</code>.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">formats: true</code>: real weight export after train (HF + GGUF; GPTQ/AWQ on CUDA; EXL2 when <code class="chip">convert.py</code> is set). Prefer <code class="chip">formats: [gguf]</code> on Mac.</span></li>
+            </ul>
+            </div>
+          </li>
+          <li class="cl-entry" id="cl-0-0-2-2">
+            <div class="cl-meta">
+              <span class="cl-badge">aq v0.0.2</span>
+              <time datetime="2026-09-01">Sep 1, 2026</time>
+            </div>
+            <div class="cl-body">
+              <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Refining and accelerating</a></h2>
+            <h3 class="cl-section"><i class="ph-duotone ph-sparkle cl-ico-h" aria-hidden="true"></i>New</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-sparkle cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq plot</code>: charts for loss, jobs, and runs. Ask the agent for a graph, or run <code class="chip">aq plot</code> yourself.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-robot cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq spawn --kill</code>: optional critic agent that tries to break your idea in the background.</span></li>
+            </ul>
+            <h3 class="cl-section"><i class="ph-duotone ph-folder-simple cl-ico-h" aria-hidden="true"></i>Cleaner train folder</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Fewer folders on <code class="chip">aq init</code>. Use <code class="chip">tools/</code> for scripts and custom training code, <code class="chip">jobs/plans/</code> for cron and sweeps.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Agent memory moved to <code class="chip">~/.aq/memory/</code> (not inside the train). Old <code class="chip">memory/</code> folders migrate automatically.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">instructions.md</code> is now <code class="chip">experiment.md</code>. Old files rename themselves the first time you run <code class="chip">aq status</code> or <code class="chip">aq train</code>.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Dropped unused slots: <code class="chip">connections/</code>, <code class="chip">methods/</code>, <code class="chip">sandbox/</code>, <code class="chip">train.ts</code>.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq schedule</code> still works: it runs <code class="chip">aq job plan</code>.</span></li>
+            </ul>
+            <h3 class="cl-section"><i class="ph-duotone ph-chat-circle cl-ico-h" aria-hidden="true"></i>Agent</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>After <code class="chip">aq init</code>, tell the agent the new folder name: it won&#x27;t lose track.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>The agent waits for you to say go before training or eval.</span></li>
+            </ul>
+            <h3 class="cl-section"><i class="ph-duotone ph-download-simple cl-ico-h" aria-hidden="true"></i>Install</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Re-running the install script cleanly replaces the old copy (fixes upgrade from 0.0.1).</span></li>
+            </ul>
+            <h3 class="cl-section"><i class="ph-duotone ph-wrench cl-ico-h" aria-hidden="true"></i>Training fixes</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>CatBoost and LightGBM work out of the box.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Llama/GPT transformer trains no longer fail on missing pad tokens.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>MLM works on causal models like Llama, not just BERT.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Multi-token prediction (<code class="chip">mtp</code>) actually trains extra heads now.</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">paged_kv</code> and <code class="chip">speculative</code> no longer block training.</span></li>
+            </ul>
+            </div>
+          </li>
+          <li class="cl-entry" id="cl-0-0-1-3">
+            <div class="cl-meta">
+              <span class="cl-badge">aq v0.0.1</span>
+              <time datetime="2026-08-31">Aug 31, 2026</time>
+            </div>
+            <div class="cl-body">
+              <h2 class="cl-title"><a href="https://aq.aquin.app" target="_blank" rel="noopener">Building a developer environment for ML</a></h2>
+            <h3 class="cl-section"><i class="ph-duotone ph-lightbulb cl-ico-h" aria-hidden="true"></i>Concept</h3>
+            <p class="cl-prose"><i class="ph-duotone ph-sparkle cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq</code> is the developer environment for foundation models: frameworks, libraries, tools, and autonomous agents that help you design, test, and refine models. Built for precision and intent. Think Next.js for JS, but for ML: architecture, experiments, and building AI the way it should be built, deliberately, not by guessing.</p>
+            <p class="cl-prose"><i class="ph-duotone ph-folder-simple cl-ico-inline" aria-hidden="true"></i> Trains live on disk. A train is a folder with your data, recipe, and results. <i class="ph-duotone ph-terminal cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq</code> is the CLI that runs them: train, eval, queue jobs, and chat with an agent that works inside that folder, with the same precision as writing code.</p>
+            <h3 class="cl-section"><i class="ph-duotone ph-download-simple cl-ico-h" aria-hidden="true"></i>Install</h3>
+            <pre class="cl-cmd">curl -fsSL https://aq.aquin.app/framework/install.sh | bash</pre>
+            <p class="cl-prose">Needs Node 18+, Python 3, and npm. After install: <code class="chip">aq help</code> and <code class="chip">aq doctor</code> <i class="ph-duotone ph-stethoscope cl-ico-inline" aria-hidden="true"></i>.</p>
+            <h3 class="cl-section"><i class="ph-duotone ph-sparkle cl-ico-h" aria-hidden="true"></i>New in 0.0.1</h3>
+            <h4 class="cl-group"><i class="ph-duotone ph-folder-simple cl-ico-h" aria-hidden="true"></i>Start a project</h4>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq init</code>: new experiment folder (<code class="chip">aq-experiment</code>, or <code class="chip">-new1</code>, <code class="chip">-new2</code>, … if that name exists)</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq init my-project</code>: same, with your name</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-copy cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq fork</code>: copy an experiment (skips old job logs and checkpoints)</span></li>
+            </ul>
+            <h4 class="cl-group"><i class="ph-duotone ph-flask cl-ico-h" aria-hidden="true"></i>Train &amp; evaluate</h4>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq train</code>: fit from <code class="chip">recipe.yaml</code></span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq eval</code>: score against files in <code class="chip">evals/</code></span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq serve</code>: try generation from a checkpoint</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Tabular ML: linear/logistic regression, ridge, lasso, elastic net, trees, forests, boosting, Gaussian processes</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>LLM work: pretrain, SFT, full fine-tune, LoRA, QLoRA (NVIDIA + 4-bit), masked LM, span corruption, fill-in-the-middle, continued training from a checkpoint</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Transformers: encoder, decoder, encoder-decoder (set <code class="chip">model:</code> in the recipe)</span></li>
+            </ul>
+            <h4 class="cl-group"><i class="ph-duotone ph-list-checks cl-ico-h" aria-hidden="true"></i>Work in the background</h4>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-clock cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq job run</code>: run a command as a queued job</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq job list | log | cancel | resume | tree</code> <i class="ph-duotone ph-tree-structure cl-ico-inline" aria-hidden="true"></i></span></li>
+            </ul>
+            <h4 class="cl-group"><i class="ph-duotone ph-chat-circle cl-ico-h" aria-hidden="true"></i>Agent &amp; chat</h4>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-terminal cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq</code>: interactive chat in the terminal</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq ask</code>: one-shot question, no UI</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq chat list</code>: pick up old conversations (stored under <code class="chip">~/.aq/chats/</code>)</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-robot cl-ico-inline" aria-hidden="true"></i> <code class="chip">aq spawn</code>: start a background agent on a task</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Plug in your own scripts (<code class="chip">tools/</code>) and skill packs (<code class="chip">skills/</code>)</span></li>
+            </ul>
+            <h4 class="cl-group"><i class="ph-duotone ph-gear cl-ico-h" aria-hidden="true"></i>Other</h4>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq provider</code>: OpenAI, Anthropic, Grok, or Ollama</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq schedule</code>: chains like train → eval, sweeps, cron-style reruns</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq stage</code>: sub-experiments inside <code class="chip">stages/</code></span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq status</code>, <code class="chip">aq diff</code>, <code class="chip">aq checkout</code>: see what ran and go back to an older state</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><code class="chip">aq version</code>, <code class="chip">aq doctor</code> <i class="ph-duotone ph-stethoscope cl-ico-inline" aria-hidden="true"></i></span></li>
+            </ul>
+            <h3 class="cl-section"><i class="ph-duotone ph-wrench cl-ico-h" aria-hidden="true"></i>Fixes in 0.0.1</h3>
+            <ul class="cl-list">
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-check-circle cl-ico-inline" aria-hidden="true"></i> Install: <code class="chip">aq</code> command works after curl install (no broken path / missing binary)</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Install: Python deps on Ubuntu/Debian (venv + pip setup)</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span>Training: faster LM runs on typical GPUs; less likely to OOM on a T4-class card</span></li>
+              <li><span class="cl-caret" aria-hidden="true">›</span><span><i class="ph-duotone ph-chat-circle cl-ico-inline" aria-hidden="true"></i> Chat: conversations live in one global place, not scattered per folder</span></li>
+            </ul>
+            <p class="cl-outro"><i class="ph-duotone ph-desk cl-ico-inline" aria-hidden="true"></i> This is only the first cut. We want aq to feel like a calm desk for teaching models: yours to keep, easy to share, honest about what it can do. If you are curious about how machines learn, you already belong here. <i class="ph-duotone ph-plant cl-ico-inline" aria-hidden="true"></i> Build something small. <i class="ph-duotone ph-heart cl-ico-inline" aria-hidden="true"></i> See what it becomes.</p>
+            </div>
+          </li>
+      </ol>
+    </div>
+  </main>
 </body>
 </html>

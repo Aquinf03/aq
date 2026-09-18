@@ -6,6 +6,6 @@ The previous TypeScript source (`web/lib/docs`) was cleared; **edit these HTML f
 
 SSH fleet (places / jobs / pools) lives at [`fleet/`](fleet/). Keep that page and the fleet sections in [`cli/`](cli/) and [`jobs/`](jobs/) aligned with `aq help` + `aq/SDK.md`.
 
-Changelog copy lives at [`changelog/`](changelog/) (ported from the aquin.app changelog page). Keep it aligned with `/Users/ashm/work/Aquin/lib/changelog.ts` when releases ship.
+Changelog lives at [`changelog/`](changelog/) as a standalone page (no docs sidebar), ported from aquin.app. Keep copy aligned with `/Users/ashm/work/Aquin/lib/changelog.ts` when releases ship.
 
 Point GitHub Pages at the `/docs` folder on your default branch.

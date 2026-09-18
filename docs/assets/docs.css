@@ -314,15 +314,66 @@ table.plain td.mono { font-size: 13px; }
 }
 .codeblock .comment { color: var(--faint); }
 
-/* Changelog (ported from aquin.app/changelog) */
-.changelog { max-width: 48rem; }
+/* Changelog standalone (aquin.app-style, no docs sidebar) */
+body.cl-page {
+  padding-top: var(--header-h);
+}
+.cl-standalone {
+  min-height: calc(100vh - var(--header-h));
+  padding-bottom: 6rem;
+}
+.cl-hero-wrap {
+  position: relative;
+  overflow: hidden;
+  padding: 3.5rem 1.5rem 4.5rem;
+}
+@media (min-width: 640px) {
+  .cl-hero-wrap { padding: 5rem 1.5rem 6rem; }
+}
+.cl-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.cl-hero {
+  position: relative;
+  z-index: 1;
+  max-width: 52rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.cl-hero h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 6vw, 3.75rem);
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  color: #000;
+  text-wrap: balance;
+}
+.cl-hero p {
+  margin: 1rem auto 0;
+  max-width: 32rem;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.cl-content {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 0 1.5rem 2rem;
+}
 .cl-timeline {
   list-style: none;
-  margin: 2.5rem 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 3.5rem;
+  gap: 4rem;
+}
+@media (min-width: 640px) {
+  .cl-timeline { gap: 5rem; }
 }
 .cl-entry {
   display: grid;
@@ -333,8 +384,8 @@ table.plain td.mono { font-size: 13px; }
 }
 @media (min-width: 640px) {
   .cl-entry {
-    grid-template-columns: 7rem minmax(0, 1fr);
-    gap: 2.5rem;
+    grid-template-columns: 7.25rem minmax(0, 1fr);
+    column-gap: 3.5rem;
   }
 }
 .cl-meta {
@@ -370,7 +421,7 @@ table.plain td.mono { font-size: 13px; }
 .cl-body { min-width: 0; max-width: 36rem; }
 .cl-title {
   margin: 0;
-  font-size: clamp(1.25rem, 2.5vw, 1.625rem);
+  font-size: clamp(1.35rem, 2.5vw, 1.625rem);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -379,13 +430,19 @@ table.plain td.mono { font-size: 13px; }
 .cl-title a { color: inherit; text-decoration: none; }
 .cl-title a:hover { opacity: 0.7; }
 .cl-section {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   margin: 1.75rem 0 0.75rem;
   font-size: 15px;
   font-weight: 600;
   color: #292524;
 }
 .cl-group {
-  margin: 1.25rem 0 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 1.25rem 0 0.55rem;
   font-size: 14px;
   font-weight: 600;
   color: #44403c;
@@ -396,7 +453,7 @@ table.plain td.mono { font-size: 13px; }
   line-height: 1.65;
   color: var(--muted);
 }
-.cl-outro { margin-top: 2rem; }
+.cl-outro { margin-top: 2.25rem; line-height: 1.7; }
 .cl-cmd {
   margin: 0 0 1rem;
   overflow-x: auto;
@@ -416,22 +473,37 @@ table.plain td.mono { font-size: 13px; }
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.6rem;
 }
 .cl-list li {
-  position: relative;
-  padding-left: 1.1rem;
+  display: flex;
+  gap: 0.5rem;
   font-size: 15px;
   line-height: 1.65;
   color: var(--muted);
 }
-.cl-list li::before {
-  content: "›";
-  position: absolute;
-  left: 0;
-  top: 0;
+.cl-caret {
+  flex-shrink: 0;
+  margin-top: 0.15em;
   color: var(--faint);
   font-weight: 600;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.cl-ico-h {
+  font-size: 1em;
+  line-height: 1;
+  color: #57534e;
+}
+.cl-section .cl-ico-h { color: #57534e; font-size: 1.05em; }
+.cl-group .cl-ico-h { color: #78716c; font-size: 0.95em; }
+.cl-ico-inline {
+  display: inline-block;
+  font-size: 1.05em;
+  line-height: 1;
+  vertical-align: -0.18em;
+  margin: 0 0.15em;
+  color: #78716c;
 }
 
 @media (max-width: 1023px) {
