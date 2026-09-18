@@ -150,7 +150,7 @@ export const CLI_VERBS: ToolCard[] = [
   { name: "aq_data", source: "cli", description: "Hash recipe data.path." },
   { name: "aq_diff", source: "cli", description: "Compare run records." },
   { name: "aq_spawn", source: "cli", description: "spawn agent / list / log / cancel worker agents." },
-  { name: "aq_plot", source: "cli", description: "Charts from artifacts (metrics, jobs, runs). Same as plot tool." },
+  { name: "aq_plot", source: "cli", description: "Charts: metrics/jobs/runs (matplotlib) or samples (torchvision/Pillow grid)." },
   { name: "aq_provider", source: "cli", description: "List or set model providers." },
   { name: "aq_places", source: "cli", description: "List SSH places / pools." },
   { name: "aq_add", source: "cli", description: "Register ssh place (flags: --host/--user/--port/--key) or pool." },

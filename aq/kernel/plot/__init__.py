@@ -1,20 +1,30 @@
-"""Read train artifacts and write matplotlib charts under artifacts/plots/."""
+"""Read train artifacts and write charts under artifacts/plots/.
+
+metrics / jobs / runs → matplotlib
+samples / vision → torchvision grid (Pillow / matplotlib fallback)
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from plot.config import resolve_plot_config
-from plot.jobs import plot_jobs
-from plot.metrics import plot_metrics
-from plot.runs import plot_runs
 
-_RENDERERS = {
-    "metrics": plot_metrics,
-    "jobs": plot_jobs,
-    "runs": plot_runs,
-}
+
+def _renderers() -> dict[str, Callable[..., Path | None]]:
+    from plot.jobs import plot_jobs
+    from plot.metrics import plot_metrics
+    from plot.runs import plot_runs
+    from plot.vision import plot_vision
+
+    return {
+        "metrics": plot_metrics,
+        "jobs": plot_jobs,
+        "runs": plot_runs,
+        "samples": plot_vision,
+        "vision": plot_vision,
+    }
 
 
 def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
@@ -41,13 +51,16 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
 
     if kind == "all":
         charts = list(cfg.get("charts") or ["metrics", "jobs", "runs"])
+        if "samples" not in charts and "vision" not in charts:
+            charts = [*charts, "samples"]
     else:
         charts = [kind]
 
+    renderers = _renderers()
     written: list[Path] = []
     skipped: list[str] = []
     for name in charts:
-        fn = _RENDERERS.get(name)
+        fn = renderers.get(name)
         if fn is None:
             skipped.append(f"unknown chart: {name}")
             continue
@@ -55,8 +68,9 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
         if path is None:
             skipped.append(f"no data for {name}")
             continue
-        if single_name and len(charts) == 1:
-            dest = out_dir / f"{single_name}.{fmt}"
+        active = [c for c in charts if c in renderers]
+        if single_name and len(active) == 1:
+            dest = out_dir / f"{single_name}{path.suffix}"
             if dest != path:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 path.replace(dest)

@@ -4,10 +4,10 @@ import path from "node:path"
 import { assertTrain } from "../core/schema.js"
 import { runKernel, type KernelReq } from "../core/python.js"
 
-const KINDS = new Set(["metrics", "jobs", "runs", "all"])
+const KINDS = new Set(["metrics", "jobs", "runs", "samples", "vision", "all"])
 
 const USAGE =
-  "usage: aq plot [dir] [metrics|jobs|runs|all] [--out path] [--format png|svg|pdf] [--dpi N] [--open]"
+  "usage: aq plot [dir] [metrics|jobs|runs|samples|vision|all] [--out path] [--format png|svg|pdf] [--dpi N] [--open]"
 
 function popFlag(rest: string[], flag: string): { value?: string; rest: string[] } {
   const idx = rest.indexOf(flag)
@@ -68,15 +68,17 @@ export async function plot(argv: string[]): Promise<void> {
 
 export function plotHelp(): string {
   return [
-    "  aq plot [dir] [metrics|jobs|runs|all]  charts from artifacts (default: all)",
-    "  aq plot [dir] metrics                   loss/lr from metrics.jsonl",
-    "  aq plot [dir] jobs                      job status bar chart",
-    "  aq plot [dir] runs                      compare run scores",
+    "  aq plot [dir] [metrics|jobs|runs|samples|all]  charts from artifacts (default: all)",
+    "  aq plot [dir] metrics                   loss/lr from metrics.jsonl (matplotlib)",
+    "  aq plot [dir] jobs                      job status bar chart (matplotlib)",
+    "  aq plot [dir] runs                      compare run scores (matplotlib)",
+    "  aq plot [dir] samples                   image grid (torchvision if installed, else Pillow)",
     "      --out path   output file (single chart)",
     "      --format png|svg|pdf",
     "      --dpi N",
     "      --open       open the file after writing (--out only)",
     "",
+    "  samples looks in artifacts/samples/, artifacts/previews/, and recipe image folders.",
     "  recipe.yaml plot: block and ~/.aq/config.json set defaults.",
     "  plot.auto: true  → charts after aq train",
   ].join("\n")

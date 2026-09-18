@@ -36,7 +36,7 @@ function nativeAqTools(): AgentToolDef[] {
     ["serve", "Run last checkpoint locally: LLM completion, VLM (+ --image), vision classify, CLIP score, or tabular predict."],
     ["data", "Hash recipe data.path. Extra args after data."],
     ["diff", "Compare run records."],
-    ["plot", "Generate charts from artifacts: loss/lr (metrics), job status (jobs), run comparison (runs), or all. Writes artifacts/plots/*.png. Use when the user asks for a graph, chart, or plot."],
+    ["plot", "Generate charts from artifacts: metrics/jobs/runs (matplotlib) or samples/vision (torchvision image grid). Writes artifacts/plots/*.png."],
     ["spawn", "Worker agents: spawn agent / list / log / cancel."],
     ["provider", "List or set model providers."],
     ["update", "Install the latest aq release (same as curl install.sh | bash)."],
@@ -343,13 +343,13 @@ export const AGENT_TOOLS: AgentToolDef[] = [
   {
     name: "plot",
     description:
-      "Generate matplotlib charts for this train. kind=metrics (loss/lr curve), jobs (status bar chart), runs (experiment comparison), or all. Writes under artifacts/plots/. Use when the user asks for a graph, chart, diagram, or plot of training or jobs.",
+      "Generate charts for this train. kind=metrics|jobs|runs (matplotlib curves/bars), samples|vision (image grid via torchvision/Pillow), or all. Writes under artifacts/plots/. Use for graphs, sample grids, or diagrams.",
     parameters: {
       type: "object",
       properties: {
         kind: {
           type: "string",
-          description: "metrics | jobs | runs | all (default all)",
+          description: "metrics | jobs | runs | samples | vision | all (default all)",
         },
       },
     },
