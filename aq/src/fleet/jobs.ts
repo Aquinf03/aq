@@ -111,6 +111,33 @@ function tip(msg: string, hint: string): Error {
   return new Error(msg + "\n  " + c.dim("tip") + "  " + hint)
 }
 
+/**
+ * Env for a remote job process.
+ * Distributed torch vars only when worldSize > 1 — single-GPU jobs must not
+ * set MASTER_ADDR/PORT or HF Trainer/c10d hangs on the public SSH host IP.
+ */
+function jobProcessEnv(opts: {
+  rank: number
+  worldSize: number
+  masterAddr: string
+  masterPort: number
+  extra?: Record<string, string>
+}): Record<string, string> {
+  const env: Record<string, string> = { ...(opts.extra || {}) }
+  if (opts.worldSize > 1) {
+    env.RANK = String(opts.rank)
+    env.LOCAL_RANK = "0"
+    env.WORLD_SIZE = String(opts.worldSize)
+    env.MASTER_ADDR = opts.masterAddr
+    env.MASTER_PORT = String(opts.masterPort)
+    env.AQ_RANK = String(opts.rank)
+    env.AQ_WORLD_SIZE = String(opts.worldSize)
+    env.AQ_MASTER_ADDR = opts.masterAddr
+    env.AQ_MASTER_PORT = String(opts.masterPort)
+  }
+  return env
+}
+
 function jobsHelp(): string {
   return [
     "aq jobs                     list jobs on last launch place",
@@ -128,7 +155,7 @@ function jobsHelp(): string {
     "aq jobs submit …              alias → aq queue push",
     "",
     "--nodes N  (N>1) needs a pool: sync + start the same cmd on N boxes with",
-    "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT set (torchrun-friendly).",
+    "           RANK / WORLD_SIZE / MASTER_ADDR / MASTER_PORT (single-node jobs omit these).",
     "--port N   SSH -L tunnel (N or local:remote); sets AQ_PORT/PORT on the job.",
     "--name N   human label for the job (stored as tag name=; shows in list).",
     "--tag k=v  label the job (filter with aq jobs list --tag k=v).",
@@ -140,6 +167,7 @@ function jobsHelp(): string {
     "           cmd may use {i} {n} {shard} {shards} and {gridKey} placeholders.",
     "recover    restart same id after host/process death (SSH spot/preempt pattern).",
     "watch      poll managed jobs and recover on unreachable / failed exit.",
+    "pull       job dir (log/spec) + remote <remoteDir>/artifacts → local train artifacts/.",
     "Jobs live under <remoteDir>/jobs/<id>/ on each place.",
   ].join("\n")
 }
@@ -406,18 +434,13 @@ export async function startRemoteJob(opts: {
   try {
     for (let rank = 0; rank < gang.length; rank++) {
       const g = gang[rank]
-      const env: Record<string, string> = {
-        RANK: String(rank),
-        LOCAL_RANK: "0",
-        WORLD_SIZE: String(worldSize),
-        MASTER_ADDR: masterAddr,
-        MASTER_PORT: String(masterPort),
-        AQ_RANK: String(rank),
-        AQ_WORLD_SIZE: String(worldSize),
-        AQ_MASTER_ADDR: masterAddr,
-        AQ_MASTER_PORT: String(masterPort),
-        ...(extraEnv || {}),
-      }
+      const env = jobProcessEnv({
+        rank,
+        worldSize,
+        masterAddr,
+        masterPort,
+        extra: extraEnv,
+      })
       if (ports?.length) {
         env.AQ_PORT = String(ports[0].remote)
         env.PORT = String(ports[0].remote)
@@ -445,9 +468,9 @@ export async function startRemoteJob(opts: {
         code: null,
         started,
         ended: null,
-        worldSize,
-        masterAddr,
-        masterPort,
+        ...(worldSize > 1
+          ? { worldSize, masterAddr, masterPort }
+          : {}),
       }
       const pid = startOnNode({
         place: g.place,
@@ -1586,6 +1609,32 @@ async function jobsLogs(argv: string[]): Promise<void> {
   }
 }
 
+/** Local train folder to merge remote artifacts into (session or cwd). */
+function localTrainForPull(): string | null {
+  const session = loadSession()
+  if (session?.train && existsSync(session.train)) return session.train
+  if (existsSync(path.join(process.cwd(), "recipe.yaml"))) return process.cwd()
+  return null
+}
+
+async function pullRemoteArtifacts(
+  place: SshPlace,
+  remoteDir: string,
+  localArtifacts: string,
+): Promise<boolean> {
+  const remoteArt = `${remoteDir.replace(/\/$/, "")}/artifacts`
+  // Skip if remote has no artifacts yet (don't fail the whole pull).
+  const probe = sshExec(
+    place,
+    `test -d ${remoteShellPath(remoteArt)} && echo YES || echo NO`,
+    { timeoutMs: 15_000 },
+  )
+  if ((probe.stdout || "").trim().split("\n").pop() !== "YES") return false
+  step("pull", `artifacts  ${remoteArt} → ${localArtifacts}`)
+  await rsyncFromRemote(place, remoteArt, localArtifacts)
+  return true
+}
+
 async function jobsPull(argv: string[]): Promise<void> {
   const id = argv[0]
   if (!id) throw tip("need a job id", "aq jobs list")
@@ -1609,6 +1658,9 @@ async function jobsPull(argv: string[]): Promise<void> {
   const { place, remoteDir } = lookupJob(id, on)
   const nodes = indexNodes(id)
   const base = path.resolve(dest || path.join("jobs-pull", id))
+  const train = localTrainForPull()
+  const artDest = train ? path.join(train, "artifacts") : path.join(base, "artifacts")
+
   if (nodes && nodes.length > 1 && rank == null) {
     for (const n of nodes) {
       const p = getPlace(n.place)
@@ -1617,7 +1669,17 @@ async function jobsPull(argv: string[]): Promise<void> {
       step("pull", `rank ${n.rank} → ` + local)
       await rsyncFromRemote(p, remoteJobDir(n.remoteDir || remoteDir, id), local)
     }
+    // Train artifacts from rank 0 (primary writer for single-process cmds).
+    const primary = nodes.slice().sort((a, b) => a.rank - b.rank)[0]
+    const p0 = getPlace(primary.place)
+    if (p0.kind === "ssh") {
+      const got = await pullRemoteArtifacts(p0, primary.remoteDir || remoteDir, artDest)
+      if (got) stepOk("pull", artDest)
+    }
     stepOk("pull", base)
+    if (train) {
+      console.log(c.dim("next") + "  cat artifacts/inspect.md · aq serve")
+    }
     return
   }
   let sshPlace = place
@@ -1632,7 +1694,19 @@ async function jobsPull(argv: string[]): Promise<void> {
   }
   step("pull", remoteJobDir(rd, id) + " → " + base)
   await rsyncFromRemote(sshPlace, remoteJobDir(rd, id), base)
+  const got = await pullRemoteArtifacts(sshPlace, rd, artDest)
   stepOk("pull", base)
+  if (got) {
+    stepOk("pull", artDest)
+    if (train) {
+      console.log(c.dim("next") + "  cat artifacts/inspect.md · aq serve")
+    }
+  } else {
+    console.log(
+      c.dim("note") +
+        "  no remote artifacts/ yet (job may not have written a train folder)",
+    )
+  }
 }
 
 function killRemoteJob(place: SshPlace, remoteDir: string, id: string): void {
@@ -1935,18 +2009,13 @@ async function recoverJob(opts: {
   for (let rank = 0; rank < gang.length; rank++) {
     const g = gang[rank]
     prepareRecoverDir(g.place, remoteDir, id)
-    const env: Record<string, string> = {
-      RANK: String(rank),
-      LOCAL_RANK: "0",
-      WORLD_SIZE: String(worldSize),
-      MASTER_ADDR: masterAddr,
-      MASTER_PORT: String(masterPort),
-      AQ_RANK: String(rank),
-      AQ_WORLD_SIZE: String(worldSize),
-      AQ_MASTER_ADDR: masterAddr,
-      AQ_MASTER_PORT: String(masterPort),
-      AQ_RECOVERED: "1",
-    }
+    const env = jobProcessEnv({
+      rank,
+      worldSize,
+      masterAddr,
+      masterPort,
+      extra: { AQ_RECOVERED: "1" },
+    })
     if (needGpu > 0) {
       const devs = allocateGpus(id, g.name, g.place, needGpu)
       if (rank === 0) headDevices = devs
