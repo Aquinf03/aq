@@ -28,12 +28,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/changelog",
-        destination: "https://aquin.app/changelog",
+        destination: "https://aquinf03.github.io/aq/changelog",
         permanent: true,
       },
       {
         source: "/changelog/:path*",
-        destination: "https://aquin.app/changelog",
+        destination: "https://aquinf03.github.io/aq/changelog",
         permanent: true,
       },
       {

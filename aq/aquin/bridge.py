@@ -62,6 +62,10 @@ def invoke(handle: RunHandle, op: str, **fields: Any) -> list[str]:
             from protocol.revision import hash_train
 
             lines = hash_train(train, bool(fields.get("snapshot")))
+        elif op == "plot":
+            from plot import do_plot
+
+            lines = do_plot(train, dict(fields))
         else:
             raise ValueError(f"unknown op: {op}")
     except SystemExit as e:

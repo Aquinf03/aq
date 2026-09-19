@@ -15,7 +15,7 @@ from engine.step import do_checkpoint, do_eval, do_serve, do_train
 from plot import do_plot
 
 
-# Invocation only. Spec is recipe.yaml, never this file.
+# Keys allowed for non-plot ops (plot passes the full request through).
 REQ_KEYS = {
     "op",
     "snapshot",
@@ -35,8 +35,11 @@ REQ_KEYS = {
 
 
 def dispatch(train: Path, req: dict) -> list[str]:
-    req = {k: req[k] for k in REQ_KEYS if k in req}
     op = req.get("op")
+    if op == "plot":
+        # Keep all plot options (fields, charts, layers, script, …).
+        return do_plot(train, req)
+    req = {k: req[k] for k in REQ_KEYS if k in req}
     if op == "hash":
         return hash_train(train, bool(req.get("snapshot")))
     if op == "train":
@@ -56,8 +59,6 @@ def dispatch(train: Path, req: dict) -> list[str]:
             float(temp) if temp is not None else None,
             image=req.get("image"),
         )
-    if op == "plot":
-        return do_plot(train, req)
     raise SystemExit(f"unknown op: {op}")
 
 

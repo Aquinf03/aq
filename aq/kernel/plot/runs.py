@@ -10,7 +10,15 @@ import matplotlib.pyplot as plt
 from plot.render import apply_theme, save_fig
 
 
-def plot_runs(train: Path, out_dir: Path, *, fmt: str, dpi: int) -> Path | None:
+def plot_runs(
+    train: Path,
+    out_dir: Path,
+    *,
+    fmt: str,
+    dpi: int,
+    opts: dict | None = None,
+) -> Path | None:
+    opts = opts or {}
     runs_dir = train / "artifacts" / "runs"
     if not runs_dir.is_dir():
         return None
@@ -41,14 +49,20 @@ def plot_runs(train: Path, out_dir: Path, *, fmt: str, dpi: int) -> Path | None:
     labels = [p[0][-12:] if len(p[0]) > 12 else p[0] for p in points]
     values = [p[1] for p in points]
     metric_name = points[-1][2]
+    title = str(opts.get("title") or "run comparison")
+    fz = opts.get("figsize") or [max(6, len(points) * 0.55), 4]
+    try:
+        figsize = (float(fz[0]), float(fz[1]))
+    except (TypeError, ValueError, IndexError):
+        figsize = (max(6, len(points) * 0.55), 4)
 
     apply_theme()
-    fig, ax = plt.subplots(figsize=(max(6, len(points) * 0.55), 4))
+    fig, ax = plt.subplots(figsize=figsize)
     bars = ax.bar(range(len(values)), values, color="#7c3aed")
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=35, ha="right")
     ax.set_ylabel(metric_name)
-    ax.set_title("run comparison")
+    ax.set_title(title)
     ax.grid(True, axis="y")
     for bar, val in zip(bars, values):
         ax.text(

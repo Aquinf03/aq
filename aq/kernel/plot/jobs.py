@@ -20,7 +20,15 @@ COLORS = {
 }
 
 
-def plot_jobs(train: Path, out_dir: Path, *, fmt: str, dpi: int) -> Path | None:
+def plot_jobs(
+    train: Path,
+    out_dir: Path,
+    *,
+    fmt: str,
+    dpi: int,
+    opts: dict | None = None,
+) -> Path | None:
+    opts = opts or {}
     jobs_dir = train / "jobs"
     if not jobs_dir.is_dir():
         return None
@@ -49,11 +57,17 @@ def plot_jobs(train: Path, out_dir: Path, *, fmt: str, dpi: int) -> Path | None:
     labels = [s for s in STATUSES if counts[s] > 0]
     values = [counts[s] for s in labels]
     colors = [COLORS[s] for s in labels]
+    title = str(opts.get("title") or f"jobs ({total} total)")
+    fz = opts.get("figsize") or [6, 4]
+    try:
+        figsize = (float(fz[0]), float(fz[1]))
+    except (TypeError, ValueError, IndexError):
+        figsize = (6, 4)
 
     apply_theme()
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=figsize)
     ax.bar(labels, values, color=colors)
-    ax.set_title(f"jobs ({total} total)")
+    ax.set_title(title)
     ax.set_ylabel("count")
     ax.set_xlabel("status")
     plt.xticks(rotation=25, ha="right")

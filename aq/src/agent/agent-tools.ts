@@ -343,13 +343,17 @@ export const AGENT_TOOLS: AgentToolDef[] = [
   {
     name: "plot",
     description:
-      "Generate charts for this train. kind=metrics|jobs|runs (matplotlib curves/bars), samples|vision (image grid via torchvision/Pillow), or all. Writes under artifacts/plots/. Use for graphs, sample grids, or diagrams.",
+      "Generate charts. kind=metrics|jobs|runs|samples|all. Pass control via aq plot flags in args when using aq_plot, or kind here. metrics: --fields/--style/--title; samples: --max/--nrow/--from/--backend. Writes artifacts/plots/.",
     parameters: {
       type: "object",
       properties: {
         kind: {
           type: "string",
           description: "metrics | jobs | runs | samples | vision | all (default all)",
+        },
+        args: {
+          type: "string",
+          description: "extra aq plot flags, e.g. \"--fields loss --style line --title loss\"",
         },
       },
     },
@@ -632,7 +636,8 @@ export async function runAgentTool(train: string, name: string, rawArgs: string)
   }
   if (name === "plot") {
     const kind = typeof args.kind === "string" && args.kind.trim() ? args.kind.trim() : "all"
-    return runAq(train, ["plot", kind])
+    const extra = typeof args.args === "string" ? args.args.trim().split(/\s+/).filter(Boolean) : []
+    return runAq(train, ["plot", kind, ...extra])
   }
   if (name === "spawn") {
     const spec = await startAgent(train, jsonArg(args, "prompt"), {

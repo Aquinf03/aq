@@ -26,7 +26,7 @@ const llms = [
   `Home: ${site}/`,
   `Getting started: ${site}/docs`,
   `Sitemap: ${site}/sitemap.xml`,
-  `Changelog: https://aquin.app/changelog`,
+  `Changelog: https://aquinf03.github.io/aq/changelog`,
   "",
   "## Pages",
   "",
@@ -39,7 +39,7 @@ const llms = [
   `- ${site}/docs/agent`,
   `- ${site}/docs/eval`,
   `- ${site}/docs/jobs`,
-  `- https://aquin.app/changelog`,
+  `- https://aquinf03.github.io/aq/changelog`,
   "",
 ].join("\n")
 

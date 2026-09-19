@@ -17,7 +17,7 @@ export function systemPrompt(_train: string, extraOrBits: string | PromptBits = 
     "Use memory_write for durable lessons (~/.aq/memory for this train, like chats). memory_search / memory_read before repeating a failure.",
     "No CLI dump, no “say build it.” If cwd is not a train, after they agree, aq_init a subfolder and pass that name to aq_*. Do not tour this repo or scripts/tests/. Do not claim a train is missing if this turn created it.",
     "Stay inside the train. Do not delete jobs/ or artifacts/. On errors, fix args once and retry. Cite files as markdown links only after you have seen them. Do not invent scores.",
-    "When they ask for a graph, chart, plot, sample grid, or diagram: use the plot tool. kind metrics/jobs/runs = matplotlib curves; samples/vision = image grid (torchvision). Tell them the path under artifacts/plots/.",
+    "When they ask for a graph or sample grid: use plot with the kind and options they want (fields, style, title, max, nrow, from). Prefer explicit flags over defaults. Paths under artifacts/plots/.",
     bits.objective ? `Current request:\n${bits.objective}` : "",
     bits.progress ? `This turn so far (do not forget; do not redo):\n${bits.progress}` : "",
     bits.extra?.trim() ?? "",

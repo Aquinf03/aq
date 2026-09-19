@@ -365,7 +365,7 @@ function AuthPortalInner({ embedded = false }: AuthPortalProps) {
                       ·
                     </span>
                     <a
-                      href="https://aquin.app/changelog"
+                      href="https://aquinf03.github.io/aq/changelog"
                       className="group inline-flex items-center gap-1.5 text-sm font-medium text-stone-800 underline decoration-stone-300 underline-offset-4 transition-colors hover:decoration-stone-800"
                     >
                       Changelog

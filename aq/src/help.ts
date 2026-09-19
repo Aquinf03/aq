@@ -33,7 +33,7 @@ export function help(): string {
     "  aq checkpoint [dir] [--keep name]  list or copy last to name",
     "  aq serve [dir] [prompt] [--image path] [--ckpt name] [--max-tokens n] [--temperature t]",
     "  aq diff [dir] [<a> <b>]     compare run records (files, not screenshots)",
-    "  aq plot [dir] [metrics|jobs|runs|samples|all]  matplotlib + sample grids from artifacts",
+    "  aq plot [dir] [metrics|jobs|runs|samples|all]  charts (+ --fields/--style/--from/…)",
     "  aq status [dir]            last run, eval, metrics",
     "  aq doctor [dir]           health check (cli, provider, run, skills, mcp)",
     "  aq add ssh [name]         register an SSH place (prompts)",

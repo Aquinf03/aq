@@ -56,6 +56,27 @@ export type KernelReq = {
   dpi?: number
   out?: string
   out_file?: string
+  // plot options (CLI / SDK → kernel plot config)
+  charts?: string[]
+  title?: string
+  fields?: string[]
+  x?: string
+  style?: string
+  figsize?: string | number[]
+  show_lr?: boolean
+  metric_charts?: string[]
+  max?: number
+  thumb?: number
+  nrow?: number
+  from?: string | string[]
+  backend?: string
+  no_samples?: boolean
+  include_samples?: boolean
+  metrics?: Record<string, unknown>
+  samples?: Record<string, unknown>
+  jobs?: Record<string, unknown>
+  runs?: Record<string, unknown>
+  plot?: Record<string, unknown>
 }
 
 /** Kill the kernel and any Trainer / dataloader workers in one shot. */

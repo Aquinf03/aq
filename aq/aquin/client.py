@@ -142,6 +142,74 @@ class Aquin:
     def hash(self, *, snapshot: bool = False) -> list[str]:
         return bridge.invoke(self._handle, "hash", snapshot=snapshot)
 
+    def plot(
+        self,
+        kind: str | None = None,
+        *,
+        charts: list[str] | str | None = None,
+        fields: list[str] | str | None = None,
+        x: str | None = None,
+        style: str | None = None,
+        title: str | None = None,
+        figsize: list[float] | tuple[float, float] | str | None = None,
+        show_lr: bool | None = None,
+        metric_charts: list[str] | str | None = None,
+        max: int | None = None,
+        thumb: int | None = None,
+        nrow: int | None = None,
+        from_dirs: list[str] | str | None = None,
+        backend: str | None = None,
+        format: str | None = None,
+        dpi: int | None = None,
+        out: str | None = None,
+        metrics: dict[str, Any] | None = None,
+        samples: dict[str, Any] | None = None,
+        jobs: dict[str, Any] | None = None,
+        runs: dict[str, Any] | None = None,
+        **extra: Any,
+    ) -> list[str]:
+        """
+        Generate charts under artifacts/plots/.
+
+        kind: metrics | jobs | runs | samples | all
+        Or pass charts=['metrics','samples'] for an explicit set.
+
+        Example::
+
+            aq.plot('metrics', fields=['loss'], title='loss', style='line')
+            aq.plot('samples', max=32, nrow=4, from_dirs='artifacts/samples')
+            aq.plot(charts=['metrics', 'samples'], dpi=200)
+        """
+        fz: Any = figsize
+        if isinstance(figsize, tuple):
+            fz = list(figsize)
+        payload: dict[str, Any] = {
+            "kind": kind or "all",
+            "charts": charts,
+            "fields": fields,
+            "x": x,
+            "style": style,
+            "title": title,
+            "figsize": fz,
+            "show_lr": show_lr,
+            "metric_charts": metric_charts,
+            "max": max,
+            "thumb": thumb,
+            "nrow": nrow,
+            "backend": backend,
+            "format": format,
+            "dpi": dpi,
+            "out": out,
+            "metrics": metrics,
+            "samples": samples,
+            "jobs": jobs,
+            "runs": runs,
+        }
+        if from_dirs is not None:
+            payload["from"] = from_dirs
+        payload.update(extra)
+        return bridge.invoke(self._handle, "plot", **payload)
+
     def status(self) -> dict[str, Any]:
         """Lightweight status from artifacts (path map + runtime pointers)."""
         art = self.artifacts

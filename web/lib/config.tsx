@@ -19,7 +19,7 @@ export const siteConfig = {
     mainSite: "https://www.aquin.app",
     docs: "https://aquinf03.github.io/aq",
     home: "https://aq.aquin.app",
-    changelog: "https://aquin.app/changelog",
+    changelog: "https://aquinf03.github.io/aq/changelog",
     login: "/",
   },
 };

@@ -63,6 +63,32 @@ aq.eval()
 
 Optional class style: `Run` → same `recipe.yaml`.
 
+## Plot
+
+```python
+from aquin import Aquin
+aq = Aquin(".")
+
+aq.plot("metrics", fields=["loss", "lr"], style="line", title="loss")
+aq.plot("samples", max=32, nrow=4, from_dirs="artifacts/samples")
+aq.plot(charts=["metrics", "samples"], dpi=200)
+```
+
+Same knobs as CLI (`aq plot metrics --fields loss --style line`) and `recipe.yaml`:
+
+```yaml
+plot:
+  charts: [metrics, samples]
+  metrics:
+    fields: [loss, lr]
+    style: line
+    figsize: [7, 4]
+  samples:
+    max: 64
+    nrow: 8
+    backend: auto
+```
+
 ## Fleet (SSH place) — same jobs from Python
 
 ```python

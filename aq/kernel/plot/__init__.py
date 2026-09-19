@@ -1,15 +1,11 @@
-"""Read train artifacts and write charts under artifacts/plots/.
-
-metrics / jobs / runs → matplotlib
-samples / vision → torchvision grid (Pillow / matplotlib fallback)
-"""
+"""Read train artifacts and write charts under artifacts/plots/."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Callable
 
-from plot.config import resolve_plot_config
+from plot.config import chart_options, resolve_plot_config
 
 
 def _renderers() -> dict[str, Callable[..., Path | None]]:
@@ -51,10 +47,19 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
 
     if kind == "all":
         charts = list(cfg.get("charts") or ["metrics", "jobs", "runs"])
-        if "samples" not in charts and "vision" not in charts:
+        if req.get("include_samples") is True and "samples" not in charts:
             charts = [*charts, "samples"]
+        # Soft-add samples when not explicitly excluded
+        if req.get("no_samples") is not True and "samples" not in charts and "vision" not in charts:
+            charts = [*charts, "samples"]
+    elif kind in ("charts", "custom"):
+        charts = list(cfg.get("charts") or ["metrics"])
     else:
         charts = [kind]
+
+    # Explicit --charts overrides kind=all list
+    if req.get("charts") and kind == "all":
+        charts = list(cfg["charts"])
 
     renderers = _renderers()
     written: list[Path] = []
@@ -64,7 +69,8 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
         if fn is None:
             skipped.append(f"unknown chart: {name}")
             continue
-        path = fn(train, out_dir, fmt=fmt, dpi=dpi)
+        opts = chart_options(cfg, name)
+        path = fn(train, out_dir, fmt=fmt, dpi=dpi, opts=opts)
         if path is None:
             skipped.append(f"no data for {name}")
             continue

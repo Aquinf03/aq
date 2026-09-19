@@ -5,10 +5,10 @@
 Home / account: https://aq.aquin.app/
 Docs: https://aquinf03.github.io/aq
 Sitemap: https://aq.aquin.app/sitemap.xml
-Changelog: https://aquin.app/changelog
+Changelog: https://aquinf03.github.io/aq/changelog
 
 ## Pages
 
 - https://aq.aquin.app/
 - https://aquinf03.github.io/aq
-- https://aquin.app/changelog
+- https://aquinf03.github.io/aq/changelog
