@@ -46,6 +46,7 @@ aq train && aq eval && aq status
 |------|------|
 | `aq/` | CLI + Python kernel + `aquin` SDK (`aq/aquin`, `pip install -e ./aq`) |
 | `scripts/tests/` | E2E trains (CLI + SDK) |
+| `scripts/desktop/` | Electron workspace (Vite UI + AsyncSSH) |
 | `docs/` | GitHub Pages: `documentation/` + `changelog/` (markdown notes + HTML) + `assets/` |
 | `web/` | Auth / account app (`aq.aquin.app`) |
 | `internals/` | Builder checklists |

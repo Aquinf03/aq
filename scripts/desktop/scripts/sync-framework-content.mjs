@@ -4,14 +4,14 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-const webRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
-const repo = path.join(webRoot, "..")
+const appRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..")
+const repo = path.join(appRoot, "..", "..")
 
-mkdirSync(path.join(webRoot, "public", "framework"), { recursive: true })
+mkdirSync(path.join(appRoot, "public", "framework"), { recursive: true })
 
 const installSrc = path.join(repo, "install.sh")
 if (existsSync(installSrc)) {
-  copyFileSync(installSrc, path.join(webRoot, "public", "framework", "install.sh"))
+  copyFileSync(installSrc, path.join(appRoot, "public", "framework", "install.sh"))
 } else {
   console.warn(`sync-framework-content: skip missing ${installSrc}`)
 }
@@ -42,6 +42,6 @@ const llms = [
   "",
 ].join("\n")
 
-writeFileSync(path.join(webRoot, "public", "llms.txt"), llms)
+writeFileSync(path.join(appRoot, "public", "llms.txt"), llms)
 
 console.log("sync-framework-content: install.sh + llms.txt")

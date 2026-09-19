@@ -23,7 +23,7 @@ function homedir() {
 /** Resolve local `aq` CLI (PATH, env, or sibling aqfw checkout). */
 function resolveAqBin() {
   if (process.env.AQUIN_AQ) return process.env.AQUIN_AQ;
-  const sibling = path.resolve(ROOT, "..", "aq", "bin", "aq");
+  const sibling = path.resolve(ROOT, "..", "..", "aq", "bin", "aq");
   if (fs.existsSync(sibling)) return sibling;
   const localBin = path.join(ROOT, "node_modules", ".bin", "aq");
   if (fs.existsSync(localBin)) return localBin;

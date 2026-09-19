@@ -1,11 +1,11 @@
-# Aquin beta — desktop app
+# Aquin desktop
 
 Electron control plane for the AQ workspace. UI is **Vite + React** (same components). Local `/api` and `/auth` still run via Next route handlers (proxied) so account/keys behavior is unchanged. Remote compute is **your** VM over **AsyncSSH** — AQ does not host GPUs.
 
 ## Setup
 
 ```bash
-cd beta
+cd scripts/desktop
 npm install
 
 cd desktop/ssh-service

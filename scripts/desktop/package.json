@@ -1,5 +1,5 @@
 {
-  "name": "aquin-beta",
+  "name": "aquin-desktop",
   "version": "0.1.0",
   "private": true,
   "description": "Aquin desktop workspace — Electron control plane + AsyncSSH to user machines",
