@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { assertTrain, isTrain } from "../core/schema.js"
+import { artifactsDir } from "../core/paths.js"
 
 type Run = {
   id?: string
@@ -13,7 +14,7 @@ type Run = {
 }
 
 function runsDir(train: string): string {
-  return path.join(train, "artifacts", "runs")
+  return path.join(artifactsDir(train), "runs")
 }
 
 function listRunIds(train: string): string[] {

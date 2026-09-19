@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from protocol.guard import GuardAbort, SafetyWatch, parse_guard
+from protocol.paths import art_dir
 
 _state: dict[str, Any] = {
     "train": None,
@@ -32,7 +33,7 @@ _state: dict[str, Any] = {
 
 
 def metrics_path(train: Path) -> Path:
-    return train / "artifacts" / "metrics.jsonl"
+    return art_dir(train) /  "metrics.jsonl"
 
 
 def _iso() -> str:

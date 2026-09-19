@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { spawn, spawnSync, type ChildProcess } from "node:child_process"
 import path from "node:path"
 import { assertTrain, isTrain } from "./schema.js"
+import { artifactsDir } from "./paths.js"
 import { openRun } from "./run.js"
 import { kernelRoot } from "./root.js"
 
@@ -110,7 +111,7 @@ function waitChild(child: ChildProcess): Promise<{ code: number | null; signal: 
  * "first SIGINT = soft stop, second = exit" dance.
  */
 export async function runKernel(train: string, req: KernelReq): Promise<void> {
-  const art = path.join(train, "artifacts")
+  const art = artifactsDir(train)
   mkdirSync(art, { recursive: true })
   writeFileSync(path.join(art, "request.json"), JSON.stringify(req, null, 2) + "\n")
 

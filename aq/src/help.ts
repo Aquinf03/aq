@@ -4,7 +4,7 @@ export function help(): string {
   return [
     "aq  Aquin CLI",
     "",
-    "A run is recipe.yaml + artifacts/. Docs: https://aq.aquin.app/docs · SDK: pip install -e ./aq",
+    "A run is recipe.yaml + runtime dirs (paths.artifacts, default artifacts/). Docs: https://aq.aquin.app/docs · SDK: pip install -e ./aq",
     "",
     "  aq                      agent chat (TTY)",
     "  aq agent                same",
@@ -63,8 +63,8 @@ export function help(): string {
     "init writes:",
     "  recipe.yaml     path map (edit by hand and/or via SDK)",
     "  example.py      aquin sample (YAML-first; define optional)",
-    "  artifacts/      runtime output (checkpoints, metrics, …)",
+    "  artifacts/      default runtime dir (override with paths.artifacts)",
     "",
-    "Kernel (Python): aq writes artifacts/request.json, reads artifacts/result.json.",
+    "Kernel (Python): aq writes <artifacts>/request.json, reads <artifacts>/result.json.",
   ].join("\n")
 }

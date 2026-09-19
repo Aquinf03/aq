@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from protocol.paths import art_dir
 from pathlib import Path
 from typing import Any, Callable
 
@@ -27,7 +28,7 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
     req = req or {}
     import os
 
-    mpl_dir = train / "artifacts" / ".matplotlib"
+    mpl_dir = art_dir(train) / ".matplotlib"
     mpl_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(mpl_dir))
 
@@ -36,7 +37,12 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
     dpi = int(cfg["dpi"])
     kind = str(req.get("kind") or cfg.get("kind") or "all").lower()
 
-    out_rel = str(req.get("out") or cfg.get("out") or "artifacts/plots")
+    from protocol.paths import peek_recipe, rel as path_rel
+
+    default_out = f"{path_rel(peek_recipe(train), 'artifacts')}/plots"
+    out_rel = str(req.get("out") or cfg.get("out") or default_out)
+    if out_rel in ("artifacts/plots", "artifacts\\plots"):
+        out_rel = default_out
     out_file = req.get("out_file")
     if out_file:
         out_dir = Path(out_file).parent

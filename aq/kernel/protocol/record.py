@@ -9,6 +9,7 @@ from pathlib import Path
 
 from protocol.recipe import load_recipe
 from protocol.revision import hash_file, hash_tree
+from protocol.paths import art_dir
 
 
 def recipe_hash(train: Path) -> tuple[str, str]:
@@ -64,7 +65,7 @@ def code_hash(train: Path) -> str:
 
 
 def runs_dir(train: Path) -> Path:
-    d = train / "artifacts" / "runs"
+    d = art_dir(train) /  "runs"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

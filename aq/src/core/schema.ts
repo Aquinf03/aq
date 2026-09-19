@@ -2,7 +2,7 @@ import { existsSync, readdirSync, renameSync, statSync } from "node:fs"
 import path from "node:path"
 
 /**
- * A run is recipe.yaml (+ artifacts/ once you train).
+ * A run is recipe.yaml (+ runtime dir from paths.artifacts, default artifacts/).
  * experiment.md is optional brief — not required for SDK / kernel.
  */
 

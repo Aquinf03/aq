@@ -6,6 +6,7 @@ import path from "node:path"
 import { cancelJob, enqueueJob, jobLogPath, waitForPid } from "../job/job.js"
 import { assertTrain, isTrain } from "../core/schema.js"
 import { aqRoot } from "../core/root.js"
+import { artifactsDir } from "../core/paths.js"
 
 const KILLER_PREAMBLE = [
   "Your job is the cheapest disproof, not agreement.",
@@ -24,7 +25,7 @@ export type AgentSpec = {
 }
 
 function agentsDir(train: string): string {
-  return path.join(train, "artifacts", "agents")
+  return path.join(artifactsDir(train), "agents")
 }
 
 function specPath(train: string, id: string): string {

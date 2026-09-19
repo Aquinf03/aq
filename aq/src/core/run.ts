@@ -2,6 +2,7 @@
 
 import { existsSync, mkdirSync, statSync } from "node:fs"
 import path from "node:path"
+import { artifactsDir } from "./paths.js"
 import { migrateLegacyIdentity } from "./schema.js"
 
 export type RunHandle = {
@@ -14,9 +15,9 @@ export type RunHandle = {
 
 /**
  * Open a run from a recipe path or a directory that contains recipe.yaml.
- * Artifacts default to `<root>/artifacts`. experiment.md is optional.
+ * Artifacts default to recipe `paths.artifacts` (else `<root>/artifacts`).
  */
-export function openRun(configOrDir: string, artifactsDir?: string): RunHandle {
+export function openRun(configOrDir: string, artifactsDirArg?: string): RunHandle {
   const resolved = path.resolve(configOrDir)
   if (!existsSync(resolved)) {
     throw new Error(`not found: ${resolved}`)
@@ -41,7 +42,7 @@ export function openRun(configOrDir: string, artifactsDir?: string): RunHandle {
     migrateLegacyIdentity(root)
   }
 
-  const artifacts = path.resolve(artifactsDir ?? path.join(root, "artifacts"))
+  const artifacts = path.resolve(artifactsDirArg ?? artifactsDir(root))
   mkdirSync(artifacts, { recursive: true })
 
   return { root, configPath, artifactsDir: artifacts }

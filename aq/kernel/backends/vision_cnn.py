@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from protocol.paths import ckpt_dir
 import json
 import sys
 from pathlib import Path
@@ -182,7 +183,7 @@ def fit(src: Path, rec: dict) -> dict:
 
 
 def _ckpt_slot(train: Path) -> Path:
-    dest = train / "artifacts" / "checkpoints"
+    dest = ckpt_dir(train)
     dest.mkdir(parents=True, exist_ok=True)
     n = 1 + sum(1 for p in dest.glob("*.json") if p.name not in ("last.json",) and p.is_file())
     # also count numeric dirs

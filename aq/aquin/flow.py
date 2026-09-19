@@ -65,5 +65,5 @@ class Run:
         else:
             root.mkdir(parents=True, exist_ok=True)
             cfg = Path(config_path).expanduser().resolve() if config_path else (root / "recipe.yaml")
-            art = artifacts if artifacts is not None else (root / "artifacts")
+            art = artifacts
         return Aquin.define(cls.recipe_dict(), config_path=cfg, artifacts=art)

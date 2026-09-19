@@ -10,6 +10,7 @@ from pathlib import Path
 
 from methods.linear import load_xy
 from protocol.method import call_fit, load_method
+from protocol.paths import art_dir, ckpt_dir as _ckpt_dir, evals_dir
 from protocol.recipe import load_recipe
 from protocol.record import data_hash, recipe_hash, update_last_run, write_run
 from protocol import metrics as aq_metrics
@@ -21,9 +22,7 @@ LOWER = {"mse", "rmse", "mae", "loss"}
 
 
 def ckpt_dir(train: Path) -> Path:
-    d = train / "artifacts" / "checkpoints"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return _ckpt_dir(train)
 
 
 def last_ckpt(train: Path) -> Path:
@@ -39,7 +38,7 @@ def write_json(path: Path, obj: dict) -> None:
 
 
 def probe_files(train: Path, name: str | None = None) -> list[Path]:
-    d = train / "evals"
+    d = evals_dir(train)
     if not d.is_dir():
         return []
     if name:
@@ -284,7 +283,7 @@ def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> lis
             "checkpoint": str(ckpt.relative_to(train)),
             "probes": probes,
         }
-        write_json(train / "artifacts" / "eval.json", out)
+        write_json(art_dir(train) /  "eval.json", out)
         aq_metrics.end(
             metric=metric,
             score=sc,
@@ -378,7 +377,7 @@ def do_serve(
             rec2 = {**rec2, "_serve_image": str(image)}
         out = mod.generate(model, str(prompt or ""), rec2, max_tokens=max_tokens, temperature=temperature)
         out["checkpoint"] = str(ckpt.relative_to(train))
-        write_json(train / "artifacts" / "serve.json", out)
+        write_json(art_dir(train) /  "serve.json", out)
         aq_metrics.end(
             checkpoint=out["checkpoint"],
             tokens=out.get("tokens"),

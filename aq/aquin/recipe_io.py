@@ -8,7 +8,7 @@ from typing import Any
 
 HEADER = (
     "# Path map for this run (authored by aquin SDK; edit via code or hand).\n"
-    "# Runtime output lives under artifacts/ — not here.\n"
+    "# Layout: paths.artifacts / paths.evals (defaults: artifacts/, evals/).\n"
 )
 
 

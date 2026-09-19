@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from protocol.paths import art_dir
 import json
 from pathlib import Path
 from typing import Any
@@ -188,7 +189,7 @@ def plot_metrics(
     opts: dict[str, Any] | None = None,
 ) -> Path | None:
     opts = opts or {}
-    path = train / "artifacts" / "metrics.jsonl"
+    path = art_dir(train) /  "metrics.jsonl"
     if not path.is_file():
         return None
 

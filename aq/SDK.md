@@ -1,6 +1,7 @@
 # aquin — Python SDK
 
-**Shape:** **`recipe.yaml` (path map) + `artifacts/` (runtime).**  
+**Shape:** **`recipe.yaml` (path map) + runtime dirs.**  
+Defaults: `artifacts/` + `evals/`. Override with `paths:` (YAML) or `paths=` / `artifacts=` (SDK).  
 Author with **YAML** and/or the **SDK** — both are first-class; pick either (or mix).
 
 ```bash
@@ -31,12 +32,16 @@ data:
   target: y
 eval:
   metric: mse
+# optional — use your own folder names
+paths:
+  artifacts: out
+  evals: probes
 ```
 
 ```python
 from aquin import Aquin
 
-aq = Aquin(".")  # reads recipe.yaml
+aq = Aquin(".")  # reads recipe.yaml (+ paths:)
 aq.train()
 aq.eval()
 ```
@@ -44,6 +49,8 @@ aq.eval()
 ```bash
 aq train && aq eval
 ```
+
+`aq sync` pushes the whole run folder; `aq jobs pull` merges remote `paths.artifacts` into the local runtime dir.
 
 ## Option B — author in Python (writes the same path map)
 
@@ -55,8 +62,10 @@ aq = Aquin.define(
     method="linear",
     data={"path": "data.csv", "target": "y"},
     eval={"metric": "mse"},
+    paths={"artifacts": "out", "evals": "probes"},
     config_path="recipe.yaml",
 )
+# or: artifacts="out"  # shorthand → paths.artifacts
 aq.train()
 aq.eval()
 ```

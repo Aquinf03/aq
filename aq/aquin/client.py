@@ -1,4 +1,4 @@
-"""Aquin client — SDK authors; recipe.yaml is the path map; artifacts/ is runtime."""
+"""Aquin client — SDK authors; recipe.yaml is the path map; paths: sets the layout."""
 
 from __future__ import annotations
 
@@ -51,12 +51,14 @@ class Aquin:
         *,
         config_path: str | Path,
         artifacts: str | Path | None = None,
+        paths: dict[str, Any] | None = None,
         **fields: Any,
     ) -> "Aquin":
         """
         Author a run in Python and write recipe.yaml as the path map.
 
-        Pass a dict and/or keyword fields (family, method, data, eval, …).
+        Pass a dict and/or keyword fields (family, method, data, eval, paths, …).
+        `artifacts=` is shorthand for `paths.artifacts` (persisted in YAML).
         """
         out: dict[str, Any] = {}
         if recipe:
@@ -64,14 +66,42 @@ class Aquin:
         for k, v in fields.items():
             if v is not None:
                 out[k] = v
+        if paths:
+            merged = dict(out.get("paths") or {})
+            merged.update({k: v for k, v in paths.items() if v is not None})
+            out["paths"] = merged
         if "family" not in out or "method" not in out:
             raise ValueError("define() needs family and method")
         if "data" not in out:
             raise ValueError("define() needs data (with path)")
         if "eval" not in out:
             raise ValueError("define() needs eval (with metric)")
-        path = dump_recipe(out, config_path)
-        return cls(path, artifacts=artifacts, _recipe=dict(out))
+
+        cfg = Path(config_path).expanduser()
+        root = cfg.parent if cfg.suffix in (".yaml", ".yml") else cfg
+        if cfg.suffix not in (".yaml", ".yml"):
+            cfg = root / "recipe.yaml"
+            root = root.resolve()
+        else:
+            root = root.resolve()
+
+        art_arg: str | Path | None = artifacts
+        if artifacts is not None:
+            art_path = Path(artifacts).expanduser()
+            if not art_path.is_absolute():
+                rel = str(art_path).replace("\\", "/")
+            else:
+                try:
+                    rel = str(art_path.resolve().relative_to(root)).replace("\\", "/")
+                except ValueError:
+                    rel = str(art_path.resolve())
+            merged = dict(out.get("paths") or {})
+            merged["artifacts"] = rel
+            out["paths"] = merged
+            art_arg = (root / rel).resolve() if not Path(rel).is_absolute() else Path(rel)
+
+        path = dump_recipe(out, cfg)
+        return cls(path, artifacts=art_arg, _recipe=dict(out))
 
     @classmethod
     def from_dict(

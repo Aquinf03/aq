@@ -6,6 +6,7 @@ or dirs listed in plot.samples.dirs / --from.
 
 from __future__ import annotations
 
+from protocol.paths import art_dir
 import json
 from pathlib import Path
 from typing import Any
@@ -31,9 +32,9 @@ def _collect_image_paths(train: Path, *, dirs: list[str] | None, max_images: int
             roots.append(p)
     else:
         roots = [
-            train / "artifacts" / "samples",
-            train / "artifacts" / "previews",
-            train / "artifacts" / "plots" / "samples",
+            art_dir(train) /  "samples",
+            art_dir(train) /  "previews",
+            art_dir(train) /  "plots" / "samples",
         ]
         recipe = train / "recipe.yaml"
         if recipe.is_file():
@@ -75,7 +76,7 @@ def _load_tensor_batch(train: Path, *, max_images: int):
         import torch
     except ImportError:
         return None
-    root = train / "artifacts" / "samples"
+    root = art_dir(train) /  "samples"
     if not root.is_dir():
         return None
     tensors = []

@@ -48,6 +48,7 @@ import {
   sshTarget,
   type PlaceTelemetry,
 } from "./ssh.js"
+import { artifactsDir, pathRel } from "../core/paths.js"
 import { c, step, stepOk } from "./ui.js"
 
 export type RemoteJobStatus = "running" | "exited" | "canceled" | "error" | "unreachable"
@@ -1747,8 +1748,9 @@ async function pullRemoteArtifacts(
   place: SshPlace,
   remoteDir: string,
   localArtifacts: string,
+  artRel = "artifacts",
 ): Promise<boolean> {
-  const remoteArt = `${remoteDir.replace(/\/$/, "")}/artifacts`
+  const remoteArt = `${remoteDir.replace(/\/$/, "")}/${artRel.replace(/^\/+|\/+$/g, "")}`
   // Skip if remote has no artifacts yet (don't fail the whole pull).
   const probe = sshExec(
     place,
@@ -1756,7 +1758,7 @@ async function pullRemoteArtifacts(
     { timeoutMs: 15_000 },
   )
   if ((probe.stdout || "").trim().split("\n").pop() !== "YES") return false
-  step("pull", `artifacts  ${remoteArt} → ${localArtifacts}`)
+  step("pull", `${artRel}  ${remoteArt} → ${localArtifacts}`)
   await rsyncFromRemote(place, remoteArt, localArtifacts)
   return true
 }
@@ -1785,7 +1787,8 @@ async function jobsPull(argv: string[]): Promise<void> {
   const nodes = indexNodes(id)
   const base = path.resolve(dest || path.join("jobs-pull", id))
   const train = localTrainForPull()
-  const artDest = train ? path.join(train, "artifacts") : path.join(base, "artifacts")
+  const artRel = train ? pathRel(train, "artifacts") : "artifacts"
+  const artDest = train ? artifactsDir(train) : path.join(base, artRel)
 
   if (nodes && nodes.length > 1 && rank == null) {
     for (const n of nodes) {
@@ -1799,12 +1802,12 @@ async function jobsPull(argv: string[]): Promise<void> {
     const primary = nodes.slice().sort((a, b) => a.rank - b.rank)[0]
     const p0 = getPlace(primary.place)
     if (p0.kind === "ssh") {
-      const got = await pullRemoteArtifacts(p0, primary.remoteDir || remoteDir, artDest)
+      const got = await pullRemoteArtifacts(p0, primary.remoteDir || remoteDir, artDest, artRel)
       if (got) stepOk("pull", artDest)
     }
     stepOk("pull", base)
     if (train) {
-      console.log(c.dim("next") + "  cat artifacts/inspect.md · aq serve")
+      console.log(c.dim("next") + `  cat ${artRel}/inspect.md · aq serve`)
     }
     return
   }
@@ -1820,17 +1823,17 @@ async function jobsPull(argv: string[]): Promise<void> {
   }
   step("pull", remoteJobDir(rd, id) + " → " + base)
   await rsyncFromRemote(sshPlace, remoteJobDir(rd, id), base)
-  const got = await pullRemoteArtifacts(sshPlace, rd, artDest)
+  const got = await pullRemoteArtifacts(sshPlace, rd, artDest, artRel)
   stepOk("pull", base)
   if (got) {
     stepOk("pull", artDest)
     if (train) {
-      console.log(c.dim("next") + "  cat artifacts/inspect.md · aq serve")
+      console.log(c.dim("next") + `  cat ${artRel}/inspect.md · aq serve`)
     }
   } else {
     console.log(
       c.dim("note") +
-        "  no remote artifacts/ yet (job may not have written a train folder)",
+        `  no remote ${artRel}/ yet (job may not have written a train folder)`,
     )
   }
 }

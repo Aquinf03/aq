@@ -1,12 +1,15 @@
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
+import { artifactsDir, pathRel } from "../core/paths.js"
 import { assertTrain } from "../core/schema.js"
 import { printTable } from "../lib/term-table.js"
 
 export async function status(argv: string[]): Promise<void> {
   const train = assertTrain(argv[0] ?? ".")
+  const art = artifactsDir(train)
+  const artLabel = pathRel(train, "artifacts")
 
-  const last = path.join(train, "artifacts", "runs", "last.json")
+  const last = path.join(art, "runs", "last.json")
   console.log("run")
   if (existsSync(last)) {
     const run = JSON.parse(readFileSync(last, "utf8")) as {
@@ -22,11 +25,11 @@ export async function status(argv: string[]): Promise<void> {
     printTable(["key", "value"], rows)
   } else console.log("  (none)")
 
-  const inspect = path.join(train, "artifacts", "inspect.md")
+  const inspect = path.join(art, "inspect.md")
   console.log("inspect")
-  console.log(existsSync(inspect) ? "  artifacts/inspect.md" : "  (none)")
+  console.log(existsSync(inspect) ? `  ${artLabel}/inspect.md` : "  (none)")
 
-  const ev = path.join(train, "artifacts", "eval.json")
+  const ev = path.join(art, "eval.json")
   console.log("eval")
   if (existsSync(ev)) {
     const e = JSON.parse(readFileSync(ev, "utf8")) as {
@@ -41,7 +44,7 @@ export async function status(argv: string[]): Promise<void> {
     )
   } else console.log("  (none)")
 
-  const sv = path.join(train, "artifacts", "serve.json")
+  const sv = path.join(art, "serve.json")
   console.log("serve")
   if (existsSync(sv)) {
     const s = JSON.parse(readFileSync(sv, "utf8")) as {
@@ -57,11 +60,11 @@ export async function status(argv: string[]): Promise<void> {
     else console.log("  (none)")
   } else console.log("  (none)")
 
-  const metrics = path.join(train, "artifacts", "metrics.jsonl")
+  const metrics = path.join(art, "metrics.jsonl")
   console.log("metrics")
   if (existsSync(metrics)) {
     const lines = readFileSync(metrics, "utf8").trim().split("\n").filter(Boolean)
-    console.log("  artifacts/metrics.jsonl  (" + lines.length + " events)")
+    console.log(`  ${artLabel}/metrics.jsonl  (` + lines.length + " events)")
     const recent = lines.slice(-8)
     const rows: unknown[][] = []
     for (const line of recent) {

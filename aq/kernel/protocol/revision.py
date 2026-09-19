@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from protocol.recipe import load_recipe
+from protocol.paths import art_dir
 
 SKIP_NAMES = {"revision.json"}
 SKIP_PREFIX = "revisions/"
@@ -94,7 +95,7 @@ def hash_train(train: Path, snapshot: bool = False) -> list[str]:
         "files": nfiles,
         "snapshot": snap_rel,
     }
-    tok = train / "artifacts" / "tokenizer.json"
+    tok = art_dir(train) /  "tokenizer.json"
     if tok.is_file():
         td, _ = hash_file(tok)
         rec["tokenizer"] = "sha256:" + td

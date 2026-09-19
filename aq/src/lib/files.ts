@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import path from "node:path"
-import { insideTrain } from "../core/paths.js"
+import { insideTrain, pathRel } from "../core/paths.js"
 import { recordDir, recordFile, recordMv, recordParents, recordRm } from "../agent/undo.js"
 import { formatUnifiedDiff } from "./textdiff.js"
 
@@ -19,9 +19,12 @@ function norm(rel: string): string {
   return rel.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "") || "."
 }
 
-export function guarded(rel: string): boolean {
+export function guarded(rel: string, train?: string): boolean {
   const n = norm(rel)
-  return n === "jobs" || n.startsWith("jobs/") || n === "artifacts" || n.startsWith("artifacts/")
+  if (n === "jobs" || n.startsWith("jobs/")) return true
+  const art = train ? pathRel(train, "artifacts") : "artifacts"
+  const artN = norm(art)
+  return n === artN || n.startsWith(artN + "/")
 }
 
 function parent(abs: string): void {
@@ -97,7 +100,7 @@ export function mkdirAt(train: string, rel: string): string {
 }
 
 export function mvAt(train: string, from: string, to: string): string {
-  if (guarded(from) || guarded(to)) throw new Error("do not move jobs/ or artifacts/")
+  if (guarded(from, train) || guarded(to, train)) throw new Error("do not move jobs/ or runtime paths/")
   const src = insideTrain(train, from)
   if (!existsSync(src)) throw new Error(`no path ${from}`)
   let dest = insideTrain(train, to)
@@ -128,7 +131,7 @@ export function cpAt(train: string, from: string, to: string): string {
 }
 
 export function rmAt(train: string, rel: string): string {
-  if (guarded(rel)) throw new Error("do not delete jobs/ or artifacts/")
+  if (guarded(rel, train)) throw new Error("do not delete jobs/ or runtime paths/")
   const p = insideTrain(train, rel)
   if (!existsSync(p)) throw new Error(`no path ${rel}`)
   recordRm(train, rel)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from protocol.paths import ckpt_dir
 import csv
 import json
 from pathlib import Path
@@ -84,7 +85,7 @@ def _persist(est, payload: dict, rec: dict) -> dict:
     except ImportError:
         return payload
     root = Path(train)
-    dest = root / "artifacts" / "checkpoints"
+    dest = ckpt_dir(root)
     dest.mkdir(parents=True, exist_ok=True)
     n = 1 + sum(1 for p in dest.glob("*.json") if p.name != "last.json")
     slot = dest / str(n)

@@ -5,6 +5,7 @@ import { chmodSync, existsSync, readdirSync, statSync } from "node:fs"
 import { stdout } from "node:process"
 import path from "node:path"
 import { aqRoot } from "../core/root.js"
+import { pathRel } from "../core/paths.js"
 import type { PlaceResources, SshPlace } from "./places.js"
 import { c, fmtMs, step, stepOk } from "./ui.js"
 
@@ -52,6 +53,7 @@ export function excludeArgs(profile: SyncProfile): string[] {
 export function estimateSync(root: string): { files: number; bytes: number } {
   let files = 0
   let bytes = 0
+  const artName = path.basename(pathRel(root, "artifacts"))
   const walk = (dir: string) => {
     let entries
     try {
@@ -61,7 +63,7 @@ export function estimateSync(root: string): { files: number; bytes: number } {
     }
     for (const ent of entries) {
       if (SYNC_SKIP.has(ent.name)) continue
-      if (ent.name === "checkpoints" && path.basename(dir) === "artifacts") continue
+      if (ent.name === "checkpoints" && path.basename(dir) === artName) continue
       const full = path.join(dir, ent.name)
       if (ent.isDirectory()) {
         walk(full)

@@ -9,6 +9,7 @@ import path from "node:path"
 import { isTrain } from "../core/schema.js"
 import type { ChatMsg } from "./provider.js"
 import { streamTurn } from "./provider.js"
+import { artifactsDir } from "../core/paths.js"
 
 export type ChatSpec = {
   id: string
@@ -32,7 +33,7 @@ function trainKey(cwd: string): string {
 }
 
 function legacyRoot(cwd: string): string {
-  return path.join(cwd, "artifacts", "chats")
+  return path.join(artifactsDir(cwd), "chats")
 }
 
 function specPath(id: string): string {
@@ -49,7 +50,7 @@ function isJunkName(name: string): boolean {
 
 /** Drop empty leftover artifacts/chats (and empty artifacts outside a train). */
 function pruneChatResidue(cwd: string): void {
-  const art = path.join(cwd, "artifacts")
+  const art = artifactsDir(cwd)
   const legacy = legacyRoot(cwd)
   if (existsSync(legacy)) {
     try {

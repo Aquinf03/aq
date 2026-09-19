@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from protocol.paths import ckpt_dir
 import csv
 import json
 from pathlib import Path
@@ -46,7 +47,7 @@ def fit(src: Path, rec: dict) -> dict:
         raise SystemExit("empty data")
 
     train = Path(rec["_train"])
-    dest = train / "artifacts" / "checkpoints"
+    dest = ckpt_dir(train)
     dest.mkdir(parents=True, exist_ok=True)
     n = 1 + sum(1 for p in dest.glob("*.json") if p.name != "last.json")
     slot = dest / str(n)

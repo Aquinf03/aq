@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from protocol.revision import hash_train
+from protocol.paths import art_dir
 from engine.step import do_checkpoint, do_eval, do_serve, do_train
 from plot import do_plot
 
@@ -66,7 +67,7 @@ def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("kernel: need train dir")
     train = Path(sys.argv[1]).resolve()
-    art = train / "artifacts"
+    art = art_dir(train)
     art.mkdir(parents=True, exist_ok=True)
     req_path = art / "request.json"
     out_path = art / "result.json"

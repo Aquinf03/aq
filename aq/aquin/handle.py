@@ -1,4 +1,4 @@
-"""Run identity: YAML config + artifacts folder."""
+"""Run identity: YAML config + artifacts folder (layout from recipe paths:)."""
 
 from __future__ import annotations
 
@@ -12,6 +12,27 @@ class RunHandle:
     root: Path
     config_path: Path
     artifacts_dir: Path
+
+
+def _artifacts_from_recipe(root: Path, config_path: Path) -> Path:
+    """Prefer recipe paths.artifacts; fall back to <root>/artifacts."""
+    try:
+        from aquin.recipe_io import load_recipe_dict
+
+        if config_path.is_file():
+            rec = load_recipe_dict(config_path)
+        else:
+            rec = {}
+        raw = rec.get("paths") if isinstance(rec, dict) else None
+        rel = None
+        if isinstance(raw, dict) and raw.get("artifacts"):
+            rel = str(raw["artifacts"]).strip()
+        if rel:
+            p = Path(rel).expanduser()
+            return p.resolve() if p.is_absolute() else (root / p).resolve()
+    except Exception:
+        pass
+    return (root / "artifacts").resolve()
 
 
 def open_run(config_or_dir: str | Path, artifacts: str | Path | None = None) -> RunHandle:
@@ -29,7 +50,10 @@ def open_run(config_or_dir: str | Path, artifacts: str | Path | None = None) -> 
         config_path = resolved
         root = config_path.parent
 
-    artifacts_dir = Path(artifacts).expanduser().resolve() if artifacts else (root / "artifacts")
+    if artifacts is not None:
+        artifacts_dir = Path(artifacts).expanduser().resolve()
+    else:
+        artifacts_dir = _artifacts_from_recipe(root, config_path)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     return RunHandle(root=root, config_path=config_path, artifacts_dir=artifacts_dir)
 

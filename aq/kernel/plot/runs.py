@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from protocol.paths import art_dir
 import json
 from pathlib import Path
 
@@ -19,7 +20,7 @@ def plot_runs(
     opts: dict | None = None,
 ) -> Path | None:
     opts = opts or {}
-    runs_dir = train / "artifacts" / "runs"
+    runs_dir = art_dir(train) /  "runs"
     if not runs_dir.is_dir():
         return None
 

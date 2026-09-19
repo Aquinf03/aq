@@ -6,6 +6,7 @@ recipe.model or recipe.size → hub id. No toy weight fallback.
 
 from __future__ import annotations
 
+from protocol.paths import ckpt_dir
 import csv
 import json
 import random
@@ -55,7 +56,7 @@ def _train_root(rec: dict) -> Path:
 
 def _ckpt_slot(rec: dict) -> Path:
     root = _train_root(rec)
-    dest = root / "artifacts" / "checkpoints"
+    dest = ckpt_dir(root)
     dest.mkdir(parents=True, exist_ok=True)
     n = 1 + sum(1 for p in dest.glob("*.json") if p.name != "last.json")
     slot = dest / str(n)

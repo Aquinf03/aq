@@ -11,6 +11,7 @@ import { extraTools } from "../lib/skill-runtime.js"
 import { activeId, activeLabel, entry, hasCreds } from "./provider.js"
 import { pythonBin } from "../core/python.js"
 import { frameworkVersion } from "../core/version.js"
+import { artifactsDir } from "../core/paths.js"
 
 export type Check = { ok: "ok" | "warn" | "fail"; name: string; detail: string }
 
@@ -98,7 +99,7 @@ export async function runDoctor(cwd: string): Promise<{ checks: Check[]; ok: boo
     for (const f of REQUIRED) {
       add(existsSync(path.join(train, f)) ? "ok" : "fail", `train.${f}`, f)
     }
-    const art = path.join(train, "artifacts")
+    const art = artifactsDir(train)
     // artifacts/ is created by train/eval — not by the agent (chats are in ~/.aq)
     if (existsSync(art)) {
       add(writable(art) ? "ok" : "fail", "artifacts", writable(art) ? "writable" : "not writable")
