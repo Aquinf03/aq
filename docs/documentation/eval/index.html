@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eval &amp; inspect · aq Docs</title>
+  <meta name="description" content="No preset zoo. You put probes in evals/. aq eval is the human gate. Interpretability is a capability after fit: artifacts/inspect.md when the method supports it, not a separate product." />
+  <link rel="icon" href="../../assets/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../assets/docs.css" />
+</head>
+<body>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <a class="brand" href="../" title="Aquin Labs">
+        <img src="../../assets/mainlogo2.png" alt="" width="22" height="22" />
+        <span>Aquin<span class="brand-gap">Labs</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="header-link" href="../">Docs</a>
+        <a class="header-link" href="../../changelog/">Changelog</a>
+        <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
+      </div>
+    </div>
+  </header>
+  <div class="docs-frame">
+    <aside class="docs-sidebar" aria-label="Documentation">
+      <nav><a class="nav-link" href="https://aquinf03.github.io/aq/documentation/" rel="noopener">Live docs</a>
+<a class="nav-link" href="../">Getting started</a>
+<a class="nav-link" href="../install/">Install</a>
+<a class="nav-link" href="../train/">Train folder</a>
+<a class="nav-link" href="../recipe/">Recipe</a>
+<a class="nav-link" href="../cli/">CLI reference</a>
+<a class="nav-link" href="../fleet/">SSH fleet</a>
+<p class="nav-section">Methods</p>
+<a class="nav-link nested" href="../methods/tabular/">Tabular</a>
+<a class="nav-link nested" href="../methods/transformers/">Transformers</a>
+<a class="nav-link nested" href="../methods/llm/">LLM / LoRA</a>
+<a class="nav-link nested" href="../methods/custom/">Custom</a>
+<a class="nav-link active" href="../eval/">Eval &amp; inspect</a>
+<a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
+<a class="nav-link" href="../agent/">Agent</a>
+<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
+</nav>
+    </aside>
+    <main class="docs-main"><h1>Eval &amp; inspect</h1>
+<p class="lead">No preset zoo. You put probes in evals/. aq eval is the human gate. Interpretability is a capability after fit: artifacts/inspect.md when the method supports it, not a separate product.</p>
+<div class="prereq"><span class="prereq-label">Prerequisite</span>Trained checkpoint under artifacts/checkpoints/ · probes in evals/</div>
+<section class="tool" id="aq-eval">
+  <h3 class="tool-cmd">aq eval</h3>
+  
+  <p class="tool-desc">Score every probe in evals/ (or one named file). Writes artifacts/eval.json. Pass/fail only when recipe.eval.min_score is set.</p>
+  <div class="table-wrap mb">
+  <table>
+    <thead><tr><th>Flag</th><th>Description</th></tr></thead>
+    <tbody><tr>
+  <td class="flag">[name]</td>
+  <td>Probe basename.</td>
+</tr>
+<tr>
+  <td class="flag">--ckpt &lt;name&gt;</td>
+  <td>Named checkpoint.</td>
+</tr></tbody>
+  </table>
+</div>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>example</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq eval</span></span></code></pre>
+</div>
+<div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>example</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>cat artifacts/eval.json</span></span></code></pre>
+</div>
+  
+</section>
+<section class="tool" id="artifactsinspectmd">
+  <h3 class="tool-cmd">artifacts/inspect.md</h3>
+  
+  <p class="tool-desc">Optional human-readable dump after fit (coefficients, trees, tokenizer notes). Part of how you check a fit, not SAE / activation tracing.</p>
+  
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>example</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>cat artifacts/inspect.md</span></span></code></pre>
+</div>
+  
+</section>
+<section class="tool" id="aq-diff">
+  <h3 class="tool-cmd">aq diff</h3>
+  
+  <p class="tool-desc">Compare run records after forking a variant or retraining.</p>
+  
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>example</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq diff &lt;run-a&gt; &lt;run-b&gt;</span></span></code></pre>
+</div>
+  
+</section>
+</main>
+  </div>
+  <script src="../../assets/docs.js"></script>
+</body>
+</html>

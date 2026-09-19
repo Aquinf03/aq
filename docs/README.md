@@ -1,11 +1,19 @@
 # Static aq docs (GitHub Pages)
 
-HTML under `docs/` is the public product docs (same stone chrome as the old web docs).
+Public product docs. Point GitHub Pages at the `/docs` folder on the default branch.
 
-The previous TypeScript source (`web/lib/docs`) was cleared; **edit these HTML files directly** for now. Prefer keeping pages consistent with SDK-first: `recipe.yaml` + `example.py` + `artifacts/`.
+```
+docs/
+  documentation/   # product docs (getting started, CLI, fleet, methods, …)
+  changelog/       # release notes (markdown + Pages HTML)
+  assets/          # shared chrome (CSS, logo, favicon)
+  index.html       # redirects → documentation/
+```
 
-SSH fleet (places / jobs / pools) lives at [`fleet/`](fleet/). Keep that page and the fleet sections in [`cli/`](cli/) and [`jobs/`](jobs/) aligned with `aq help` + `aq/SDK.md`.
+**Edit under `documentation/` and `changelog/` directly.** Prefer SDK-first copy: `recipe.yaml` + `example.py` + `artifacts/`.
 
-Changelog lives at [`changelog/`](changelog/) as a standalone page (no docs sidebar), ported from aquin.app. Keep copy aligned with `/Users/ashm/work/Aquin/lib/changelog.ts` when releases ship.
+- Docs home: [`documentation/`](documentation/)
+- SSH fleet: [`documentation/fleet/`](documentation/fleet/) — keep aligned with `aq help` + `aq/SDK.md` (also CLI / jobs pages)
+- Changelog: [`changelog/`](changelog/) — markdown notes (`v0.0.5.md`, `versions/`) plus `index.html` for Pages. Indexed from root [`CHANGELOG.md`](../CHANGELOG.md).
 
-Point GitHub Pages at the `/docs` folder on your default branch.
+Root URL `https://aquinf03.github.io/aq/` redirects into `documentation/`. Changelog: `…/aq/changelog/`.

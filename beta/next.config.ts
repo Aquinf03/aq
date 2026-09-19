@@ -40,12 +40,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/docs",
-        destination: "https://aquinf03.github.io/aq",
+        destination: "https://aquinf03.github.io/aq/documentation/",
         permanent: true,
       },
       {
         source: "/docs/:path*",
-        destination: "https://aquinf03.github.io/aq",
+        destination: "https://aquinf03.github.io/aq/documentation/:path*",
         permanent: true,
       },
       {

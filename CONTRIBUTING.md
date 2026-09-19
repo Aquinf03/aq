@@ -40,7 +40,7 @@ Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. After TypeScript edits:
 cd aq && npm run build
 ```
 
-User docs: https://aquinf03.github.io/aq · [`docs/`](./docs/) · SDK: [`aq/SDK.md`](./aq/SDK.md).
+User docs: https://aquinf03.github.io/aq/documentation/ · [`docs/documentation/`](./docs/documentation/) · Changelog: [`docs/changelog/`](./docs/changelog/) · SDK: [`aq/SDK.md`](./aq/SDK.md).
 
 ## PR requirements
 
@@ -139,7 +139,7 @@ Why is this needed? Link issues: Fixes #123
 ## Types of contributions
 
 **Code:** bug fixes, features, performance, refactors  
-**Docs:** static HTML under `docs/` (GitHub Pages), SDK README, clarifications  
+**Docs:** static HTML under `docs/documentation/` + `docs/changelog/` (GitHub Pages), SDK README, clarifications  
 **Tests:** new or tighter trains under `scripts/tests/`  
 **Issues:** clear bug reports and focused feature proposals  
 
@@ -163,7 +163,7 @@ Public issues for vulnerabilities will be **closed immediately**. You must email
 
 ## Questions
 
-- Usage / how-to: https://aquinf03.github.io/aq · [`docs/`](./docs/)
+- Usage / how-to: https://aquinf03.github.io/aq/documentation/ · [`docs/documentation/`](./docs/documentation/)
 - SDK: [`aq/SDK.md`](./aq/SDK.md)
 - Security: [`SECURITY.md`](./SECURITY.md)
 - Contact: aquin@aquin.app

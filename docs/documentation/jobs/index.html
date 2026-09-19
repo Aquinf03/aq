@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jobs · aq Docs</title>
+  <meta name="description" content="aq jobs runs background work on SSH places. Old aq job / schedule plans are gone." />
+  <link rel="icon" href="../../assets/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../assets/docs.css" />
+</head>
+<body>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <a class="brand" href="../" title="Aquin Labs">
+        <img src="../../assets/mainlogo2.png" alt="" width="22" height="22" />
+        <span>Aquin<span class="brand-gap">Labs</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="header-link" href="../">Docs</a>
+        <a class="header-link" href="../../changelog/">Changelog</a>
+        <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
+      </div>
+    </div>
+  </header>
+  <div class="docs-frame">
+    <aside class="docs-sidebar" aria-label="Documentation">
+      <nav><a class="nav-link" href="https://aquinf03.github.io/aq/documentation/" rel="noopener">Live docs</a>
+<a class="nav-link" href="../">Getting started</a>
+<a class="nav-link" href="../install/">Install</a>
+<a class="nav-link" href="../train/">Train folder</a>
+<a class="nav-link" href="../recipe/">Recipe</a>
+<a class="nav-link" href="../cli/">CLI reference</a>
+<a class="nav-link" href="../fleet/">SSH fleet</a>
+<p class="nav-section">Methods</p>
+<a class="nav-link nested" href="../methods/tabular/">Tabular</a>
+<a class="nav-link nested" href="../methods/transformers/">Transformers</a>
+<a class="nav-link nested" href="../methods/llm/">LLM / LoRA</a>
+<a class="nav-link nested" href="../methods/custom/">Custom</a>
+<a class="nav-link" href="../eval/">Eval &amp; inspect</a>
+<a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
+<a class="nav-link" href="../agent/">Agent</a>
+<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
+</nav>
+    </aside>
+    <main class="docs-main"><article>
+  <h1 class="hero">Jobs</h1>
+  <p class="lead"><code class="chip">aq jobs</code> is remote background work on an <strong>SSH place</strong> (or pool). Spec, pid, logs, and exit code live under <code class="chip">&lt;remoteDir&gt;/jobs/&lt;id&gt;/</code>. Full path: <a href="../fleet/">SSH fleet</a>.</p>
+
+  <h2>Verbs</h2>
+  <div class="table-wrap mb">
+    <table class="plain">
+      <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">aq jobs run --on p -- &lt;cmd&gt;</td><td>Start a background command</td></tr>
+        <tr><td class="mono">aq jobs train|eval|serve</td><td>Same as run -- aq train|eval|serve</td></tr>
+        <tr><td class="mono">aq jobs sweep</td><td>Fan-out shards / grid search</td></tr>
+        <tr><td class="mono">aq jobs list / status / logs</td><td>Inspect</td></tr>
+        <tr><td class="mono">aq jobs pull / down</td><td>Pull job log + remote <code class="chip">artifacts/</code> into the local train, or cancel</td></tr>
+        <tr><td class="mono">aq jobs recover</td><td>Restart after host/process death</td></tr>
+        <tr><td class="mono">aq jobs watch / manage</td><td>Auto-recover loop + policy</td></tr>
+        <tr><td class="mono">aq jobs submit</td><td>Alias → aq queue push</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq jobs train --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs status &lt;id&gt; --json</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs logs &lt;id&gt; -n 80</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs recover &lt;id&gt; --next</span></span></code></pre>
+  </div>
+
+  <h2>Not the old job planner</h2>
+  <p class="lead">The former <code class="chip">aq job</code> / <code class="chip">aq schedule</code> / YAML plans surface is gone. Local train stays <code class="chip">aq train</code>; background agents stay <code class="chip">aq spawn agent</code>. Remote compute is <code class="chip">aq jobs</code> on places.</p>
+
+  <ul class="next-list">
+    <li><a href="../fleet/">SSH fleet</a><span class="dot"> · </span>places, pools, sweeps, queues</li>
+    <li><a href="../cli/">CLI reference</a><span class="dot"> · </span>flag list</li>
+  </ul>
+</article></main>
+  </div>
+  <script src="../../assets/docs.js"></script>
+</body>
+</html>

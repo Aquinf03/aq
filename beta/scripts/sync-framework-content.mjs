@@ -17,29 +17,28 @@ if (existsSync(installSrc)) {
 }
 
 const site = (process.env.NEXT_PUBLIC_APP_URL || "https://aq.aquin.app").replace(/\/$/, "")
+const ghDocs = "https://aquinf03.github.io/aq/documentation"
+const ghCl = "https://aquinf03.github.io/aq/changelog"
 const llms = [
   "# Aquin / aq",
   "",
   "> Developer environment and framework for building and checking models.",
-  "> Docs are HTML pages on this site (no separate markdown tree).",
   "",
   `Home: ${site}/`,
-  `Getting started: ${site}/docs`,
+  `Docs: ${ghDocs}/`,
   `Sitemap: ${site}/sitemap.xml`,
-  `Changelog: https://aquin.app/changelog`,
+  `Changelog: ${ghCl}/`,
   "",
   "## Pages",
   "",
   `- ${site}/`,
-  `- ${site}/docs`,
-  `- ${site}/docs/install`,
-  `- ${site}/docs/train`,
-  `- ${site}/docs/recipe`,
-  `- ${site}/docs/cli`,
-  `- ${site}/docs/agent`,
-  `- ${site}/docs/eval`,
-  `- ${site}/docs/jobs`,
-  `- https://aquin.app/changelog`,
+  `- ${ghDocs}/`,
+  `- ${ghDocs}/install/`,
+  `- ${ghDocs}/train/`,
+  `- ${ghDocs}/recipe/`,
+  `- ${ghDocs}/cli/`,
+  `- ${ghDocs}/fleet/`,
+  `- ${ghCl}/`,
   "",
 ].join("\n")
 

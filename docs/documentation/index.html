@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Getting started with aq · aq Docs</title>
+  <meta name="description" content="What Aquin is: developer environment and framework. SDK + recipe.yaml + artifacts/, aq CLI, Python kernel, and the in-train agent." />
+  <link rel="icon" href="../assets/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/docs.css" />
+</head>
+<body>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <a class="brand" href="./" title="Aquin Labs">
+        <img src="../assets/mainlogo2.png" alt="" width="22" height="22" />
+        <span>Aquin<span class="brand-gap">Labs</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="header-link" href="./">Docs</a>
+        <a class="header-link" href="../changelog/">Changelog</a>
+        <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
+      </div>
+    </div>
+  </header>
+  <div class="docs-frame">
+    <aside class="docs-sidebar" aria-label="Documentation">
+      <nav><a class="nav-link" href="https://aquinf03.github.io/aq/documentation/" rel="noopener">Live docs</a>
+<a class="nav-link active" href="./">Getting started</a>
+<a class="nav-link" href="install/">Install</a>
+<a class="nav-link" href="train/">Train folder</a>
+<a class="nav-link" href="recipe/">Recipe</a>
+<a class="nav-link" href="cli/">CLI reference</a>
+<a class="nav-link" href="fleet/">SSH fleet</a>
+<p class="nav-section">Methods</p>
+<a class="nav-link nested" href="methods/tabular/">Tabular</a>
+<a class="nav-link nested" href="methods/transformers/">Transformers</a>
+<a class="nav-link nested" href="methods/llm/">LLM / LoRA</a>
+<a class="nav-link nested" href="methods/custom/">Custom</a>
+<a class="nav-link" href="eval/">Eval &amp; inspect</a>
+<a class="nav-link" href="metrics/">Metrics &amp; guard</a>
+<a class="nav-link" href="agent/">Agent</a>
+<a class="nav-link" href="skills/">Skills, tools &amp; MCP</a>
+</nav>
+    </aside>
+    <main class="docs-main"><article>
+  <h1 class="hero">Getting started</h1>
+  <p class="lead">Aquin is a <strong>developer environment and framework</strong> for building and checking models. The shape is <strong>SDK + <code class="chip">recipe.yaml</code> + <code class="chip">artifacts/</code></strong>. Paths to data and evals live in the YAML. You run <code class="chip">aquin</code> or <code class="chip">aq</code> against that folder and keep enough on disk to resume and audit. Disk is the source of truth. The UI is a view.</p>
+
+  <h2>How the pieces fit</h2>
+  <div class="table-wrap mb">
+    <table class="plain">
+      <thead><tr><th>Name</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">Aquin</td><td>The product: developer environment and framework.</td></tr>
+<tr><td class="mono">aquin</td><td>Python SDK (<code class="chip">pip install -e ./aq</code>). Few-line client over the same kernel.</td></tr>
+<tr><td class="mono">aq</td><td>The CLI you type (TypeScript). Quiet, cwd-based, like git.</td></tr>
+<tr><td class="mono">Kernel</td><td>Python under aq/kernel/. Fit, eval, serve, hash. Talks through files.</td></tr>
+<tr><td class="mono">Run</td><td>A directory with <code class="chip">recipe.yaml</code> (+ <code class="chip">artifacts/</code> once you train). Optional brief: experiment.md.</td></tr>
+<tr><td class="mono">Agent</td><td>Lives inside that Unix: same cwd, same files, same verbs. Not a side chat.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="lead">Flow: edit the recipe (and data paths), train/eval via SDK or CLI, artifacts land on disk. Accounts live at <code class="chip">aq.aquin.app</code> — identity and tokens only. <a href="https://aq.aquin.app/">Sign in</a>.</p>
+
+  <h2>SDK (few lines)</h2>
+  <p class="lead"><strong>YAML and SDK are both optional authoring surfaces</strong> for the same path map. Edit <code class="chip">recipe.yaml</code> by hand, or use <code class="chip">Aquin.define</code> / <code class="chip">Run</code> (which rewrite that file). <code class="chip">artifacts/</code> is always runtime.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>python -m aquin init my-run</span></span>
+<span class="line"><span class="prompt">$</span><span>cd my-run &amp;&amp; python example.py</span></span>
+<span class="line"><span class="prompt">$</span><span># or: aq train &amp;&amp; aq eval</span></span></code></pre>
+</div>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>python · YAML-first</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>from aquin import Aquin</span></span>
+<span class="line"><span>aq = Aquin(".")  # reads recipe.yaml</span></span>
+<span class="line"><span>aq.train()</span></span>
+<span class="line"><span>aq.eval()</span></span></code></pre>
+</div>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>python · SDK-first</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>from aquin import Aquin</span></span>
+<span class="line"><span>aq = Aquin.define(</span></span>
+<span class="line"><span>    family="tabular", method="linear",</span></span>
+<span class="line"><span>    data={"path": "data.csv", "target": "y"},</span></span>
+<span class="line"><span>    eval={"metric": "mse"},</span></span>
+<span class="line"><span>    config_path="recipe.yaml",</span></span>
+<span class="line"><span>)</span></span>
+<span class="line"><span>aq.train()</span></span></code></pre>
+</div>
+  <p class="lead">Same path map either way — edit YAML by hand or author with <code class="chip">Aquin.define</code> / <code class="chip">Run</code>.</p>
+
+  <h2>What init creates</h2>
+  <p class="lead"><code class="chip">aq init</code> / <code class="chip">python -m aquin init</code> scaffolds a seed path map + sample. Author by editing YAML, using the SDK, or both.</p>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>run folder</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>my-run/</span></span>
+<span class="line"><span>  recipe.yaml              path map — edit by hand and/or via SDK</span></span>
+<span class="line"><span>  example.py               opens YAML by default; define path commented</span></span>
+<span class="line"><span>  artifacts/               runtime (checkpoints, metrics, …)</span></span></code></pre>
+</div>
+  <p class="lead">Optional later: your own data file, eval probes, skills packs. Full layout: <a href="train/">Train folder</a>.</p>
+
+  <h2>CLI</h2>
+  <p class="lead"><code class="chip">aq</code> is the face. Cwd is the workspace. Verbs compose: <code class="chip">aq train</code>, <code class="chip">aq eval</code>, <code class="chip">aq serve</code>, <code class="chip">aq status</code>. Reference: <a href="cli/">CLI</a>.</p>
+
+  <h2>Kernel (Python)</h2>
+  <p class="lead">TypeScript and Python talk through files:</p>
+  <ol class="lead-list">
+    <li>CLI writes <code class="chip">artifacts/request.json</code></li>
+    <li>Spawns <code class="chip">kernel/run.py</code> on the run path</li>
+    <li>Kernel runs the op (<code class="chip">hash</code>, <code class="chip">train</code>, <code class="chip">eval</code>, <code class="chip">checkpoint</code>, <code class="chip">serve</code>)</li>
+    <li>Writes <code class="chip">artifacts/result.json</code> and appends <code class="chip">metrics.jsonl</code></li>
+  </ol>
+  <p class="lead">For built-ins you do not write Python. <code class="chip">recipe.yaml</code> is the API. See <a href="recipe/">Recipe</a>.</p>
+
+  <h2>What “working” means</h2>
+  <p class="lead">A stranger should point <code class="chip">data.path</code> at their file, set the gate, run train then eval, fail, inspect, edit one key, and run again. No preset eval zoo — you write the probes.</p>
+
+  <h2>SSH fleet</h2>
+  <p class="lead">Same folder on remote boxes: register a place, launch or <code class="chip">aq jobs … --on</code>, then scale with a pool. Walkthrough: <a href="fleet/">SSH fleet</a>.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq add ssh temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq launch --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs train --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq add pool gpus temp other</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs train --on gpus</span></span></code></pre>
+  </div>
+
+  <h2>Where to go next</h2>
+  <ul class="next-list">
+    <li><a href="install/">Install</a><span class="dot"> · </span>curl release or checkout link, doctor, login</li>
+<li><a href="train/">Train folder</a><span class="dot"> · </span>init scaffold, artifacts</li>
+<li><a href="recipe/">Recipe</a><span class="dot"> · </span>tabular, transformers, LLM, guard</li>
+<li><a href="fleet/">SSH fleet</a><span class="dot"> · </span>places, jobs, pools, sweeps</li>
+<li><a href="cli/">CLI</a><span class="dot"> · </span>every verb</li>
+  </ul>
+</article></main>
+  </div>
+  <script src="../assets/docs.js"></script>
+</body>
+</html>

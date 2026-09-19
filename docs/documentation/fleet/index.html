@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SSH fleet · aq Docs</title>
+  <meta name="description" content="Run the same train folder on SSH places and pools: add, launch, jobs, recover, queues, ports, tags, GPUs, managed watch, sweeps." />
+  <link rel="icon" href="../../assets/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../assets/docs.css" />
+</head>
+<body>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <a class="brand" href="../" title="Aquin Labs">
+        <img src="../../assets/mainlogo2.png" alt="" width="22" height="22" />
+        <span>Aquin<span class="brand-gap">Labs</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="header-link" href="../">Docs</a>
+        <a class="header-link" href="../../changelog/">Changelog</a>
+        <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
+      </div>
+    </div>
+  </header>
+  <div class="docs-frame">
+    <aside class="docs-sidebar" aria-label="Documentation">
+      <nav><a class="nav-link" href="https://aquinf03.github.io/aq/documentation/" rel="noopener">Live docs</a>
+<a class="nav-link" href="../">Getting started</a>
+<a class="nav-link" href="../install/">Install</a>
+<a class="nav-link" href="../train/">Train folder</a>
+<a class="nav-link" href="../recipe/">Recipe</a>
+<a class="nav-link" href="../cli/">CLI reference</a>
+<a class="nav-link active" href="../fleet/">SSH fleet</a>
+<p class="nav-section">Methods</p>
+<a class="nav-link nested" href="../methods/tabular/">Tabular</a>
+<a class="nav-link nested" href="../methods/transformers/">Transformers</a>
+<a class="nav-link nested" href="../methods/llm/">LLM / LoRA</a>
+<a class="nav-link nested" href="../methods/custom/">Custom</a>
+<a class="nav-link" href="../eval/">Eval &amp; inspect</a>
+<a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
+<a class="nav-link" href="../agent/">Agent</a>
+<a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
+</nav>
+    </aside>
+    <main class="docs-main"><article>
+  <h1 class="hero">SSH fleet</h1>
+  <p class="lead">Same train folder, remote boxes over SSH. Path: <strong>local → one place → pool</strong>. Change <code class="chip">--on</code>; jobs keep the same verbs. Places live in <code class="chip">~/.aquin/places.json</code>. Remote work under <code class="chip">&lt;remoteDir&gt;/jobs/&lt;id&gt;/</code>.</p>
+  <div class="prereq"><span class="prereq-label">Prerequisite</span>aq installed · SSH key access to the box · a local train folder (or any folder you sync)</div>
+
+  <h2>1. Add a place</h2>
+  <p class="lead">Register an SSH host. aq probes cpu/ram/gpu and stores capacity on the place.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq add ssh temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq places</span></span>
+<span class="line"><span class="prompt">$</span><span>aq places --probe</span></span></code></pre>
+  </div>
+
+  <h2>2. Launch (or sync)</h2>
+  <p class="lead"><code class="chip">aq launch</code> rsyncs the folder, sets up aq on the box, and opens an SSH shell. <code class="chip">aq go</code> reattaches. <code class="chip">aq sync</code> pushes without a shell. <code class="chip">aq shutdown</code> stops remote jobs and clears the session.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>cd my-run</span></span>
+<span class="line"><span class="prompt">$</span><span>aq launch --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq go temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq sync --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq shutdown</span></span>
+<span class="line"><span class="prompt">$</span><span>aq shutdown --wipe</span></span></code></pre>
+  </div>
+
+  <h2>3. Remote jobs</h2>
+  <p class="lead">Background work on a place. <code class="chip">aq jobs train</code> is <code class="chip">aq jobs run -- aq train</code>. After start, <code class="chip">aq jobs wait &lt;id&gt;</code> polls status and log snapshots until exit (agents should use this — not bare <code class="chip">logs -f</code>).</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq jobs train --on temp</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs run --on temp -- sleep 30</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs wait &lt;id&gt;</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs status &lt;id&gt;</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs logs &lt;id&gt; --once</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs logs &lt;id&gt; -f</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs pull &lt;id&gt;</span></span>
+<span class="line"><span class="prompt"> </span><span class="comment"># job log/spec → jobs-pull/&lt;id&gt;/  +  remote artifacts/ → ./artifacts/</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs down &lt;id&gt;</span></span></code></pre>
+  </div>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>python</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>from aquin import Place</span></span>
+<span class="line"><span>p = Place(&quot;temp&quot;)</span></span>
+<span class="line"><span>j = p.train()                 # or p.eval() / p.serve() / p.run([&quot;sleep&quot;, &quot;10&quot;])</span></span>
+<span class="line"><span>print(j.id, j.status()[&quot;status&quot;])</span></span>
+<span class="line"><span>print(j.logs())</span></span>
+<span class="line"><span>j.pull()</span></span></code></pre>
+  </div>
+
+  <h2>4. Pools</h2>
+  <p class="lead">A pool is a named set of SSH places. <code class="chip">--on &lt;pool&gt;</code> picks a free member (reachable, capacity, lowest live-job load).</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq add pool gpus box1 box2</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs train --on gpus</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs train --on gpus --nodes 2</span></span></code></pre>
+  </div>
+  <p class="lead"><code class="chip">--nodes N</code> (N&gt;1) starts the same command on N boxes with <code class="chip">RANK</code> / <code class="chip">WORLD_SIZE</code> / <code class="chip">MASTER_ADDR</code> / <code class="chip">MASTER_PORT</code> (torchrun-friendly). One job id covers the gang.</p>
+
+  <h2>Recover (spot / preempt)</h2>
+  <p class="lead">Restart the same job id after host or process death.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq jobs recover &lt;id&gt;</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs recover &lt;id&gt; --next</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs recover &lt;id&gt; --on gpus</span></span></code></pre>
+  </div>
+
+  <h2>Managed watch</h2>
+  <p class="lead">Auto-recover after flake or preempt. Pair <code class="chip">--manage</code> with <code class="chip">aq jobs watch</code>.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq jobs run --on gpus --manage --retry 3 --prefer next -- aq train</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs watch</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs manage &lt;id&gt; --retry 5 --prefer same</span></span></code></pre>
+  </div>
+
+  <h2>Sweeps</h2>
+  <p class="lead">Fan out many independent jobs. Use <code class="chip">--shard N</code> and/or <code class="chip">--grid k=a,b</code>. Command args may use <code class="chip">{i}</code> <code class="chip">{n}</code> <code class="chip">{shard}</code> <code class="chip">{shards}</code> and each grid key. Jobs are tagged <code class="chip">sweep=&lt;id&gt;</code>.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq jobs sweep --shard 8 --on gpus -- aq train --shard {i}/{n}</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs sweep --grid lr=1e-3,1e-4 --grid wd=0,1e-4 --on gpus -- python train.py --lr {lr} --wd {wd}</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs list --tag sweep=&lt;id&gt;</span></span></code></pre>
+  </div>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>python</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>from aquin import Place</span></span>
+<span class="line"><span>p = Place(&quot;gpus&quot;)</span></span>
+<span class="line"><span>out = p.sweep([&quot;aq&quot;, &quot;train&quot;, &quot;--shard&quot;, &quot;{i}/{n}&quot;], shard=8, manage=True)</span></span>
+<span class="line"><span># out[&quot;sweep&quot;], out[&quot;jobs&quot;], out[&quot;total&quot;]</span></span></code></pre>
+  </div>
+  <p class="lead">Env on each job: <code class="chip">AQ_SWEEP</code>, <code class="chip">AQ_SHARD</code>, <code class="chip">AQ_SHARDS</code>, <code class="chip">AQ_SWEEP_I</code>, <code class="chip">AQ_SWEEP_N</code>, and <code class="chip">AQ_&lt;GRIDKEY&gt;</code>.</p>
+
+  <h2>Queues</h2>
+  <p class="lead">Pending work claimed onto SSH (priority). Worker claims and starts jobs on the place/pool.</p>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shell</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq queue add gpus --on gpus</span></span>
+<span class="line"><span class="prompt">$</span><span>aq queue push gpus --priority 10 -- aq train</span></span>
+<span class="line"><span class="prompt">$</span><span>aq queue worker gpus --once</span></span></code></pre>
+  </div>
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>python</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>from aquin import Queue</span></span>
+<span class="line"><span>j = Queue(&quot;gpus&quot;).submit([&quot;aq&quot;, &quot;train&quot;], priority=10)</span></span></code></pre>
+  </div>
+
+  <h2>Ports, tags, GPUs</h2>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>ports · SSH -L tunnel</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq port 8000 --on temp --bg</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs run --on temp --port 8000 -- python -m http.server 8000</span></span>
+<span class="line"><span class="prompt">$</span><span>aq launch --on temp --port 6006</span></span></code></pre>
+  </div>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>tags</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq tag place temp team=ml</span></span>
+<span class="line"><span class="prompt">$</span><span>aq tag job &lt;id&gt; exp=baseline</span></span>
+<span class="line"><span class="prompt">$</span><span>aq places --tag team=ml</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs list --tag exp=baseline</span></span></code></pre>
+  </div>
+  <div class="codeblock" data-shell="1">
+  <div class="codeblock-bar">
+    <span>shared GPUs</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq jobs run --on box --gpu 1 -- python train.py</span></span>
+<span class="line"><span class="prompt">$</span><span>aq jobs run --on box --devices 0,2 -- …</span></span>
+<span class="line"><span class="prompt">$</span><span>aq places</span></span></code></pre>
+  </div>
+  <p class="lead"><code class="chip">--gpu N</code> claims N free devices (<code class="chip">CUDA_VISIBLE_DEVICES</code>). <code class="chip">aq places</code> shows live load and free GPUs.</p>
+
+  <h2>Flags cheat sheet</h2>
+  <div class="table-wrap mb">
+    <table class="plain">
+      <thead><tr><th>Flag</th><th>Where</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">--on &lt;place|pool&gt;</td><td>launch, jobs, sync, port, queue</td><td>Target box or pool pick</td></tr>
+        <tr><td class="mono">--nodes N</td><td>jobs run/train/…</td><td>Multi-node gang on a pool</td></tr>
+        <tr><td class="mono">--gpu N / --devices</td><td>jobs</td><td>Claim or pin GPUs</td></tr>
+        <tr><td class="mono">--port N</td><td>launch, go, jobs</td><td>SSH -L; sets AQ_PORT / PORT</td></tr>
+        <tr><td class="mono">--tag k=v</td><td>jobs, places list</td><td>Labels / filters</td></tr>
+        <tr><td class="mono">--manage / --retry / --prefer</td><td>jobs run, sweep</td><td>Auto-recover policy</td></tr>
+        <tr><td class="mono">--shard / --grid</td><td>jobs sweep</td><td>Fan-out variants</td></tr>
+        <tr><td class="mono">--json</td><td>jobs, recover, sweep</td><td>Machine-readable (SDK)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Where to go next</h2>
+  <ul class="next-list">
+    <li><a href="../cli/">CLI reference</a><span class="dot"> · </span>fleet verbs in the full list</li>
+    <li><a href="../jobs/">Jobs</a><span class="dot"> · </span>remote jobs vs old aq job</li>
+    <li><a href="../train/">Train folder</a><span class="dot"> · </span>what you sync to the place</li>
+  </ul>
+</article></main>
+  </div>
+  <script src="../../assets/docs.js"></script>
+</body>
+</html>

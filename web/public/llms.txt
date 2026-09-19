@@ -3,12 +3,12 @@
 > Developer environment and framework for building and checking models.
 
 Home / account: https://aq.aquin.app/
-Docs: https://aquinf03.github.io/aq
+Docs: https://aquinf03.github.io/aq/documentation/
 Sitemap: https://aq.aquin.app/sitemap.xml
-Changelog: https://aquinf03.github.io/aq/changelog
+Changelog: https://aquinf03.github.io/aq/changelog/
 
 ## Pages
 
 - https://aq.aquin.app/
-- https://aquinf03.github.io/aq
-- https://aquinf03.github.io/aq/changelog
+- https://aquinf03.github.io/aq/documentation/
+- https://aquinf03.github.io/aq/changelog/

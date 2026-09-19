@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Methods · Transformers · aq Docs</title>
+  <meta name="description" content="Hugging Face transformers with arch encoder | decoder | encoder-decoder. model: is required. Runs on CUDA, MPS, ROCm, or CPU." />
+  <link rel="icon" href="../../../assets/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../../../assets/docs.css" />
+</head>
+<body>
+  <header class="docs-header">
+    <div class="docs-header-inner">
+      <a class="brand" href="../../" title="Aquin Labs">
+        <img src="../../../assets/mainlogo2.png" alt="" width="22" height="22" />
+        <span>Aquin<span class="brand-gap">Labs</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="header-link" href="../../">Docs</a>
+        <a class="header-link" href="../../../changelog/">Changelog</a>
+        <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
+      </div>
+    </div>
+  </header>
+  <div class="docs-frame">
+    <aside class="docs-sidebar" aria-label="Documentation">
+      <nav><a class="nav-link" href="https://aquinf03.github.io/aq/documentation/" rel="noopener">Live docs</a>
+<a class="nav-link" href="../../">Getting started</a>
+<a class="nav-link" href="../../install/">Install</a>
+<a class="nav-link" href="../../train/">Train folder</a>
+<a class="nav-link" href="../../recipe/">Recipe</a>
+<a class="nav-link" href="../../cli/">CLI reference</a>
+<a class="nav-link" href="../../fleet/">SSH fleet</a>
+<p class="nav-section active">Methods</p>
+<a class="nav-link nested" href="../../methods/tabular/">Tabular</a>
+<a class="nav-link nested active" href="../../methods/transformers/">Transformers</a>
+<a class="nav-link nested" href="../../methods/llm/">LLM / LoRA</a>
+<a class="nav-link nested" href="../../methods/custom/">Custom</a>
+<a class="nav-link" href="../../eval/">Eval &amp; inspect</a>
+<a class="nav-link" href="../../metrics/">Metrics &amp; guard</a>
+<a class="nav-link" href="../../agent/">Agent</a>
+<a class="nav-link" href="../../skills/">Skills, tools &amp; MCP</a>
+</nav>
+    </aside>
+    <main class="docs-main"><h1>Methods · Transformers</h1>
+<p class="lead">Hugging Face transformers with arch encoder | decoder | encoder-decoder. model: is required. Runs on CUDA, MPS, ROCm, or CPU.</p>
+<div class="prereq"><span class="prereq-label">Prerequisite</span>method: transformer · recipe.model set to a hub id or path</div>
+<section class="tool" id="method-transformer">
+  <h3 class="tool-cmd">method: transformer</h3>
+  
+  <p class="tool-desc">Train an encoder, decoder, or encoder-decoder architecture from recipe.model.</p>
+  
+  <div class="codeblock" data-shell="0">
+  <div class="codeblock-bar">
+    <span>example</span>
+    <button type="button" class="copy-btn">Copy</button>
+  </div>
+  <pre><code><span class="line"><span>method: transformer</span></span>
+<span class="line"><span>model: bert-base-uncased</span></span>
+<span class="line"><span>arch: encoder</span></span>
+<span class="line"><span>steps: 50</span></span>
+<span class="line"><span>data:</span></span>
+<span class="line"><span>  path: data.csv</span></span>
+<span class="line"><span>  text: text</span></span>
+<span class="line"><span>  target: label</span></span>
+<span class="line"><span>eval:</span></span>
+<span class="line"><span>  metric: accuracy</span></span></code></pre>
+</div>
+  
+</section>
+</main>
+  </div>
+  <script src="../../../assets/docs.js"></script>
+</body>
+</html>

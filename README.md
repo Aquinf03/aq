@@ -3,7 +3,7 @@
 **aq** is the CLI. The Python kernel ships inside the `aq` package.  
 **SDK shape:** `recipe.yaml` (path map) + `artifacts/` (runtime). Author with **YAML and/or `aquin`** — both first-class.
 
-**Docs:** https://aq.aquin.app/docs · **Account / install:** https://aq.aquin.app  
+**Docs:** https://aquinf03.github.io/aq/documentation/ · **Changelog:** https://aquinf03.github.io/aq/changelog/ · **Account / install:** https://aq.aquin.app  
 **SDK:** [`aq/aquin`](./aq/SDK.md) · **Trains:** [`scripts/tests/`](./scripts/tests/README.md)
 
 ## Published build install
@@ -46,7 +46,8 @@ aq train && aq eval && aq status
 |------|------|
 | `aq/` | CLI + Python kernel + `aquin` SDK (`aq/aquin`, `pip install -e ./aq`) |
 | `scripts/tests/` | E2E trains (CLI + SDK) |
-| `web/` | Docs + auth app (`aq.aquin.app`) |
+| `docs/` | GitHub Pages: `documentation/` + `changelog/` (markdown notes + HTML) + `assets/` |
+| `web/` | Auth / account app (`aq.aquin.app`) |
 | `internals/` | Builder checklists |
 
 - Publish: [`scripts/helpers/release.sh`](./scripts/helpers/release.sh)
