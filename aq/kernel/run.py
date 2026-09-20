@@ -33,6 +33,7 @@ REQ_KEYS = {
     "out",
     "out_file",
     "capture_code",
+    "capture_env",
 }
 
 

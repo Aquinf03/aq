@@ -58,6 +58,8 @@ export type KernelReq = {
   out?: string
   out_file?: string
   capture_code?: boolean
+  /** lock | full | true — see protocol/capture.py */
+  capture_env?: boolean | string
   // plot options (CLI / SDK → kernel plot config)
   charts?: string[]
   title?: string
@@ -170,6 +172,7 @@ function popFlag(rest: string[], flag: string): { value?: string; rest: string[]
 export async function kernelStep(step: string, argv: string[]): Promise<string> {
   let rest = argv
   let captureCode = false
+  let captureEnv: string | boolean | undefined
   const nextRest: string[] = []
   for (const a of rest) {
     if (a === "--capture-code" || a === "--capture=code") {
@@ -178,6 +181,22 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
     }
     if (a === "--no-capture-code") {
       captureCode = false
+      continue
+    }
+    if (a === "--capture-env" || a === "--capture-env=lock" || a === "--capture=env") {
+      captureEnv = "lock"
+      continue
+    }
+    if (a === "--capture-env=full" || a === "--capture-env-full") {
+      captureEnv = "full"
+      continue
+    }
+    if (a.startsWith("--capture-env=")) {
+      captureEnv = a.slice("--capture-env=".length) || "lock"
+      continue
+    }
+    if (a === "--no-capture-env") {
+      captureEnv = false
       continue
     }
     nextRest.push(a)
@@ -233,6 +252,7 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   if (mt.value !== undefined) req.max_tokens = Number(mt.value)
   if (temp.value !== undefined) req.temperature = Number(temp.value)
   if (captureCode) req.capture_code = true
+  if (captureEnv !== undefined && captureEnv !== false) req.capture_env = captureEnv
   const root = openRun(train).root
   await runKernel(root, req)
   return root

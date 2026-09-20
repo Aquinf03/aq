@@ -97,7 +97,7 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
         data_path=str((rec.get("data") or {}).get("path") or ""),
     )
     try:
-        code_meta = aq_capture.maybe_snapshot(train, rec, req)
+        code_meta, env_meta = aq_capture.maybe_capture(train, rec, req)
         if code_meta:
             aq_metrics.event(
                 "code",
@@ -105,6 +105,16 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
                 sha256=code_meta.get("sha256"),
                 n_files=code_meta.get("n_files"),
                 bytes=code_meta.get("bytes"),
+            )
+        if env_meta:
+            aq_metrics.event(
+                "env",
+                mode=env_meta.get("mode"),
+                requirements=env_meta.get("requirements"),
+                archive=env_meta.get("archive"),
+                n_packages=env_meta.get("n_packages"),
+                bytes=env_meta.get("bytes"),
+                python_version=env_meta.get("python_version"),
             )
         if gcfg.get("leak"):
             assert_no_leak(train, rec)
@@ -140,6 +150,13 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
         if code_meta:
             arts["code_tree"] = code_meta["tree"]
             arts["code_manifest"] = code_meta["manifest"]
+        if env_meta:
+            arts["env_requirements"] = env_meta["requirements"]
+            arts["env_python"] = env_meta["python"]
+            if env_meta.get("archive"):
+                arts["env_archive"] = env_meta["archive"]
+            if env_meta.get("manifest"):
+                arts["env_manifest"] = env_meta["manifest"]
         summary = aq_metrics.model_summary(model)
         from protocol import autolog
 
@@ -164,6 +181,10 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
             art_rows.append(["tokenizer", arts["tokenizer"]])
         if arts.get("code_tree"):
             art_rows.append(["code", arts["code_tree"]])
+        if arts.get("env_archive"):
+            art_rows.append(["env", arts["env_archive"]])
+        elif arts.get("env_requirements"):
+            art_rows.append(["env", arts["env_requirements"]])
         lines = ["train", render_table(("artifact", "path"), art_rows)]
         if gcfg.get("safety") or gcfg.get("leak"):
             g = []

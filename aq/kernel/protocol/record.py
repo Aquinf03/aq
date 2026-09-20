@@ -100,6 +100,13 @@ def write_summary(d: Path, body: dict) -> None:
         lines.append("code_tree: " + str(code.get("tree")))
         if code.get("sha256"):
             lines.append("code_sha256: " + str(code.get("sha256")))
+    env = body.get("env") or {}
+    if isinstance(env, dict) and env.get("mode"):
+        lines.append("env_mode: " + str(env.get("mode")))
+        if env.get("requirements"):
+            lines.append("env_requirements: " + str(env.get("requirements")))
+        if env.get("archive"):
+            lines.append("env_archive: " + str(env.get("archive")))
     for k, v in arts.items():
         lines.append(str(k) + ": " + str(v))
     lines.append("")
@@ -126,6 +133,14 @@ def write_run(train: Path, extra: dict) -> str:
     if code_meta:
         arts.setdefault("code_tree", code_meta.get("tree"))
         arts.setdefault("code_manifest", code_meta.get("manifest"))
+    env_meta = aq_capture.take_env_meta()
+    if env_meta:
+        arts.setdefault("env_requirements", env_meta.get("requirements"))
+        arts.setdefault("env_python", env_meta.get("python"))
+        if env_meta.get("archive"):
+            arts.setdefault("env_archive", env_meta.get("archive"))
+        if env_meta.get("manifest"):
+            arts.setdefault("env_manifest", env_meta.get("manifest"))
     body = {
         "id": rid,
         "at": datetime.now(timezone.utc).isoformat(),
@@ -140,6 +155,8 @@ def write_run(train: Path, extra: dict) -> str:
     }
     if code_meta:
         body["code"] = code_meta
+    if env_meta:
+        body["env"] = env_meta
     d = runs_dir(train)
     path = d / (rid + ".json")
     path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")

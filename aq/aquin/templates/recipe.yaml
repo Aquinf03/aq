@@ -10,9 +10,10 @@ eval:
   metric: mse
   min_score: null
 
-# Opt-in: freeze code bytes for this run (no git) → artifacts/code/tree.tgz
+# Opt-in capture (no git):
 # capture:
-#   code: true
+#   code: true           # → artifacts/code/tree.tgz
+#   env: lock            # lock = pip freeze; full = freeze + 7z of active venv
 
 # --- other shapes (uncomment / swap) ---
 # family: tabular
