@@ -57,6 +57,7 @@ export type KernelReq = {
   dpi?: number
   out?: string
   out_file?: string
+  capture_code?: boolean
   // plot options (CLI / SDK → kernel plot config)
   charts?: string[]
   title?: string
@@ -168,6 +169,20 @@ function popFlag(rest: string[], flag: string): { value?: string; rest: string[]
 
 export async function kernelStep(step: string, argv: string[]): Promise<string> {
   let rest = argv
+  let captureCode = false
+  const nextRest: string[] = []
+  for (const a of rest) {
+    if (a === "--capture-code" || a === "--capture=code") {
+      captureCode = true
+      continue
+    }
+    if (a === "--no-capture-code") {
+      captureCode = false
+      continue
+    }
+    nextRest.push(a)
+  }
+  rest = nextRest
   const ck = popFlag(rest, "--ckpt")
   rest = ck.rest
   const keep = popFlag(rest, "--keep")
@@ -217,6 +232,7 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   if (image.value) req.image = image.value
   if (mt.value !== undefined) req.max_tokens = Number(mt.value)
   if (temp.value !== undefined) req.temperature = Number(temp.value)
+  if (captureCode) req.capture_code = true
   const root = openRun(train).root
   await runKernel(root, req)
   return root

@@ -10,6 +10,10 @@ eval:
   metric: mse
   min_score: null
 
+# Opt-in: freeze code bytes for this run (no git) → artifacts/code/tree.tgz
+# capture:
+#   code: true
+
 # --- other shapes (uncomment / swap) ---
 # family: tabular
 # method: ridge | logistic | forest | boosting | …

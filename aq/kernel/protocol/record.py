@@ -95,6 +95,11 @@ def write_summary(d: Path, body: dict) -> None:
         "score: " + str(m.get("score") if m.get("score") is not None else "-"),
         "verdict: " + verdict,
     ]
+    code = body.get("code") or {}
+    if isinstance(code, dict) and code.get("tree"):
+        lines.append("code_tree: " + str(code.get("tree")))
+        if code.get("sha256"):
+            lines.append("code_sha256: " + str(code.get("sha256")))
     for k, v in arts.items():
         lines.append(str(k) + ": " + str(v))
     lines.append("")
@@ -107,6 +112,7 @@ def write_summary(d: Path, body: dict) -> None:
 
 def write_run(train: Path, extra: dict) -> str:
     from protocol import metrics as aq_metrics
+    from protocol import capture as aq_capture
 
     rec = load_recipe(train)
     raw, rh = recipe_hash(train)
@@ -116,6 +122,10 @@ def write_run(train: Path, extra: dict) -> str:
     arts = dict(extra.get("artifacts") or {})
     for k, v in aq_metrics.take_autolog_artifacts().items():
         arts.setdefault(k, v)
+    code_meta = aq_capture.take_code_meta()
+    if code_meta:
+        arts.setdefault("code_tree", code_meta.get("tree"))
+        arts.setdefault("code_manifest", code_meta.get("manifest"))
     body = {
         "id": rid,
         "at": datetime.now(timezone.utc).isoformat(),
@@ -128,6 +138,8 @@ def write_run(train: Path, extra: dict) -> str:
         "pass": extra.get("pass"),
         "artifacts": arts,
     }
+    if code_meta:
+        body["code"] = code_meta
     d = runs_dir(train)
     path = d / (rid + ".json")
     path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")

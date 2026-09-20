@@ -77,7 +77,9 @@ def data_file(train: Path, rec: dict) -> Path:
     return src
 
 
-def do_train(train: Path) -> list[str]:
+def do_train(train: Path, req: dict | None = None) -> list[str]:
+    from protocol import capture as aq_capture
+
     rec = load_recipe(train)
     method = rec["method"]
     src = data_file(train, rec)
@@ -95,6 +97,15 @@ def do_train(train: Path) -> list[str]:
         data_path=str((rec.get("data") or {}).get("path") or ""),
     )
     try:
+        code_meta = aq_capture.maybe_snapshot(train, rec, req)
+        if code_meta:
+            aq_metrics.event(
+                "code",
+                tree=code_meta.get("tree"),
+                sha256=code_meta.get("sha256"),
+                n_files=code_meta.get("n_files"),
+                bytes=code_meta.get("bytes"),
+            )
         if gcfg.get("leak"):
             assert_no_leak(train, rec)
             aq_metrics.event("guard.leak", ok=True)
@@ -126,6 +137,9 @@ def do_train(train: Path) -> list[str]:
             arts["tokenizer_sha256"] = tok_hash
         if hasattr(mod, "write_inspect"):
             arts["inspect"] = mod.write_inspect(train, model)
+        if code_meta:
+            arts["code_tree"] = code_meta["tree"]
+            arts["code_manifest"] = code_meta["manifest"]
         summary = aq_metrics.model_summary(model)
         from protocol import autolog
 
@@ -148,6 +162,8 @@ def do_train(train: Path) -> list[str]:
             art_rows.append(["inspect", arts["inspect"]])
         if arts.get("tokenizer"):
             art_rows.append(["tokenizer", arts["tokenizer"]])
+        if arts.get("code_tree"):
+            art_rows.append(["code", arts["code_tree"]])
         lines = ["train", render_table(("artifact", "path"), art_rows)]
         if gcfg.get("safety") or gcfg.get("leak"):
             g = []

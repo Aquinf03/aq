@@ -217,6 +217,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "start",
             "info",
             "params",
+            "code",
             "step",
             "epoch",
             "end",
@@ -226,7 +227,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 tui.on_start(body)
-            elif event in ("info", "params"):
+            elif event in ("info", "params", "code"):
                 tui.on_info(body)
             elif event == "step":
                 tui.on_step(body)
@@ -251,7 +252,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         print_kv(rows)
         return
 
-    if event in ("info", "params"):
+    if event in ("info", "params", "code"):
         rows = [
             (k, v)
             for k, v in body.items()
