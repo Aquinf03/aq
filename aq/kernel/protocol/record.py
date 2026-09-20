@@ -106,9 +106,16 @@ def write_summary(d: Path, body: dict) -> None:
 
 
 def write_run(train: Path, extra: dict) -> str:
+    from protocol import metrics as aq_metrics
+
     rec = load_recipe(train)
     raw, rh = recipe_hash(train)
-    rid = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + rh[-8:]
+    rid = aq_metrics.active_run_id()
+    if not rid:
+        rid = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + rh[-8:]
+    arts = dict(extra.get("artifacts") or {})
+    for k, v in aq_metrics.take_autolog_artifacts().items():
+        arts.setdefault(k, v)
     body = {
         "id": rid,
         "at": datetime.now(timezone.utc).isoformat(),
@@ -116,10 +123,10 @@ def write_run(train: Path, extra: dict) -> str:
         "recipe_hash": rh,
         "data_hash": data_hash(train, rec),
         "code_hash": code_hash(train),
-        "tokenizer_hash": extra.get("artifacts", {}).get("tokenizer_sha256"),
+        "tokenizer_hash": arts.get("tokenizer_sha256"),
         "metrics": extra.get("metrics"),
         "pass": extra.get("pass"),
-        "artifacts": extra.get("artifacts") or {},
+        "artifacts": arts,
     }
     d = runs_dir(train)
     path = d / (rid + ".json")
@@ -130,6 +137,8 @@ def write_run(train: Path, extra: dict) -> str:
 
 
 def update_last_run(train: Path, extra: dict) -> str:
+    from protocol import metrics as aq_metrics
+
     last = runs_dir(train) / "last.json"
     if not last.is_file():
         return write_run(train, extra)
@@ -140,6 +149,8 @@ def update_last_run(train: Path, extra: dict) -> str:
         body["pass"] = extra["pass"]
     arts = dict(body.get("artifacts") or {})
     arts.update(extra.get("artifacts") or {})
+    for k, v in aq_metrics.take_autolog_artifacts().items():
+        arts.setdefault(k, v)
     body["artifacts"] = arts
     last.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
     rid = body.get("id")

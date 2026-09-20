@@ -31,6 +31,10 @@ _state: dict[str, Any] = {
     "step_widths": None,
 }
 
+# Survives end() so write_run can attach console / estimator paths.
+_last_autolog_artifacts: dict[str, str] = {}
+_last_run_id: str | None = None
+
 
 def metrics_path(train: Path) -> Path:
     return art_dir(train) /  "metrics.jsonl"
@@ -54,6 +58,11 @@ def _reset_tuis() -> None:
     eval_tui.reset()
 
 
+def active_run_id() -> str | None:
+    rid = _state.get("run_id") or _last_run_id
+    return str(rid) if rid else None
+
+
 def begin(
     train: Path,
     *,
@@ -63,8 +72,16 @@ def begin(
     **meta: Any,
 ) -> str:
     """Start a metrics session for this process. Returns run_id."""
+    from protocol import autolog
+
     _reset_tuis()
-    rid = run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    rh = meta.get("recipe_hash")
+    if isinstance(rh, str) and len(rh) >= 8:
+        default_rid = stamp + "-" + rh[-8:]
+    else:
+        default_rid = stamp
+    rid = run_id or default_rid
     cfg = parse_guard(recipe or {})
     _state["train"] = Path(train)
     _state["run_id"] = rid
@@ -100,11 +117,23 @@ def begin(
         guard_leak=bool(cfg.get("leak")),
         **{k: v for k, v in meta.items() if v is not None},
     )
+    # Autolog after start so params land under the same run_id.
+    autolog.install(Path(train), recipe=recipe, op=op)
     return rid
 
 
-def end(**meta: Any) -> None:
-    emit("end", **{k: v for k, v in meta.items() if v is not None})
+def end(**meta: Any) -> dict[str, str]:
+    """Finish autolog + emit end. Returns autolog artifact paths for write_run."""
+    global _last_autolog_artifacts, _last_run_id
+    from protocol import autolog
+
+    _last_run_id = str(_state["run_id"]) if _state.get("run_id") else None
+    arts = autolog.finish()
+    _last_autolog_artifacts = dict(arts)
+    merged = {k: v for k, v in meta.items() if v is not None}
+    if arts.get("console") and "console" not in merged:
+        merged["console"] = arts["console"]
+    emit("end", **merged)
     _reset_tuis()
     for k in list(_state.keys()):
         if k in ("step_header", "epoch_header"):
@@ -113,6 +142,16 @@ def end(**meta: Any) -> None:
             _state[k] = -1
         else:
             _state[k] = None
+    return dict(arts)
+
+
+def take_autolog_artifacts() -> dict[str, str]:
+    """Consume artifact map left by the last end() (for write_run)."""
+    global _last_autolog_artifacts, _last_run_id
+    arts = dict(_last_autolog_artifacts)
+    _last_autolog_artifacts = {}
+    _last_run_id = None
+    return arts
 
 
 def emit(event: str, **fields: Any) -> None:
@@ -177,6 +216,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         if tui is not None and event in (
             "start",
             "info",
+            "params",
             "step",
             "epoch",
             "end",
@@ -186,7 +226,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 tui.on_start(body)
-            elif event == "info":
+            elif event in ("info", "params"):
                 tui.on_info(body)
             elif event == "step":
                 tui.on_step(body)
@@ -211,12 +251,15 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         print_kv(rows)
         return
 
-    if event == "info":
+    if event in ("info", "params"):
         rows = [
             (k, v)
             for k, v in body.items()
             if k not in ("ts", "event", "run_id", "op", "elapsed_ms") and v is not None
         ]
+        # Params can be long — show a short head in non-TUI mode.
+        if event == "params" and len(rows) > 12:
+            rows = rows[:12] + [("…", f"+{len(rows) - 12} more")]
         if rows:
             print_kv(rows)
         return

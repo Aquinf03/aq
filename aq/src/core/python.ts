@@ -166,7 +166,7 @@ function popFlag(rest: string[], flag: string): { value?: string; rest: string[]
   }
 }
 
-export async function kernelStep(step: string, argv: string[]): Promise<void> {
+export async function kernelStep(step: string, argv: string[]): Promise<string> {
   let rest = argv
   const ck = popFlag(rest, "--ckpt")
   rest = ck.rest
@@ -217,5 +217,7 @@ export async function kernelStep(step: string, argv: string[]): Promise<void> {
   if (image.value) req.image = image.value
   if (mt.value !== undefined) req.max_tokens = Number(mt.value)
   if (temp.value !== undefined) req.temperature = Number(temp.value)
-  await runKernel(openRun(train).root, req)
+  const root = openRun(train).root
+  await runKernel(root, req)
+  return root
 }

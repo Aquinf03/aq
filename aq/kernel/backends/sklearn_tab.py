@@ -78,22 +78,25 @@ def _reg_out(kind: str, feats: list[str], est, y, X) -> dict:
 
 def _persist(est, payload: dict, rec: dict) -> dict:
     train = rec.get("_train")
-    if not train:
-        return payload
-    try:
-        import joblib
-    except ImportError:
-        return payload
-    root = Path(train)
-    dest = ckpt_dir(root)
-    dest.mkdir(parents=True, exist_ok=True)
-    n = 1 + sum(1 for p in dest.glob("*.json") if p.name != "last.json")
-    slot = dest / str(n)
-    slot.mkdir(parents=True, exist_ok=True)
-    path = slot / "estimator.joblib"
-    joblib.dump(est, path)
-    payload["estimator_path"] = str(path.relative_to(root))
-    payload["weights_dir"] = str(slot.relative_to(root))
+    if train:
+        try:
+            import joblib
+        except ImportError:
+            joblib = None
+        if joblib is not None:
+            root = Path(train)
+            dest = ckpt_dir(root)
+            dest.mkdir(parents=True, exist_ok=True)
+            n = 1 + sum(1 for p in dest.glob("*.json") if p.name != "last.json")
+            slot = dest / str(n)
+            slot.mkdir(parents=True, exist_ok=True)
+            path = slot / "estimator.joblib"
+            joblib.dump(est, path)
+            payload["estimator_path"] = str(path.relative_to(root))
+            payload["weights_dir"] = str(slot.relative_to(root))
+    from protocol import autolog
+
+    autolog.after_estimator(est, payload)
     return payload
 
 

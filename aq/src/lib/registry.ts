@@ -143,6 +143,7 @@ export const CLI_VERBS: ToolCard[] = [
   { name: "aq_help", source: "cli", description: "CLI help text. Native aq help." },
   { name: "aq_init", source: "cli", description: "Create a run folder (recipe.yaml + example.py + artifacts/); does not dump into cwd." },
   { name: "aq_status", source: "cli", description: "Last run, eval, metrics." },
+  { name: "aq_track", source: "cli", description: "Browse/follow experiments; also auto-printed after aq train / aq eval." },
   { name: "aq_train", source: "cli", description: "Fit locally. Writes artifacts/checkpoints/last.json." },
   { name: "aq_eval", source: "cli", description: "Score evals/. Human approves each mutating step." },
   { name: "aq_checkpoint", source: "cli", description: "List or keep a checkpoint." },

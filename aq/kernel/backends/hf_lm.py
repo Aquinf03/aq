@@ -29,7 +29,6 @@ from backends.device import (
 from backends.deps import require_peft, require_torch, require_transformers
 from backends.recipe_opt import opt
 from backends.tok_train import ensure_mask_token, ensure_pad_token, load_hf_tokenizer, train_tokenizer
-from protocol import metrics as aq_metrics
 
 
 def resolve_model_id(rec: dict, *, arch: str = "causal") -> str:
@@ -632,15 +631,7 @@ def fit(src: Path, rec: dict, *, method_name: str | None = None) -> dict:
         ta_kw.pop("dataloader_pin_memory", None)
         training_args = transformers.TrainingArguments(**ta_kw)
 
-    class _MetricsCallback(transformers.TrainerCallback):
-        def on_log(self, args, state, control, logs=None, **kwargs):
-            if not logs or logs.get("loss") is None or state.global_step is None:
-                return
-            aq_metrics.step(
-                step=int(state.global_step),
-                loss=float(logs["loss"]),
-                lr=float(logs.get("learning_rate") or lr),
-            )
+    from protocol.autolog import hf_trainer_callback
 
     req_dtype = default_dtype(rec)
     if str(req_dtype) != str(load_dtype):
@@ -662,7 +653,7 @@ def fit(src: Path, rec: dict, *, method_name: str | None = None) -> dict:
         args=training_args,
         train_dataset=ds,
         data_collator=collator,
-        callbacks=[_MetricsCallback()],
+        callbacks=[hf_trainer_callback()],
     )
     try:
         result = trainer.train()

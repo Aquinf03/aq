@@ -127,6 +127,10 @@ def do_train(train: Path) -> list[str]:
         if hasattr(mod, "write_inspect"):
             arts["inspect"] = mod.write_inspect(train, model)
         summary = aq_metrics.model_summary(model)
+        from protocol import autolog
+
+        for k, v in list(arts.items()):
+            autolog.log_artifact(k, v)
         aq_metrics.end(
             checkpoint=arts["checkpoint"],
             **summary,

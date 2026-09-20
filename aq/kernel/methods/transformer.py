@@ -19,7 +19,7 @@ from backends.deps import require_torch, require_transformers
 from backends.hf_lm import resolve_model_id
 from backends.recipe_opt import opt
 from backends.tok_train import ensure_pad_token
-from protocol import metrics as aq_metrics
+from protocol.autolog import hf_trainer_callback
 
 
 def _rows(path: Path) -> list[dict]:
@@ -119,12 +119,9 @@ def fit(src: Path, rec: dict) -> dict:
             **prec,
         )
 
-        class CB(transformers.TrainerCallback):
-            def on_log(self, args, state, control, logs=None, **kwargs):
-                if logs and logs.get("loss") is not None:
-                    aq_metrics.step(step=int(state.global_step), loss=float(logs["loss"]), lr=lr)
-
-        trainer = transformers.Trainer(model=model, args=args, train_dataset=DS(), callbacks=[CB()])
+        trainer = transformers.Trainer(
+            model=model, args=args, train_dataset=DS(), callbacks=[hf_trainer_callback()]
+        )
         result = trainer.train()
         model_dir = slot / "model"
         model.save_pretrained(str(model_dir))
@@ -186,12 +183,9 @@ def fit(src: Path, rec: dict) -> dict:
             **prec,
         )
 
-        class CB(transformers.TrainerCallback):
-            def on_log(self, args, state, control, logs=None, **kwargs):
-                if logs and logs.get("loss") is not None:
-                    aq_metrics.step(step=int(state.global_step), loss=float(logs["loss"]), lr=lr)
-
-        trainer = transformers.Trainer(model=model, args=args, train_dataset=DS(), callbacks=[CB()])
+        trainer = transformers.Trainer(
+            model=model, args=args, train_dataset=DS(), callbacks=[hf_trainer_callback()]
+        )
         result = trainer.train()
         model_dir = slot / "model"
         model.save_pretrained(str(model_dir))

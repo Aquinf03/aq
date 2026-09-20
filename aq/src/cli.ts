@@ -7,6 +7,7 @@ import { data } from "./handle/data.js"
 import { plot } from "./handle/plot.js"
 import { checkpoint, evalCmd, serve, train } from "./handle/step.js"
 import { status } from "./handle/status.js"
+import { track } from "./handle/track.js"
 import { addCmd, placesCmd } from "./fleet/add.js"
 import { goCmd, launchCmd, shutdownCmd, syncCmd } from "./fleet/launch.js"
 import { jobsCmd } from "./fleet/jobs.js"
@@ -100,6 +101,11 @@ async function main(): Promise<void> {
 
   if (cmd === "status") {
     await status(argv.slice(1))
+    return
+  }
+
+  if (cmd === "track") {
+    await track(argv.slice(1))
     return
   }
 
