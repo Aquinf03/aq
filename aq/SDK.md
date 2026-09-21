@@ -72,6 +72,34 @@ aq.eval()
 
 Optional class style: `Run` → same `recipe.yaml`.
 
+## Autolog (framework integrations)
+
+One call turns on hooks for whatever ML libs are importable. Metrics land in `artifacts/metrics.jsonl` (same store as `aq train`).
+
+```python
+from aquin import autolog, log_metric, frameworks
+
+autolog()                       # all available: sklearn, transformers, xgboost, …
+# autolog("sklearn", "xgboost") # subset
+print(frameworks())             # catalog + active hooks
+
+# Optional: standalone script in a run folder (starts a metrics session)
+# autolog(train=".")
+# … normal model.fit / Trainer.train …
+# from aquin import finish_autolog; finish_autolog()
+```
+
+Also automatic inside `aq train` / `Aquin.train()` — no extra call required.
+
+| Adapter | What it hooks |
+|---------|----------------|
+| sklearn | `BaseEstimator.fit` → params + train MSE step when possible |
+| transformers | `Trainer` gets aq metrics callback |
+| xgboost / lightgbm / catboost | fit callbacks / post-fit params |
+| keras / tensorflow | `Model.fit` epoch callback |
+| pytorch-lightning | Trainer logger |
+| torch | only if `AQ_TORCH_AUTOLOG=1` (Optimizer.step heartbeat) |
+
 ## Plot
 
 ```python

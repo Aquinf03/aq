@@ -50,6 +50,7 @@ def install(train: Path, recipe: dict | None = None, **meta: Any) -> None:
     _state["train"] = train
     _state["artifacts"] = {}
     _state["params_logged"] = False
+    _state["_logged_estimators"] = set()
     _open_console(train)
     params = _recipe_params(recipe or {})
     for k, v in meta.items():
@@ -97,8 +98,18 @@ def log_artifact(key: str, path: str | Path) -> None:
 def after_estimator(est: Any, payload: dict[str, Any]) -> None:
     """Sklearn / boosting hook: params + one loss step + estimator artifact."""
     if not enabled():
-        return
+        # Still allow when metrics session is live (framework patch outside aq train).
+        from protocol import metrics as aq_metrics
+
+        if aq_metrics.active_run_id() is None:
+            return
     from protocol import metrics as aq_metrics
+
+    eid = id(est)
+    seen = _state.setdefault("_logged_estimators", set())
+    if eid in seen:
+        return
+    seen.add(eid)
 
     try:
         raw = est.get_params(deep=False)

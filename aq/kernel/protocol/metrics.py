@@ -119,6 +119,14 @@ def begin(
     )
     # Autolog after start so params land under the same run_id.
     autolog.install(Path(train), recipe=recipe, op=op)
+    try:
+        from protocol import integrations
+
+        hooked = integrations.install()
+        if hooked:
+            emit("integrations", frameworks=hooked)
+    except Exception:
+        pass
     return rid
 
 
@@ -219,6 +227,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "params",
             "code",
             "env",
+            "integrations",
             "step",
             "epoch",
             "end",
@@ -228,7 +237,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 tui.on_start(body)
-            elif event in ("info", "params", "code", "env"):
+            elif event in ("info", "params", "code", "env", "integrations"):
                 tui.on_info(body)
             elif event == "step":
                 tui.on_step(body)
@@ -253,7 +262,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         print_kv(rows)
         return
 
-    if event in ("info", "params", "code", "env"):
+    if event in ("info", "params", "code", "env", "integrations"):
         rows = [
             (k, v)
             for k, v in body.items()
@@ -262,6 +271,8 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         # Params can be long — show a short head in non-TUI mode.
         if event == "params" and len(rows) > 12:
             rows = rows[:12] + [("…", f"+{len(rows) - 12} more")]
+        if event == "integrations" and "frameworks" in body:
+            rows = [("frameworks", ", ".join(str(x) for x in (body.get("frameworks") or [])))]
         if rows:
             print_kv(rows)
         return

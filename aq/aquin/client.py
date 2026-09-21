@@ -138,10 +138,23 @@ class Aquin:
 
     def train(self, *, stream: bool = False) -> list[str] | Iterator[str]:
         """Fit the recipe. Writes checkpoints under artifacts/checkpoints/."""
+        # Ensure framework hooks are on for this process (also installed in metrics.begin).
+        try:
+            from aquin.autolog import autolog as _autolog
+
+            _autolog()
+        except Exception:
+            pass
         if stream:
             lines = bridge.invoke(self._handle, "train")
             return iter(lines)
         return bridge.invoke(self._handle, "train")
+
+    def autolog(self, *frameworks: str) -> list[str]:
+        """Enable framework integrations for this run folder."""
+        from aquin.autolog import autolog as _autolog
+
+        return _autolog(*frameworks, train=self.root)
 
     def eval(self, name: str | None = None, *, ckpt: str | None = None) -> list[str]:
         """Score probes in evals/ (or training gate)."""
