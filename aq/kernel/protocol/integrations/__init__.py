@@ -156,6 +156,13 @@ def _torch(disable: bool) -> bool:
     return torch_hook.apply(disable=disable)
 
 
+@_register("spark", "pyspark", "spark-ml", "sparkml")
+def _spark(disable: bool) -> bool:
+    from protocol.integrations import spark_hook
+
+    return spark_hook.apply(disable=disable)
+
+
 def catalog() -> dict[str, Any]:
     """Names we know about (installed adapters + aliases). For docs / doctor."""
     by_fn: dict[int, list[str]] = {}

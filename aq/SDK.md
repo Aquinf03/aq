@@ -98,6 +98,7 @@ Also automatic inside `aq train` / `Aquin.train()` — no extra call required.
 | xgboost / lightgbm / catboost | fit callbacks / post-fit params |
 | keras / tensorflow | `Model.fit` epoch callback |
 | pytorch-lightning | Trainer logger |
+| spark / pyspark | `pyspark.ml.Estimator.fit` → params (+ summary loss when present) |
 | torch | only if `AQ_TORCH_AUTOLOG=1` (Optimizer.step heartbeat) |
 
 ## Plot
