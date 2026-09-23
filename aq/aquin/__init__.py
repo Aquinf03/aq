@@ -2,7 +2,22 @@
 
 from __future__ import annotations
 
-from aquin.autolog import autolog, disable as disable_autolog, finish as finish_autolog, frameworks, log_artifact, log_metric, log_params
+from aquin.autolog import (
+    add_tags,
+    autolog,
+    clear_tags,
+    disable as disable_autolog,
+    finish as finish_autolog,
+    frameworks,
+    get_notes,
+    get_tags,
+    log_artifact,
+    log_metric,
+    log_metrics,
+    log_params,
+    set_notes,
+    set_tags,
+)
 from aquin.client import Aquin
 from aquin.fleet import Job, Place, Queue
 from aquin.flow import Run
@@ -16,14 +31,21 @@ __all__ = [
     "Queue",
     "Run",
     "RunHandle",
+    "add_tags",
     "autolog",
+    "clear_tags",
     "disable_autolog",
     "finish_autolog",
     "frameworks",
+    "get_notes",
+    "get_tags",
     "init_run",
     "log_artifact",
     "log_metric",
+    "log_metrics",
     "log_params",
     "open_run",
+    "set_notes",
+    "set_tags",
 ]
 __version__ = "0.1.0"

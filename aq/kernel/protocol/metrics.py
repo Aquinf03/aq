@@ -118,6 +118,9 @@ def begin(
         **{k: v for k, v in meta.items() if v is not None},
     )
     # Autolog after start so params land under the same run_id.
+    from protocol import runlog
+
+    runlog.reset()
     autolog.install(Path(train), recipe=recipe, op=op)
     try:
         from protocol import integrations
@@ -228,6 +231,9 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "code",
             "env",
             "integrations",
+            "tags",
+            "notes",
+            "metric",
             "step",
             "epoch",
             "end",
@@ -237,7 +243,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 tui.on_start(body)
-            elif event in ("info", "params", "code", "env", "integrations"):
+            elif event in ("info", "params", "code", "env", "integrations", "tags", "notes", "metric"):
                 tui.on_info(body)
             elif event == "step":
                 tui.on_step(body)
@@ -262,7 +268,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         print_kv(rows)
         return
 
-    if event in ("info", "params", "code", "env", "integrations"):
+    if event in ("info", "params", "code", "env", "integrations", "tags", "notes", "metric"):
         rows = [
             (k, v)
             for k, v in body.items()
@@ -273,6 +279,10 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             rows = rows[:12] + [("…", f"+{len(rows) - 12} more")]
         if event == "integrations" and "frameworks" in body:
             rows = [("frameworks", ", ".join(str(x) for x in (body.get("frameworks") or [])))]
+        if event == "tags":
+            rows = [("tags", ", ".join(str(x) for x in (body.get("tags") or [])))]
+        if event == "notes":
+            rows = [("notes", str(body.get("notes") or "")[:120])]
         if rows:
             print_kv(rows)
         return

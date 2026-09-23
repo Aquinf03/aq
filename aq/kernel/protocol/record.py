@@ -107,6 +107,15 @@ def write_summary(d: Path, body: dict) -> None:
             lines.append("env_requirements: " + str(env.get("requirements")))
         if env.get("archive"):
             lines.append("env_archive: " + str(env.get("archive")))
+    tags = body.get("tags") or []
+    if tags:
+        lines.append("tags: " + ", ".join(str(t) for t in tags))
+    notes = body.get("notes")
+    if notes:
+        lines.append("notes: " + str(notes).replace("\n", " ")[:200])
+    params = body.get("params") or {}
+    if isinstance(params, dict) and params:
+        lines.append("params: " + str(len(params)) + " keys")
     for k, v in arts.items():
         lines.append(str(k) + ": " + str(v))
     lines.append("")
@@ -157,6 +166,15 @@ def write_run(train: Path, extra: dict) -> str:
         body["code"] = code_meta
     if env_meta:
         body["env"] = env_meta
+    from protocol import runlog
+
+    meta = runlog.snapshot()
+    if meta.get("tags"):
+        body["tags"] = meta["tags"]
+    if meta.get("notes") is not None:
+        body["notes"] = meta["notes"]
+    if meta.get("params"):
+        body["params"] = meta["params"]
     d = runs_dir(train)
     path = d / (rid + ".json")
     path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")

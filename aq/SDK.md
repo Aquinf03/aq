@@ -77,16 +77,11 @@ Optional class style: `Run` → same `recipe.yaml`.
 One call turns on hooks for whatever ML libs are importable. Metrics land in `artifacts/metrics.jsonl` (same store as `aq train`).
 
 ```python
-from aquin import autolog, log_metric, frameworks
+from aquin import autolog, frameworks
 
 autolog()                       # all available: sklearn, transformers, xgboost, …
 # autolog("sklearn", "xgboost") # subset
 print(frameworks())             # catalog + active hooks
-
-# Optional: standalone script in a run folder (starts a metrics session)
-# autolog(train=".")
-# … normal model.fit / Trainer.train …
-# from aquin import finish_autolog; finish_autolog()
 ```
 
 Also automatic inside `aq train` / `Aquin.train()` — no extra call required.
@@ -100,6 +95,26 @@ Also automatic inside `aq train` / `Aquin.train()` — no extra call required.
 | pytorch-lightning | Trainer logger |
 | spark / pyspark | `pyspark.ml.Estimator.fit` → params (+ summary loss when present) |
 | torch | only if `AQ_TORCH_AUTOLOG=1` (Optimizer.step heartbeat) |
+
+## Params / metrics / tags / notes
+
+Explicit logging API (W&B / MLflow-shaped). Same folder store: `metrics.jsonl` + `runs/<id>.json`.
+
+```python
+from aquin import Aquin, log_params, log_metrics, set_tags, set_notes, finish_autolog
+
+aq = Aquin(".")
+aq.log_params({"lr": 1e-3, "batch": 32})
+aq.log_metrics({"loss": 0.42, "acc": 0.91}, step=10)
+aq.set_tags("baseline", "gpu")
+aq.set_notes("lower LR after loss spike")
+
+# module-level (uses cwd run or active session):
+log_params({"seed": 0})
+log_metrics({"val_loss": 0.5}, step=10)
+set_tags("ablation")
+set_notes("…")
+```
 
 ## Plot
 

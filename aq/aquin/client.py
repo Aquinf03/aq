@@ -156,6 +156,34 @@ class Aquin:
 
         return _autolog(*frameworks, train=self.root)
 
+    def log_params(self, params: dict[str, Any]) -> None:
+        from aquin.autolog import log_params as _log_params
+
+        _log_params(params, train=self.root)
+
+    def log_metric(self, key: str, value: float | int, *, step: int | None = None) -> None:
+        from aquin.autolog import log_metric as _log_metric
+
+        _log_metric(key, value, step=step, train=self.root)
+
+    def log_metrics(self, metrics: dict[str, Any], *, step: int | None = None) -> None:
+        from aquin.autolog import log_metrics as _log_metrics
+
+        _log_metrics(metrics, step=step, train=self.root)
+
+    def set_tags(self, *tags: str, replace: bool = False) -> list[str]:
+        from aquin.autolog import set_tags as _set_tags
+
+        return _set_tags(*tags, replace=replace, train=self.root)
+
+    def add_tags(self, *tags: str) -> list[str]:
+        return self.set_tags(*tags, replace=False)
+
+    def set_notes(self, text: str | None) -> str:
+        from aquin.autolog import set_notes as _set_notes
+
+        return _set_notes(text, train=self.root)
+
     def eval(self, name: str | None = None, *, ckpt: str | None = None) -> list[str]:
         """Score probes in evals/ (or training gate)."""
         return bridge.invoke(self._handle, "eval", probe=name, ckpt=ckpt)
