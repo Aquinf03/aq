@@ -204,6 +204,29 @@ class TrainTui:
         if info.get("error"):
             lines.append(f"  {_BOLD}error  {info['error']}{_RESET}")
 
+        # Step-aligned loss (and lr) curves — live plot in the TUI, not the browser.
+        chart_w = max(24, min(inner - 8, 56))
+        losses = [
+            float(s["loss"])
+            for s in self.steps
+            if s.get("loss") is not None
+            and _finite(s.get("loss"))
+        ]
+        if losses:
+            lines.append("")
+            lines.append(f"  {_DIM}loss @ step{_RESET}")
+            for row in _step_chart(losses, width=chart_w, height=4):
+                lines.append(f"  {_GREEN}{row}{_RESET}")
+            lines.append(f"  {_DIM}{fmt_cell(min(losses))}{_RESET}" + " " * max(0, chart_w - 12) + f"{_DIM}{fmt_cell(max(losses))}{_RESET}")
+            lines.append(f"  {_DIM}loss  {_RESET}{_GREEN}{_sparkline(losses, chart_w)}{_RESET}")
+        lrs = [
+            float(s["lr"])
+            for s in self.steps
+            if s.get("lr") is not None and _finite(s.get("lr"))
+        ]
+        if lrs and len(lrs) >= 2:
+            lines.append(f"  {_DIM}lr    {_RESET}{_sparkline(lrs, chart_w)}")
+
         # step table — stretch to full inner width
         headers = ["step", "loss", "lr", "acc", "epoch", "time"]
         rows = self.steps[-self.max_rows :]
@@ -307,6 +330,59 @@ class TrainTui:
         out.write("\n".join(frame) + "\n")
         out.flush()
         self._lines = len(frame)
+
+
+def _finite(v: Any) -> bool:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return False
+    return x == x and x not in (float("inf"), float("-inf"))
+
+
+def _sparkline(values: list[float], width: int = 40) -> str:
+    if not values:
+        return "(no steps)"
+    chars = "▁▂▃▄▅▆▇█"
+    slice_ = values[-width:] if len(values) > width else values
+    lo = min(slice_)
+    hi = max(slice_)
+    if lo == hi:
+        return "▄" * len(slice_)
+    out = []
+    for v in slice_:
+        t = (v - lo) / (hi - lo)
+        out.append(chars[max(0, min(len(chars) - 1, int(round(t * (len(chars) - 1)))))])
+    return "".join(out)
+
+
+def _step_chart(values: list[float], *, width: int = 40, height: int = 4) -> list[str]:
+    """Multi-row block chart; x = sample index (step-aligned window)."""
+    if not values or height < 2 or width < 4:
+        return []
+    slice_ = values[-width:] if len(values) > width else list(values)
+    # resample to width columns
+    n = len(slice_)
+    cols: list[float] = []
+    for i in range(width):
+        j = int(i * (n - 1) / max(1, width - 1)) if width > 1 else 0
+        cols.append(slice_[min(j, n - 1)])
+    lo = min(cols)
+    hi = max(cols)
+    if lo == hi:
+        mid = height // 2
+        return [("▄" * width if r == mid else " " * width) for r in range(height)]
+    rows: list[list[str]] = [[" " for _ in range(width)] for _ in range(height)]
+    for x, v in enumerate(cols):
+        t = (v - lo) / (hi - lo)
+        y = int(round((1.0 - t) * (height - 1)))
+        y = max(0, min(height - 1, y))
+        rows[y][x] = "█"
+        # light fill under the curve
+        for yy in range(y + 1, height):
+            if rows[yy][x] == " ":
+                rows[yy][x] = "·"
+    return ["".join(r) for r in rows]
 
 
 def _visible_len(s: str) -> int:
