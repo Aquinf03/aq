@@ -8,7 +8,7 @@
  *
  * Or set manually:
  *   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
- *   AQUIN_R2_BUCKET (default: aqfw-releases)
+ *   AQUIN_R2_BUCKET (default: releases)
  *
  * Usage:
  *   ./scripts/helpers/download-metrics.sh
@@ -21,7 +21,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GetObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
 
-const DEFAULT_BUCKET = "aqfw-releases";
+const DEFAULT_BUCKET = "releases";
 const METRICS_PREFIX = "metrics/events/";
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 

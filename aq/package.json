@@ -1,6 +1,6 @@
 {
   "name": "aq",
-  "version": "0.0.4",
+  "version": "0.0.2",
   "description": "Aquin CLI. The current directory is the train.",
   "type": "module",
   "bin": {

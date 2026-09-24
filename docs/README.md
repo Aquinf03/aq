@@ -14,6 +14,6 @@ docs/
 
 - Docs home: [`documentation/`](documentation/)
 - SSH fleet: [`documentation/fleet/`](documentation/fleet/) — keep aligned with `aq help` + `aq/SDK.md` (also CLI / jobs pages)
-- Changelog: [`changelog/`](changelog/) — markdown notes (`v0.0.5.md`, `versions/`) plus `index.html` for Pages. Indexed from root [`CHANGELOG.md`](../CHANGELOG.md).
+- Changelog: [`changelog/`](changelog/) — markdown notes (`v0.0.2.md`, `versions/`) plus `index.html` for Pages. Indexed from root [`CHANGELOG.md`](../CHANGELOG.md).
 
 Root URL `https://aquinf03.github.io/aq/` redirects into `documentation/`. Changelog: `…/aq/changelog/`.

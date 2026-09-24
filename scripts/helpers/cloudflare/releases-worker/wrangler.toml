@@ -4,7 +4,7 @@ compatibility_date = "2024-08-01"
 
 [[r2_buckets]]
 binding = "RELEASES"
-bucket_name = "aqfw-releases"
+bucket_name = "releases"
 
 [[routes]]
 pattern = "aq.aquin.app/releases/*"

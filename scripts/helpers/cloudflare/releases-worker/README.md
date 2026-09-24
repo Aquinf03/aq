@@ -12,7 +12,7 @@ Each successful download writes a small JSON event under `metrics/events/YYYY-MM
 
 ## One-time setup
 
-1. Create R2 bucket **`aqfw-releases`** (Cloudflare dashboard → R2).
+1. Create R2 bucket **`releases`** (Cloudflare dashboard → R2).
 
 2. Deploy the worker:
 
@@ -36,7 +36,7 @@ Each successful download writes a small JSON event under `metrics/events/YYYY-MM
 4. Upload the install script once (also done automatically on every release):
 
    ```bash
-   wrangler r2 object put aqfw-releases/framework/install.sh \
+   wrangler r2 object put releases/framework/install.sh \
      --file=../../../install.sh \
      --content-type "text/x-shellscript; charset=utf-8" \
      --remote
@@ -44,7 +44,7 @@ Each successful download writes a small JSON event under `metrics/events/YYYY-MM
 
 5. Optional — **Cloudflare Access** on `/releases/*` so only your team can download. Install script stays public; tarball is gated.
 
-6. Optional — create an **R2 API token** with Object Read on `aqfw-releases` to query download metrics locally (see below).
+6. Optional — create an **R2 API token** with Object Read on `releases` to query download metrics locally (see below).
 
 ## Publish a release
 
@@ -53,7 +53,7 @@ From repo root:
 ```bash
 chmod +x scripts/helpers/release.sh
 ./scripts/helpers/release.sh latest          # → aq-latestv.tar.gz
-./scripts/helpers/release.sh 0.0.1           # → aq-0.0.1v.tar.gz + updates aq-latestv.tar.gz
+./scripts/helpers/release.sh 0.0.2           # → aq-0.0.2v.tar.gz + updates aq-latestv.tar.gz
 ```
 
 Uploads tarball(s) and `framework/install.sh`. Requires `wrangler login`.
@@ -88,13 +88,13 @@ Query from your machine with R2 credentials:
 export R2_ACCOUNT_ID=...
 export R2_ACCESS_KEY_ID=...
 export R2_SECRET_ACCESS_KEY=...
-# optional: export AQUIN_R2_BUCKET=aqfw-releases
+# optional: export AQUIN_R2_BUCKET=releases
 
 ./scripts/helpers/download-metrics.sh
 ./scripts/helpers/download-metrics.sh --days 7
 ./scripts/helpers/download-metrics.sh --since 2026-09-01
 ```
 
-Create the token in Cloudflare → R2 → Manage R2 API Tokens → Object Read on `aqfw-releases`.
+Create the token in Cloudflare → R2 → Manage R2 API Tokens → Object Read on `releases`.
 
 Metrics only start accumulating after the updated worker is deployed. Historical downloads before that are not backfilled.

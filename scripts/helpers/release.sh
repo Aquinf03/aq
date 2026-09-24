@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Build a framework tarball and upload to Cloudflare R2 (aqfw-releases bucket).
+# Build a framework tarball and upload to Cloudflare R2 (releases bucket).
 # Requires: wrangler logged in, bucket created (see scripts/helpers/cloudflare/releases-worker/README.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERSION="${1:-latest}"
-BUCKET="${AQUIN_R2_BUCKET:-aqfw-releases}"
+BUCKET="${AQUIN_R2_BUCKET:-releases}"
 
 release_object_name() {
   echo "aq-${1}v.tar.gz"
