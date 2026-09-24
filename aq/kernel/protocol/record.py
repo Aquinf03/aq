@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from protocol.recipe import load_recipe
-from protocol.revision import hash_file, hash_tree
+from protocol.revision import data_identity, hash_file
 from protocol.paths import art_dir
 
 
@@ -19,20 +19,12 @@ def recipe_hash(train: Path) -> tuple[str, str]:
 
 
 def data_hash(train: Path, rec: dict) -> str | None:
-    rel = (rec.get("data") or {}).get("path")
-    if not rel:
+    """Back-compat: sha string only. Prefer data_identity() for the rich block."""
+    ident = data_identity(train, rec, refresh=False)
+    if not ident:
         return None
-    src = (train / str(rel)).resolve()
-    if not src.exists():
-        return None
-    rev = train / "data" / "revision.json"
-    if rev.is_file():
-        try:
-            return json.loads(rev.read_text(encoding="utf-8")).get("hash")
-        except json.JSONDecodeError:
-            pass
-    digest, _, _ = hash_tree(src)
-    return "sha256:" + digest
+    h = ident.get("hash")
+    return str(h) if h else None
 
 
 def code_hash(train: Path) -> str:
@@ -95,6 +87,14 @@ def write_summary(d: Path, body: dict) -> None:
         "score: " + str(m.get("score") if m.get("score") is not None else "-"),
         "verdict: " + verdict,
     ]
+    data = body.get("data") or {}
+    if isinstance(data, dict):
+        if data.get("n") is not None:
+            lines.append("data_n: " + str(data.get("n")))
+        if data.get("n_columns") is not None:
+            lines.append("data_cols: " + str(data.get("n_columns")))
+        if data.get("target"):
+            lines.append("data_target: " + str(data.get("target")))
     code = body.get("code") or {}
     if isinstance(code, dict) and code.get("tree"):
         lines.append("code_tree: " + str(code.get("tree")))
@@ -150,18 +150,21 @@ def write_run(train: Path, extra: dict) -> str:
             arts.setdefault("env_archive", env_meta.get("archive"))
         if env_meta.get("manifest"):
             arts.setdefault("env_manifest", env_meta.get("manifest"))
+    data_meta = data_identity(train, rec, refresh=False)
     body = {
         "id": rid,
         "at": datetime.now(timezone.utc).isoformat(),
         "recipe": rec,
         "recipe_hash": rh,
-        "data_hash": data_hash(train, rec),
+        "data_hash": (data_meta or {}).get("hash"),
         "code_hash": code_hash(train),
         "tokenizer_hash": arts.get("tokenizer_sha256"),
         "metrics": extra.get("metrics"),
         "pass": extra.get("pass"),
         "artifacts": arts,
     }
+    if data_meta:
+        body["data"] = data_meta
     if code_meta:
         body["code"] = code_meta
     if env_meta:

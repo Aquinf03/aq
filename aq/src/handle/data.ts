@@ -7,7 +7,7 @@ export async function data(argv: string[]): Promise<void> {
   const sub = argv[0]
   if (!sub || sub === "help" || sub === "-h" || sub === "--help") {
     console.log("aq data\n")
-    console.log("  aq data hash [dir] [--snapshot]   hash recipe data.path")
+    console.log("  aq data hash [dir] [--snapshot]   hash + inspect recipe data.path (CLI table → data/revision.json)")
     return
   }
   if (sub !== "hash") {

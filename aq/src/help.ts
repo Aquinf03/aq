@@ -26,7 +26,7 @@ export function help(): string {
     "  aq provider use <name>  switch",
     "  aq init                 new run folder aq-run (or -new1, -new2, …)",
     "  aq init <name>          same, named folder (also -newN if taken)",
-    "  aq data hash [dir] [--snapshot]  hash recipe data.path",
+    "  aq data hash [dir] [--snapshot]  hash + inspect data.path (table → data/revision.json)",
     "  aq train [dir] [--tracker] [--capture-code] [--capture-env[=lock|full]]",
     "                          --capture-code → artifacts/code/tree.tgz",
     "                          --capture-env → artifacts/env/ (lock=pip freeze; full=7z venv)",

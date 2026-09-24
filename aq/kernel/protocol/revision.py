@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Hash the data the recipe points at. Optional snapshot under data/revisions/."""
+"""Hash + inspect recipe data.path. Writes data/revision.json; CLI shows a clear table."""
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import shutil
-import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from protocol.recipe import load_recipe
 from protocol.paths import art_dir
@@ -74,37 +76,206 @@ def snapshot_copy(src: Path, dest: Path) -> None:
         shutil.copy2(f, out)
 
 
-def hash_train(train: Path, snapshot: bool = False) -> list[str]:
-    rec = load_recipe(train)
-    rel = str((rec.get("data") or {}).get("path"))
+def inspect_data(src: Path, data_cfg: dict | None = None) -> dict[str, Any]:
+    """Lightweight schema / count stats (no second full pass beyond what we need)."""
+    cfg = data_cfg if isinstance(data_cfg, dict) else {}
+    out: dict[str, Any] = {"kind": "file" if src.is_file() else "dir"}
+    target = cfg.get("target")
+    if target is not None:
+        out["target"] = str(target)
+    for key in ("text", "src", "tgt", "prompt", "completion", "image"):
+        if cfg.get(key) is not None:
+            out[key] = str(cfg[key])
+
+    if src.is_dir():
+        files = [p for p in src.rglob("*") if p.is_file() and not skip_rel(p.relative_to(src).as_posix())]
+        out["n_files"] = len(files)
+        # ImageFolder-ish: top-level class dirs
+        subs = [p.name for p in sorted(src.iterdir()) if p.is_dir() and not p.name.startswith(".")]
+        if subs:
+            out["classes"] = subs[:64]
+            out["n_classes"] = len(subs)
+        return out
+
+    suffix = src.suffix.lower()
+    out["format"] = suffix.lstrip(".") or "file"
+    try:
+        if suffix == ".csv":
+            with src.open(newline="", encoding="utf-8", errors="replace") as f:
+                reader = csv.reader(f)
+                headers = next(reader, None)
+                n = 0
+                for _ in reader:
+                    n += 1
+            if headers:
+                out["columns"] = [str(h) for h in headers]
+                out["n_columns"] = len(headers)
+            out["n"] = n
+        elif suffix == ".jsonl":
+            n = 0
+            cols: list[str] | None = None
+            with src.open(encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    n += 1
+                    if cols is None:
+                        try:
+                            row = json.loads(line)
+                            if isinstance(row, dict):
+                                cols = list(row.keys())
+                        except json.JSONDecodeError:
+                            pass
+            out["n"] = n
+            if cols:
+                out["columns"] = cols
+                out["n_columns"] = len(cols)
+        elif suffix == ".json":
+            raw = json.loads(src.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                out["n"] = len(raw)
+                if raw and isinstance(raw[0], dict):
+                    out["columns"] = list(raw[0].keys())
+                    out["n_columns"] = len(out["columns"])
+            elif isinstance(raw, dict):
+                out["keys"] = list(raw.keys())[:64]
+    except Exception as e:
+        out["inspect_error"] = str(e)[:200]
+    return out
+
+
+def revision_path(train: Path) -> Path:
+    return train / "data" / "revision.json"
+
+
+def load_revision(train: Path) -> dict[str, Any] | None:
+    p = revision_path(train)
+    if not p.is_file():
+        return None
+    try:
+        body = json.loads(p.read_text(encoding="utf-8"))
+        return body if isinstance(body, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def build_revision(
+    train: Path,
+    *,
+    snapshot: bool = False,
+    write: bool = True,
+) -> dict[str, Any]:
+    """Hash + inspect recipe data.path → revision dict (and optional data/revision.json)."""
+    recipe = load_recipe(train)
+    data_cfg = recipe.get("data") if isinstance(recipe.get("data"), dict) else {}
+    rel = str((data_cfg or {}).get("path") or "")
+    if not rel:
+        raise SystemExit("recipe.yaml has no data.path")
     src = (train / rel).resolve()
     if not src.exists():
         raise SystemExit(f"data path not found: {rel}")
+
     digest, nbytes, nfiles = hash_tree(src)
     hid = "sha256:" + digest
     snap_rel = None
     if snapshot:
         snap_rel = f"data/revisions/{digest}"
         snapshot_copy(src, train / snap_rel)
-    data_dir = train / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    rec = {
+
+    body: dict[str, Any] = {
         "path": rel,
         "hash": hid,
         "bytes": nbytes,
         "files": nfiles,
         "snapshot": snap_rel,
+        "at": datetime.now(timezone.utc).isoformat(),
     }
-    tok = art_dir(train) /  "tokenizer.json"
+    body.update(inspect_data(src, data_cfg))
+
+    tok = art_dir(train) / "tokenizer.json"
     if tok.is_file():
         td, _ = hash_file(tok)
-        rec["tokenizer"] = "sha256:" + td
-        rec["tokenizer_path"] = "artifacts/tokenizer.json"
-    (data_dir / "revision.json").write_text(json.dumps(rec, indent=2) + "\n", encoding="utf-8")
-    lines = ["hash", "  " + hid, "  " + rel]
-    if snap_rel:
-        lines.append("  " + snap_rel)
-    if tok.is_file():
-        lines.append("  tokenizer sha256:" + rec["tokenizer"].split(":", 1)[-1])
-        lines.append("  artifacts/tokenizer.json")
+        body["tokenizer"] = "sha256:" + td
+        body["tokenizer_path"] = "artifacts/tokenizer.json"
+
+    if write:
+        dest = revision_path(train)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    return body
+
+
+def data_identity(train: Path, rec: dict | None = None, *, refresh: bool = False) -> dict[str, Any] | None:
+    """Rich data block for run records. Uses revision.json when path matches."""
+    if rec is None:
+        try:
+            rec = load_recipe(train)
+        except Exception:
+            rec = {}
+    rel = (rec.get("data") or {}).get("path") if isinstance(rec, dict) else None
+    if not rel:
+        return None
+    src = (train / str(rel)).resolve()
+    if not src.exists():
+        return None
+
+    existing = load_revision(train)
+    if (
+        not refresh
+        and existing
+        and existing.get("path") == str(rel)
+        and existing.get("hash")
+    ):
+        return existing
+    try:
+        return build_revision(train, snapshot=False, write=True)
+    except SystemExit:
+        # Fall back to hash-only if recipe load issues mid-run
+        digest, nbytes, nfiles = hash_tree(src)
+        return {
+            "path": str(rel),
+            "hash": "sha256:" + digest,
+            "bytes": nbytes,
+            "files": nfiles,
+        }
+
+
+def format_revision_lines(body: dict[str, Any]) -> list[str]:
+    """CLI/TUI lines for aq data hash."""
+    from protocol.term_table import render_table
+
+    rows: list[tuple[str, Any]] = [
+        ("hash", body.get("hash")),
+        ("path", body.get("path")),
+        ("kind", body.get("kind")),
+        ("format", body.get("format")),
+        ("bytes", body.get("bytes")),
+        ("files", body.get("files")),
+        ("n", body.get("n")),
+        ("n_columns", body.get("n_columns")),
+        ("target", body.get("target")),
+        ("n_classes", body.get("n_classes")),
+        ("snapshot", body.get("snapshot")),
+        ("tokenizer", body.get("tokenizer")),
+        ("at", body.get("at")),
+    ]
+    kv = [(k, v) for k, v in rows if v is not None and v != ""]
+    lines = ["data", render_table(("key", "value"), kv)]
+    cols = body.get("columns")
+    if isinstance(cols, list) and cols:
+        show = cols if len(cols) <= 24 else cols[:24] + [f"… +{len(cols) - 24}"]
+        lines.append(render_table(("columns",), [[", ".join(str(c) for c in show)]]))
+    classes = body.get("classes")
+    if isinstance(classes, list) and classes:
+        show = classes if len(classes) <= 16 else classes[:16] + [f"… +{len(classes) - 16}"]
+        lines.append(render_table(("classes",), [[", ".join(str(c) for c in show)]]))
+    if body.get("inspect_error"):
+        lines.append(render_table(("key", "value"), [("inspect_error", body["inspect_error"])]))
+    lines.append("file")
+    lines.append("  data/revision.json")
     return lines
+
+
+def hash_train(train: Path, snapshot: bool = False) -> list[str]:
+    body = build_revision(train, snapshot=snapshot, write=True)
+    return format_revision_lines(body)
