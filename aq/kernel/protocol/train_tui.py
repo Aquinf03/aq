@@ -134,6 +134,30 @@ class TrainTui:
             return _truncate(line, inner + 2)
         return line
 
+    def _grads_line(self, info: dict[str, Any], lat: dict[str, Any], inner: int) -> str | None:
+        """Grad / param norms from grads events (or latest step)."""
+        grad_s = info.get("grad_s") or lat.get("grad_s")
+        if grad_s is None and info.get("grad_norm") is None and lat.get("grad_norm") is None:
+            return None
+        if grad_s is None:
+            bits = []
+            gn = info.get("grad_norm", lat.get("grad_norm"))
+            pn = info.get("param_norm", lat.get("param_norm"))
+            if gn is not None:
+                bits.append(f"‖g‖={fmt_cell(gn)}")
+            if pn is not None:
+                bits.append(f"‖θ‖={fmt_cell(pn)}")
+            top = info.get("grad_top") or lat.get("grad_top")
+            if top:
+                bits.append(str(top))
+            grad_s = " ".join(bits) if bits else None
+        if not grad_s:
+            return None
+        line = f"  {_DIM}grads{_RESET} {fmt_cell(grad_s)}"
+        if _visible_len(line) > inner + 2:
+            return _truncate(line, inner + 2)
+        return line
+
     def _frame(self) -> list[str]:
         info = self.info
         lat = self.latest
@@ -225,6 +249,9 @@ class TrainTui:
         sys_line = self._system_line(info, inner)
         if sys_line:
             lines.append(sys_line)
+        grads_line = self._grads_line(info, lat, inner)
+        if grads_line:
+            lines.append(grads_line)
 
         if info.get("error"):
             lines.append(f"  {_BOLD}error  {info['error']}{_RESET}")

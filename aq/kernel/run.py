@@ -35,6 +35,7 @@ REQ_KEYS = {
     "capture_code",
     "capture_env",
     "capture_system",
+    "capture_grads",
 }
 
 

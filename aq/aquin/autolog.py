@@ -65,6 +65,8 @@ def autolog(
     disable: bool = False,
     system: bool = False,
     system_interval: float = 2.0,
+    grads: bool = False,
+    grads_every: int = 50,
 ) -> list[str]:
     """
     Turn on (or off) framework integrations.
@@ -76,14 +78,18 @@ def autolog(
         disable: uninstall hooks instead.
         system: also sample CPU/GPU/mem/disk/net into the metrics session.
         system_interval: seconds between system samples (default 2).
+        grads: sample grad/param norms (HF Trainer + torch Optimizer.step).
+        grads_every: log grads every N steps (default 50).
     """
     integrations, aq_metrics, proto_autolog, _runlog = _kernel()
     if disable:
         integrations.disable(frameworks or None)
         try:
             from protocol import sysmetrics
+            from protocol import grads as aq_grads
 
             sysmetrics.stop()
+            aq_grads.disable()
         except Exception:
             pass
         return []
@@ -93,6 +99,8 @@ def autolog(
     _ensure_session(train)
     if system:
         start_system(train=train, interval=system_interval)
+    if grads:
+        enable_grads(every=grads_every, train=train)
     return hooked
 
 
@@ -132,6 +140,40 @@ def stop_system() -> None:
     from protocol import sysmetrics
 
     sysmetrics.stop()
+
+
+def enable_grads(
+    *,
+    train: str | Path | None = None,
+    every: int = 50,
+) -> None:
+    """Turn on grad/param norm logging (same as ``aq train --grads``)."""
+    from protocol import grads as aq_grads
+
+    _ensure_session(train)
+    aq_grads.enable(every=int(every))
+
+
+def disable_grads() -> None:
+    from protocol import grads as aq_grads
+
+    aq_grads.disable()
+
+
+def log_grads(model: Any = None, *, step: int | None = None, train: str | Path | None = None) -> dict[str, Any]:
+    """Sample grad/param norms once from a torch module (or last-enabled session)."""
+    from protocol import grads as aq_grads
+
+    _ensure_session(train)
+    if not aq_grads.enabled():
+        aq_grads.enable(every=1)
+    if model is None:
+        return {}
+    # Force sample regardless of every-N gate
+    body = aq_grads.sample_model(model)
+    if not body:
+        return {}
+    return aq_grads.emit(step, **body)
 
 
 def log_params(params: dict[str, Any], *, train: str | Path | None = None) -> None:

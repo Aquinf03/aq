@@ -141,6 +141,7 @@ def after_estimator(est: Any, payload: dict[str, Any]) -> None:
 def hf_trainer_callback():
     """Return a transformers.TrainerCallback that mirrors logs → metrics.step."""
     from protocol import metrics as aq_metrics
+    from protocol import grads as aq_grads
 
     try:
         from transformers import TrainerCallback
@@ -148,6 +149,18 @@ def hf_trainer_callback():
         raise SystemExit("transformers required for HF autolog callback") from e
 
     class AutologTrainerCallback(TrainerCallback):
+        def on_preoptimizer_step(self, args, state, control, **kwargs):
+            if not aq_grads.enabled():
+                return
+            model = kwargs.get("model")
+            if model is None:
+                return
+            step = int(state.global_step) if state.global_step is not None else None
+            try:
+                aq_grads.maybe_from_model(model, step=step)
+            except Exception:
+                pass
+
         def on_log(self, args, state, control, logs=None, **kwargs):
             if not logs or state.global_step is None:
                 return

@@ -1,8 +1,10 @@
-"""Raw PyTorch — light touch: log optimizer.step count when AQ_TORCH_AUTOLOG=1.
+"""Raw PyTorch — Optimizer.step heartbeat + optional grad/param norms.
 
-Default off inside the torch adapter registration so normal training isn't slowed;
-`integrations.install(['torch'])` still returns True and documents the env gate,
-or enables a no-op-safe Optimizer.step counter when a metrics session is active.
+Patch is installed when:
+  - ``AQ_TORCH_AUTOLOG=1`` (step heartbeat events), or
+  - ``force=True`` / grads session enabled (grad norms before step)
+
+``integrations.install(['torch'])`` still returns True when torch is importable.
 """
 
 from __future__ import annotations
@@ -12,10 +14,11 @@ import os
 _orig_step = None
 _patched = False
 _step_i = 0
+_heartbeat = False
 
 
-def apply(*, disable: bool = False) -> bool:
-    global _orig_step, _patched, _step_i
+def apply(*, disable: bool = False, force: bool = False) -> bool:
+    global _orig_step, _patched, _step_i, _heartbeat
     try:
         import torch
         from torch.optim.optimizer import Optimizer
@@ -28,19 +31,42 @@ def apply(*, disable: bool = False) -> bool:
             _patched = False
         return True
 
-    if _patched:
+    heartbeat = os.environ.get("AQ_TORCH_AUTOLOG", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    want_grads = force
+    if not want_grads:
+        try:
+            from protocol import grads as aq_grads
+
+            want_grads = aq_grads.enabled()
+        except Exception:
+            want_grads = False
+
+    if not heartbeat and not want_grads and not force:
+        # Available but no patch yet — grads.enable() will force=True later.
         return True
 
-    # Only patch when explicitly requested via env (avoid slowing every step by default).
-    # Lightning / transformers cover the common high-level paths.
-    if os.environ.get("AQ_TORCH_AUTOLOG", "").strip().lower() not in ("1", "true", "yes", "on"):
-        return True  # "available" but no patch — still counts as integrated entry
+    _heartbeat = heartbeat
+
+    if _patched:
+        return True
 
     _orig_step = Optimizer.step
     _step_i = 0
 
     def step(self, *args, **kwargs):  # noqa: ANN001
         global _step_i
+        try:
+            from protocol import grads as aq_grads
+
+            if aq_grads.enabled():
+                aq_grads.maybe_from_optimizer(self, step=_step_i + 1)
+        except Exception:
+            pass
         out = _orig_step(self, *args, **kwargs)
         try:
             from protocol import metrics as aq_metrics
@@ -48,8 +74,7 @@ def apply(*, disable: bool = False) -> bool:
             if aq_metrics.active_run_id() is None:
                 return out
             _step_i += 1
-            # Loss not available on Optimizer.step — emit step heartbeat only every N.
-            if _step_i == 1 or _step_i % 50 == 0:
+            if _heartbeat and (_step_i == 1 or _step_i % 50 == 0):
                 aq_metrics.event("torch.step", step=_step_i)
         except Exception:
             pass

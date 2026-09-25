@@ -98,9 +98,12 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
     )
     try:
         from protocol import sysmetrics
+        from protocol import grads as aq_grads
 
         if sysmetrics.want(rec, req):
             sysmetrics.start(interval=2.0)
+        if aq_grads.want(rec, req):
+            aq_grads.enable(rec, req)
         code_meta, env_meta = aq_capture.maybe_capture(train, rec, req)
         if code_meta:
             aq_metrics.event(

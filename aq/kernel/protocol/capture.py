@@ -6,12 +6,15 @@ Off unless enabled:
     code: true
     env: lock          # pip freeze (light) | full (7z of the active venv)
     system: true       # CPU/GPU/mem/disk/net beside loss (see protocol/sysmetrics.py)
+    grads: true        # grad/param norms (see protocol/grads.py)
+    grads_every: 50    # optional sample period
 
   aq train --capture-code
   aq train --capture-env          # lock
   aq train --capture-env=full     # 7z prefix
   aq train --system               # live system metrics
-  AQ_CAPTURE_CODE=1 / AQ_CAPTURE_ENV=lock|full|1 / AQ_CAPTURE_SYSTEM=1
+  aq train --grads                # grad/param norms
+  AQ_CAPTURE_CODE=1 / AQ_CAPTURE_ENV=lock|full|1 / AQ_CAPTURE_SYSTEM=1 / AQ_CAPTURE_GRADS=1
 
 artifacts/code/   tree.tgz + manifest.json
 artifacts/env/    requirements.txt + python.json
@@ -83,13 +86,14 @@ def _env_mode(v: Any) -> str | None:
 def parse_capture(rec: dict) -> dict[str, Any]:
     raw = rec.get("capture")
     if raw is True or (_truthy(raw) and not isinstance(raw, dict)):
-        return {"code": True, "env": None, "system": False}
+        return {"code": True, "env": None, "system": False, "grads": False}
     if not isinstance(raw, dict):
-        return {"code": False, "env": None, "system": False}
+        return {"code": False, "env": None, "system": False, "grads": False}
     return {
         "code": _truthy(raw.get("code")),
         "env": _env_mode(raw.get("env")),
         "system": _truthy(raw.get("system")),
+        "grads": _truthy(raw.get("grads")) or _truthy(raw.get("gradients")),
     }
 
 

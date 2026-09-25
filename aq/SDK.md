@@ -56,6 +56,32 @@ start_system(interval=2.0)
 finish()
 ```
 
+## Gradient & param norms
+
+Opt-in train-dynamics debug (global ‖g‖ / ‖θ‖ + mean/std; top layers). Auto from HF Trainer
+and torch `Optimizer.step` — no custom hooks. Skips sklearn.
+
+```bash
+aq train --grads
+```
+
+```yaml
+capture:
+  grads: true
+  grads_every: 25   # optional (default 50)
+```
+
+```python
+from aquin import Aquin, enable_grads, log_grads
+
+aq = Aquin(".")
+aq.train(grads=True)
+
+# manual (own torch loop):
+enable_grads(every=10)
+log_grads(model, step=100)
+```
+
 ## Init a run
 
 ```bash

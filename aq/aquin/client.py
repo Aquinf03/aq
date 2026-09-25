@@ -141,28 +141,31 @@ class Aquin:
         *,
         stream: bool = False,
         system: bool = False,
+        grads: bool = False,
     ) -> list[str] | Iterator[str]:
         """Fit the recipe. Writes checkpoints under artifacts/checkpoints/."""
         # Ensure framework hooks are on for this process (also installed in metrics.begin).
         try:
             from aquin.autolog import autolog as _autolog
 
-            _autolog(system=system)
+            _autolog(system=system, grads=grads)
         except Exception:
             pass
         kw: dict[str, Any] = {}
         if system:
             kw["capture_system"] = True
+        if grads:
+            kw["capture_grads"] = True
         if stream:
             lines = bridge.invoke(self._handle, "train", **kw)
             return iter(lines)
         return bridge.invoke(self._handle, "train", **kw)
 
-    def autolog(self, *frameworks: str, system: bool = False) -> list[str]:
+    def autolog(self, *frameworks: str, system: bool = False, grads: bool = False) -> list[str]:
         """Enable framework integrations for this run folder."""
         from aquin.autolog import autolog as _autolog
 
-        return _autolog(*frameworks, train=self.root, system=system)
+        return _autolog(*frameworks, train=self.root, system=system, grads=grads)
 
     def log_params(self, params: dict[str, Any]) -> None:
         from aquin.autolog import log_params as _log_params
@@ -206,6 +209,16 @@ class Aquin:
         from aquin.autolog import stop_system as _stop_system
 
         _stop_system()
+
+    def enable_grads(self, every: int = 50) -> None:
+        from aquin.autolog import enable_grads as _enable_grads
+
+        _enable_grads(train=self.root, every=every)
+
+    def log_grads(self, model: Any = None, *, step: int | None = None) -> dict[str, Any]:
+        from aquin.autolog import log_grads as _log_grads
+
+        return _log_grads(model, step=step, train=self.root)
 
     def set_tags(self, *tags: str, replace: bool = False) -> list[str]:
         from aquin.autolog import set_tags as _set_tags

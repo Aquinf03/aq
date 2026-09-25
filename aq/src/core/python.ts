@@ -62,6 +62,8 @@ export type KernelReq = {
   capture_env?: boolean | string
   /** sample CPU/GPU/mem/disk/net into metrics + TUI */
   capture_system?: boolean
+  /** sample grad/param norms during train */
+  capture_grads?: boolean
   // plot options (CLI / SDK → kernel plot config)
   charts?: string[]
   title?: string
@@ -176,6 +178,7 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   let captureCode = false
   let captureEnv: string | boolean | undefined
   let captureSystem: boolean | undefined
+  let captureGrads: boolean | undefined
   const nextRest: string[] = []
   for (const a of rest) {
     if (a === "--capture-code" || a === "--capture=code") {
@@ -208,6 +211,19 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
     }
     if (a === "--no-system" || a === "--no-capture-system") {
       captureSystem = false
+      continue
+    }
+    if (
+      a === "--grads" ||
+      a === "--gradients" ||
+      a === "--capture-grads" ||
+      a === "--capture=grads"
+    ) {
+      captureGrads = true
+      continue
+    }
+    if (a === "--no-grads" || a === "--no-capture-grads") {
+      captureGrads = false
       continue
     }
     nextRest.push(a)
@@ -266,6 +282,8 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   if (captureEnv !== undefined && captureEnv !== false) req.capture_env = captureEnv
   if (captureSystem === true) req.capture_system = true
   if (captureSystem === false) req.capture_system = false
+  if (captureGrads === true) req.capture_grads = true
+  if (captureGrads === false) req.capture_grads = false
   const root = openRun(train).root
   await runKernel(root, req)
   return root

@@ -160,7 +160,9 @@ def end(**meta: Any) -> dict[str, str]:
     global _last_autolog_artifacts, _last_run_id
     from protocol import autolog
     from protocol import sysmetrics
+    from protocol import grads as aq_grads
 
+    aq_grads.disable()
     sysmetrics.stop()
     _last_run_id = str(_state["run_id"]) if _state.get("run_id") else None
     arts = autolog.finish()
@@ -264,6 +266,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "metric",
             "model",
             "system",
+            "grads",
             "step",
             "epoch",
             "end",
@@ -284,6 +287,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
                 "metric",
                 "model",
                 "system",
+                "grads",
             ):
                 tui.on_info(body)
             elif event == "step":
@@ -300,6 +304,12 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
 
     if event == "system":
         # Avoid flooding pipes; TUI already handled above when active.
+        return
+
+    if event == "grads":
+        # Compact one-liner in non-TUI; TUI handled above.
+        if body.get("grad_s"):
+            print_kv([("grads", body["grad_s"])])
         return
 
     if event == "start":
