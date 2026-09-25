@@ -60,6 +60,8 @@ export type KernelReq = {
   capture_code?: boolean
   /** lock | full | true — see protocol/capture.py */
   capture_env?: boolean | string
+  /** sample CPU/GPU/mem/disk/net into metrics + TUI */
+  capture_system?: boolean
   // plot options (CLI / SDK → kernel plot config)
   charts?: string[]
   title?: string
@@ -173,6 +175,7 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   let rest = argv
   let captureCode = false
   let captureEnv: string | boolean | undefined
+  let captureSystem: boolean | undefined
   const nextRest: string[] = []
   for (const a of rest) {
     if (a === "--capture-code" || a === "--capture=code") {
@@ -197,6 +200,14 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
     }
     if (a === "--no-capture-env") {
       captureEnv = false
+      continue
+    }
+    if (a === "--system" || a === "--capture-system" || a === "--capture=system") {
+      captureSystem = true
+      continue
+    }
+    if (a === "--no-system" || a === "--no-capture-system") {
+      captureSystem = false
       continue
     }
     nextRest.push(a)
@@ -253,6 +264,8 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   if (temp.value !== undefined) req.temperature = Number(temp.value)
   if (captureCode) req.capture_code = true
   if (captureEnv !== undefined && captureEnv !== false) req.capture_env = captureEnv
+  if (captureSystem === true) req.capture_system = true
+  if (captureSystem === false) req.capture_system = false
   const root = openRun(train).root
   await runKernel(root, req)
   return root

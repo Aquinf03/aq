@@ -136,25 +136,33 @@ class Aquin:
     def artifacts(self) -> Path:
         return self._handle.artifacts_dir
 
-    def train(self, *, stream: bool = False) -> list[str] | Iterator[str]:
+    def train(
+        self,
+        *,
+        stream: bool = False,
+        system: bool = False,
+    ) -> list[str] | Iterator[str]:
         """Fit the recipe. Writes checkpoints under artifacts/checkpoints/."""
         # Ensure framework hooks are on for this process (also installed in metrics.begin).
         try:
             from aquin.autolog import autolog as _autolog
 
-            _autolog()
+            _autolog(system=system)
         except Exception:
             pass
+        kw: dict[str, Any] = {}
+        if system:
+            kw["capture_system"] = True
         if stream:
-            lines = bridge.invoke(self._handle, "train")
+            lines = bridge.invoke(self._handle, "train", **kw)
             return iter(lines)
-        return bridge.invoke(self._handle, "train")
+        return bridge.invoke(self._handle, "train", **kw)
 
-    def autolog(self, *frameworks: str) -> list[str]:
+    def autolog(self, *frameworks: str, system: bool = False) -> list[str]:
         """Enable framework integrations for this run folder."""
         from aquin.autolog import autolog as _autolog
 
-        return _autolog(*frameworks, train=self.root)
+        return _autolog(*frameworks, train=self.root, system=system)
 
     def log_params(self, params: dict[str, Any]) -> None:
         from aquin.autolog import log_params as _log_params
@@ -182,6 +190,23 @@ class Aquin:
 
         return _log_model(checkpoint, train=self.root)
 
+    def log_system(self) -> dict[str, Any]:
+        """Sample CPU/GPU/mem/disk/net once into metrics.jsonl."""
+        from aquin.autolog import log_system as _log_system
+
+        return _log_system(train=self.root)
+
+    def start_system(self, interval: float = 2.0) -> None:
+        """Background system metrics (same as ``aq train --system``)."""
+        from aquin.autolog import start_system as _start_system
+
+        _start_system(train=self.root, interval=interval)
+
+    def stop_system(self) -> None:
+        from aquin.autolog import stop_system as _stop_system
+
+        _stop_system()
+
     def set_tags(self, *tags: str, replace: bool = False) -> list[str]:
         from aquin.autolog import set_tags as _set_tags
 
@@ -201,9 +226,18 @@ class Aquin:
 
         return _finish(**meta)
 
-    def eval(self, name: str | None = None, *, ckpt: str | None = None) -> list[str]:
+    def eval(
+        self,
+        name: str | None = None,
+        *,
+        ckpt: str | None = None,
+        system: bool = False,
+    ) -> list[str]:
         """Score probes in evals/ (or training gate)."""
-        return bridge.invoke(self._handle, "eval", probe=name, ckpt=ckpt)
+        kw: dict[str, Any] = {"probe": name, "ckpt": ckpt}
+        if system:
+            kw["capture_system"] = True
+        return bridge.invoke(self._handle, "eval", **kw)
 
     def checkpoint(self, keep: str | None = None) -> list[str]:
         return bridge.invoke(self._handle, "checkpoint", keep=keep)

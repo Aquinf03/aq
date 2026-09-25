@@ -63,6 +63,8 @@ def autolog(
     *frameworks: str,
     train: str | Path | None = None,
     disable: bool = False,
+    system: bool = False,
+    system_interval: float = 2.0,
 ) -> list[str]:
     """
     Turn on (or off) framework integrations.
@@ -72,15 +74,25 @@ def autolog(
         train: run directory or recipe.yaml — if set (or cwd is a run), begin a metrics
                session so hooks have somewhere to write outside ``aq train``.
         disable: uninstall hooks instead.
+        system: also sample CPU/GPU/mem/disk/net into the metrics session.
+        system_interval: seconds between system samples (default 2).
     """
     integrations, aq_metrics, proto_autolog, _runlog = _kernel()
     if disable:
         integrations.disable(frameworks or None)
+        try:
+            from protocol import sysmetrics
+
+            sysmetrics.stop()
+        except Exception:
+            pass
         return []
 
     names = list(frameworks) if frameworks else None
     hooked = integrations.install(names)
     _ensure_session(train)
+    if system:
+        start_system(train=train, interval=system_interval)
     return hooked
 
 
@@ -93,6 +105,33 @@ def frameworks() -> dict[str, Any]:
     """Catalog of adapters / aliases / currently active hooks."""
     integrations, _, _, _ = _kernel()
     return integrations.catalog()
+
+
+def log_system(*, train: str | Path | None = None) -> dict[str, Any]:
+    """Sample CPU/GPU/mem/disk/net once into the active metrics session."""
+    from protocol import sysmetrics
+
+    _ensure_session(train)
+    return sysmetrics.emit_sample()
+
+
+def start_system(
+    *,
+    train: str | Path | None = None,
+    interval: float = 2.0,
+) -> None:
+    """Background system metrics (same as ``aq train --system``)."""
+    from protocol import sysmetrics
+
+    _ensure_session(train)
+    sysmetrics.start(interval=interval)
+
+
+def stop_system() -> None:
+    """Stop the background system sampler."""
+    from protocol import sysmetrics
+
+    sysmetrics.stop()
 
 
 def log_params(params: dict[str, Any], *, train: str | Path | None = None) -> None:

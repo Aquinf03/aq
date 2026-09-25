@@ -28,6 +28,34 @@ finish()                        # writes runs/<id>.json
 Also automatic inside `aq train` / `Aquin.train()` — no extra call required.  
 Example: [`scripts/tests/sdk-track`](../scripts/tests/sdk-track/).
 
+## System metrics (GPU / CPU / mem / disk / net)
+
+Opt-in vitals beside loss curves (metrics.jsonl + train/eval TUI).
+
+```bash
+aq train --system
+aq eval --system
+```
+
+```yaml
+# recipe.yaml
+capture:
+  system: true
+```
+
+```python
+from aquin import Aquin, autolog, log_system, start_system, finish
+
+aq = Aquin(".")
+aq.train(system=True)           # or aq.eval(...,) via CLI flag
+
+# standalone script:
+autolog(train=".", system=True) # background sampler
+log_system()                    # one-shot sample
+start_system(interval=2.0)
+finish()
+```
+
 ## Init a run
 
 ```bash

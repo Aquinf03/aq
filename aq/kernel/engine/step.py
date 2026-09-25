@@ -97,6 +97,10 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
         data_path=str((rec.get("data") or {}).get("path") or ""),
     )
     try:
+        from protocol import sysmetrics
+
+        if sysmetrics.want(rec, req):
+            sysmetrics.start(interval=2.0)
         code_meta, env_meta = aq_capture.maybe_capture(train, rec, req)
         if code_meta:
             aq_metrics.event(
@@ -281,8 +285,14 @@ def _file_pass(metric: str, sc: float, min_score) -> bool | None:
     return sc <= float(min_score) if lo else sc >= float(min_score)
 
 
-def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> list[str]:
+def do_eval(
+    train: Path,
+    ckpt_name: str | None,
+    probe: str | None = None,
+    req: dict | None = None,
+) -> list[str]:
     from protocol.model_log import id_from_checkpoint
+    from protocol import sysmetrics
 
     rec = load_recipe(train)
     ckpt = ckpt_dir(train) / ckpt_name if ckpt_name else last_ckpt(train)
@@ -313,6 +323,8 @@ def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> lis
         min_score=min_score,
     )
     try:
+        if sysmetrics.want(rec, req):
+            sysmetrics.start(interval=2.0)
         if parse_guard(rec).get("leak"):
             assert_no_leak(train, rec)
             aq_metrics.event("guard.leak", ok=True)

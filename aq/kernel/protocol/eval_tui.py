@@ -183,6 +183,24 @@ class EvalTui:
         for i in range(3):
             lines.append(f"  {L[i]} {_DIM}|{_RESET} {R[i]}")
 
+        bits: list[str] = []
+        for key, label in (
+            ("cpu_s", "cpu"),
+            ("mem_s", "mem"),
+            ("disk_s", "disk"),
+            ("net_s", "net"),
+            ("gpu_s", "gpu"),
+        ):
+            v = info.get(key)
+            if v is not None:
+                bits.append(f"{_DIM}{label}{_RESET} {fmt_cell(v)}")
+        if bits:
+            sys_line = "  " + f"  {_DIM}·{_RESET}  ".join(bits)
+            if _visible_len(sys_line) > inner + 2:
+                # soft truncate
+                sys_line = sys_line[: inner + 2]
+            lines.append(sys_line)
+
         if info.get("error"):
             lines.append(f"  {_BOLD}{_RED}error{_RESET}  {info['error']}")
 

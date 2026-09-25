@@ -38,11 +38,11 @@ def invoke(handle: RunHandle, op: str, **fields: Any) -> list[str]:
         if op == "train":
             from engine.step import do_train
 
-            lines = do_train(train)
+            lines = do_train(train, req)
         elif op == "eval":
             from engine.step import do_eval
 
-            lines = do_eval(train, fields.get("ckpt"), fields.get("probe"))
+            lines = do_eval(train, fields.get("ckpt"), fields.get("probe"), req)
         elif op == "checkpoint":
             from engine.step import do_checkpoint
 

@@ -18,8 +18,11 @@ from aquin.autolog import (
     log_model,
     log_param,
     log_params,
+    log_system,
     set_notes,
     set_tags,
+    start_system,
+    stop_system,
 )
 from aquin.client import Aquin
 from aquin.fleet import Job, Place, Queue
@@ -50,8 +53,11 @@ __all__ = [
     "log_model",
     "log_param",
     "log_params",
+    "log_system",
     "open_run",
     "set_notes",
     "set_tags",
+    "start_system",
+    "stop_system",
 ]
 __version__ = "0.1.0"

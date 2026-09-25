@@ -113,6 +113,27 @@ class TrainTui:
     def _kv(self, key: str, val: Any, key_w: int = 8) -> str:
         return f"{_DIM}{key.ljust(key_w)}{_RESET} {fmt_cell(val)}"
 
+    def _system_line(self, info: dict[str, Any], inner: int) -> str | None:
+        """One compact row: cpu / mem / disk / net / gpu from system events."""
+        bits: list[str] = []
+        for key, label in (
+            ("cpu_s", "cpu"),
+            ("mem_s", "mem"),
+            ("disk_s", "disk"),
+            ("net_s", "net"),
+            ("gpu_s", "gpu"),
+        ):
+            v = info.get(key)
+            if v is None:
+                continue
+            bits.append(f"{_DIM}{label}{_RESET} {fmt_cell(v)}")
+        if not bits:
+            return None
+        line = "  " + f"  {_DIM}·{_RESET}  ".join(bits)
+        if _visible_len(line) > inner + 2:
+            return _truncate(line, inner + 2)
+        return line
+
     def _frame(self) -> list[str]:
         info = self.info
         lat = self.latest
@@ -200,6 +221,10 @@ class TrainTui:
         sep = f" {_DIM}|{_RESET} "
         for i in range(3):
             lines.append("  " + sep.join(p[i] for p in padded))
+
+        sys_line = self._system_line(info, inner)
+        if sys_line:
+            lines.append(sys_line)
 
         if info.get("error"):
             lines.append(f"  {_BOLD}error  {info['error']}{_RESET}")

@@ -159,7 +159,9 @@ def end(**meta: Any) -> dict[str, str]:
     """Finish autolog + emit end. Returns autolog artifact paths for write_run."""
     global _last_autolog_artifacts, _last_run_id
     from protocol import autolog
+    from protocol import sysmetrics
 
+    sysmetrics.stop()
     _last_run_id = str(_state["run_id"]) if _state.get("run_id") else None
     arts = autolog.finish()
     _last_autolog_artifacts = dict(arts)
@@ -231,6 +233,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         if et is not None and event in (
             "start",
             "info",
+            "system",
             "eval.probe",
             "end",
             "error",
@@ -238,7 +241,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 et.on_start(body)
-            elif event == "info":
+            elif event in ("info", "system"):
                 et.on_info(body)
             elif event == "eval.probe":
                 et.on_probe(body)
@@ -260,6 +263,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "notes",
             "metric",
             "model",
+            "system",
             "step",
             "epoch",
             "end",
@@ -269,7 +273,18 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 tui.on_start(body)
-            elif event in ("info", "params", "code", "env", "integrations", "tags", "notes", "metric", "model"):
+            elif event in (
+                "info",
+                "params",
+                "code",
+                "env",
+                "integrations",
+                "tags",
+                "notes",
+                "metric",
+                "model",
+                "system",
+            ):
                 tui.on_info(body)
             elif event == "step":
                 tui.on_step(body)
@@ -282,6 +297,10 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             else:
                 tui.on_error({"error": body.get("error") or body.get("message") or event})
             return
+
+    if event == "system":
+        # Avoid flooding pipes; TUI already handled above when active.
+        return
 
     if event == "start":
         rows: list[tuple[str, Any]] = [("op", body.get("op") or "run")]

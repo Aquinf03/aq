@@ -1,15 +1,17 @@
-"""Opt-in capture — code tree + env (no git).
+"""Opt-in capture — code tree + env + system metrics (no git).
 
 Off unless enabled:
 
   capture:
     code: true
     env: lock          # pip freeze (light) | full (7z of the active venv)
+    system: true       # CPU/GPU/mem/disk/net beside loss (see protocol/sysmetrics.py)
 
   aq train --capture-code
   aq train --capture-env          # lock
   aq train --capture-env=full     # 7z prefix
-  AQ_CAPTURE_CODE=1 / AQ_CAPTURE_ENV=lock|full|1
+  aq train --system               # live system metrics
+  AQ_CAPTURE_CODE=1 / AQ_CAPTURE_ENV=lock|full|1 / AQ_CAPTURE_SYSTEM=1
 
 artifacts/code/   tree.tgz + manifest.json
 artifacts/env/    requirements.txt + python.json
@@ -81,12 +83,13 @@ def _env_mode(v: Any) -> str | None:
 def parse_capture(rec: dict) -> dict[str, Any]:
     raw = rec.get("capture")
     if raw is True or (_truthy(raw) and not isinstance(raw, dict)):
-        return {"code": True, "env": None}
+        return {"code": True, "env": None, "system": False}
     if not isinstance(raw, dict):
-        return {"code": False, "env": None}
+        return {"code": False, "env": None, "system": False}
     return {
         "code": _truthy(raw.get("code")),
         "env": _env_mode(raw.get("env")),
+        "system": _truthy(raw.get("system")),
     }
 
 

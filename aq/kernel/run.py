@@ -34,6 +34,7 @@ REQ_KEYS = {
     "out_file",
     "capture_code",
     "capture_env",
+    "capture_system",
 }
 
 
@@ -48,7 +49,7 @@ def dispatch(train: Path, req: dict) -> list[str]:
     if op == "train":
         return do_train(train, req)
     if op == "eval":
-        return do_eval(train, req.get("ckpt"), req.get("probe"))
+        return do_eval(train, req.get("ckpt"), req.get("probe"), req)
     if op == "checkpoint":
         return do_checkpoint(train, req.get("keep"))
     if op == "serve":
