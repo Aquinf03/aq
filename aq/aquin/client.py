@@ -171,6 +171,12 @@ class Aquin:
 
         _log_metrics(metrics, step=step, train=self.root)
 
+    def log_model(self, checkpoint: str | Path | None = None) -> str | None:
+        """Bind checkpoint as logged model (stable id linked to dataset)."""
+        from aquin.autolog import log_model as _log_model
+
+        return _log_model(checkpoint, train=self.root)
+
     def set_tags(self, *tags: str, replace: bool = False) -> list[str]:
         from aquin.autolog import set_tags as _set_tags
 

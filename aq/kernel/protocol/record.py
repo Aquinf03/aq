@@ -87,6 +87,13 @@ def write_summary(d: Path, body: dict) -> None:
         "score: " + str(m.get("score") if m.get("score") is not None else "-"),
         "verdict: " + verdict,
     ]
+    model = body.get("model") or {}
+    if isinstance(model, dict) and model.get("id"):
+        lines.append("model: " + str(model.get("id")))
+        if model.get("checkpoint"):
+            lines.append("model_checkpoint: " + str(model.get("checkpoint")))
+    elif arts.get("logged_model"):
+        lines.append("model: " + str(arts.get("logged_model")))
     data = body.get("data") or {}
     if isinstance(data, dict):
         if data.get("n") is not None:
@@ -165,6 +172,8 @@ def write_run(train: Path, extra: dict) -> str:
     }
     if data_meta:
         body["data"] = data_meta
+    if extra.get("model"):
+        body["model"] = extra["model"]
     if code_meta:
         body["code"] = code_meta
     if env_meta:
@@ -197,6 +206,8 @@ def update_last_run(train: Path, extra: dict) -> str:
         body["metrics"] = extra["metrics"]
     if "pass" in extra:
         body["pass"] = extra["pass"]
+    if extra.get("model"):
+        body["model"] = extra["model"]
     arts = dict(body.get("artifacts") or {})
     arts.update(extra.get("artifacts") or {})
     for k, v in aq_metrics.take_autolog_artifacts().items():

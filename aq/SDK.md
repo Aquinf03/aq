@@ -116,6 +116,19 @@ set_tags("ablation")
 set_notes("…")
 ```
 
+## Logged models
+
+`aq train` stamps a content-addressed **logged model** id on the checkpoint (`aq_model_id`),
+the run (`model.id` + `model.checkpoint` + `model.data_hash`), and metric events
+(`logged_model`, `checkpoint`, `data_hash`). Distinct from HF hub `model_id`.
+
+```python
+from aquin import log_model
+
+log_model()                              # last checkpoint
+log_model("artifacts/checkpoints/3.json")
+```
+
 ## Plot
 
 ```python

@@ -135,12 +135,18 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
         dest = ckpt_dir(train)
         n = 1 + sum(1 for p in dest.glob("*.json") if p.name != "last.json")
         named = dest / f"{n}.json"
+        slot = dest / str(n)
+        from protocol.model_log import assign_model_id, model_block
+
+        mid = assign_model_id(model, weights_dir=slot if slot.is_dir() else None)
         write_json(named, model)
         shutil.copy2(named, dest / "last.json")
+        ckpt_rel = "artifacts/checkpoints/" + named.name
         arts = {
-            "checkpoint": "artifacts/checkpoints/" + named.name,
+            "checkpoint": ckpt_rel,
             "checkpoint_last": "artifacts/checkpoints/last.json",
             "metrics": "artifacts/metrics.jsonl",
+            "logged_model": mid,
         }
         if tok_hash:
             arts["tokenizer"] = "artifacts/tokenizer.json"
@@ -158,19 +164,36 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
             if env_meta.get("manifest"):
                 arts["env_manifest"] = env_meta["manifest"]
         summary = aq_metrics.model_summary(model)
+        summary.pop("aq_model_id", None)
         from protocol import autolog
 
         for k, v in list(arts.items()):
             autolog.log_artifact(k, v)
+        aq_metrics.bind_model(logged_model=mid, checkpoint=ckpt_rel, data_hash=dh)
+        aq_metrics.event(
+            "model",
+            id=mid,
+            checkpoint=ckpt_rel,
+            data_hash=dh,
+        )
         aq_metrics.end(
-            checkpoint=arts["checkpoint"],
+            checkpoint=ckpt_rel,
+            logged_model=mid,
+            data_hash=dh,
             **summary,
         )
-        rid = write_run(train, {"artifacts": arts})
+        rid = write_run(
+            train,
+            {
+                "artifacts": arts,
+                "model": model_block(model_id=mid, checkpoint=ckpt_rel, data_hash=dh),
+            },
+        )
         from protocol.term_table import render_table
 
         art_rows = [
-            ["checkpoint", "artifacts/checkpoints/" + named.name],
+            ["checkpoint", ckpt_rel],
+            ["model", mid],
             ["last", "artifacts/checkpoints/last.json"],
             ["metrics", "artifacts/metrics.jsonl"],
             ["run", "artifacts/runs/" + rid + ".json"],
@@ -259,6 +282,8 @@ def _file_pass(metric: str, sc: float, min_score) -> bool | None:
 
 
 def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> list[str]:
+    from protocol.model_log import id_from_checkpoint
+
     rec = load_recipe(train)
     ckpt = ckpt_dir(train) / ckpt_name if ckpt_name else last_ckpt(train)
     if not ckpt.is_file():
@@ -272,6 +297,9 @@ def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> lis
         files = [data_file(train, rec)]
     min_score = (rec.get("eval") or {}).get("min_score")
     _, rh = recipe_hash(train)
+    dh = data_hash(train, rec)
+    ckpt_rel = str(ckpt.relative_to(train))
+    mid = id_from_checkpoint(ckpt)
     aq_metrics.begin(
         train,
         op="eval",
@@ -279,7 +307,9 @@ def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> lis
         family=rec.get("family"),
         method=rec.get("method"),
         recipe_hash=rh,
-        checkpoint=str(ckpt.relative_to(train)),
+        checkpoint=ckpt_rel,
+        logged_model=mid,
+        data_hash=dh,
         min_score=min_score,
     )
     try:
@@ -321,7 +351,8 @@ def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> lis
             "n": ntot,
             "pass": all_pass,
             "min_score": min_score,
-            "checkpoint": str(ckpt.relative_to(train)),
+            "checkpoint": ckpt_rel,
+            "logged_model": mid,
             "probes": probes,
         }
         write_json(art_dir(train) /  "eval.json", out)
@@ -330,19 +361,28 @@ def do_eval(train: Path, ckpt_name: str | None, probe: str | None = None) -> lis
             score=sc,
             n=ntot,
             verdict=verdict,
-            checkpoint=out["checkpoint"],
+            checkpoint=ckpt_rel,
+            logged_model=mid,
+            data_hash=dh,
             probes=probes,
             **{"pass": all_pass},
         )
         rid = update_last_run(
             train,
             {
-                "metrics": {"metric": metric, "score": sc, "n": ntot, "probes": probes},
+                "metrics": {
+                    "metric": metric,
+                    "score": sc,
+                    "n": ntot,
+                    "probes": probes,
+                    **({"logged_model": mid, "checkpoint": ckpt_rel} if mid else {"checkpoint": ckpt_rel}),
+                },
                 "pass": all_pass,
                 "artifacts": {
                     "eval": "artifacts/eval.json",
-                    "checkpoint": out["checkpoint"],
+                    "checkpoint": ckpt_rel,
                     "metrics": "artifacts/metrics.jsonl",
+                    **({"logged_model": mid} if mid else {}),
                 },
             },
         )
@@ -377,6 +417,8 @@ def do_serve(
     temperature: float | None,
     image: str | None = None,
 ) -> list[str]:
+    from protocol.model_log import id_from_checkpoint
+
     rec = load_recipe(train)
     ckpt = ckpt_dir(train) / ckpt_name if ckpt_name else last_ckpt(train)
     if not ckpt.is_file():
@@ -396,11 +438,16 @@ def do_serve(
                 "and/or --image / serve.image, or serve.features for tabular"
             )
     kind = str(model.get("kind") or rec.get("method") or "linear")
+    ckpt_rel = str(ckpt.relative_to(train))
+    mid = id_from_checkpoint(ckpt)
+    dh = data_hash(train, rec)
     aq_metrics.begin(
         train,
         op="serve",
         method=kind,
-        checkpoint=str(ckpt.relative_to(train)),
+        checkpoint=ckpt_rel,
+        logged_model=mid,
+        data_hash=dh,
         max_tokens=max_tokens,
         temperature=temperature,
         prompt_chars=len(str(prompt or "")),
@@ -417,10 +464,14 @@ def do_serve(
         if image:
             rec2 = {**rec2, "_serve_image": str(image)}
         out = mod.generate(model, str(prompt or ""), rec2, max_tokens=max_tokens, temperature=temperature)
-        out["checkpoint"] = str(ckpt.relative_to(train))
+        out["checkpoint"] = ckpt_rel
+        if mid:
+            out["logged_model"] = mid
         write_json(art_dir(train) /  "serve.json", out)
         aq_metrics.end(
-            checkpoint=out["checkpoint"],
+            checkpoint=ckpt_rel,
+            logged_model=mid,
+            data_hash=dh,
             tokens=out.get("tokens"),
             text_chars=len(str(out.get("text") or "")),
             completion_chars=len(str(out.get("completion") or "")),
@@ -430,8 +481,9 @@ def do_serve(
             {
                 "artifacts": {
                     "serve": "artifacts/serve.json",
-                    "checkpoint": out["checkpoint"],
+                    "checkpoint": ckpt_rel,
                     "metrics": "artifacts/metrics.jsonl",
+                    **({"logged_model": mid} if mid else {}),
                 },
             },
         )

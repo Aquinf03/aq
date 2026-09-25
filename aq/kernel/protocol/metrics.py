@@ -16,6 +16,8 @@ from typing import Any
 from protocol.guard import GuardAbort, SafetyWatch, parse_guard
 from protocol.paths import art_dir
 
+_MODEL_KEYS = ("logged_model", "checkpoint", "data_hash")
+
 _state: dict[str, Any] = {
     "train": None,
     "run_id": None,
@@ -29,6 +31,9 @@ _state: dict[str, Any] = {
     "epoch_header": False,
     "step_cols": None,
     "step_widths": None,
+    "logged_model": None,
+    "checkpoint": None,
+    "data_hash": None,
 }
 
 # Survives end() so write_run can attach console / estimator paths.
@@ -94,6 +99,8 @@ def begin(
     _state["epoch_header"] = False
     _state["step_cols"] = None
     _state["step_widths"] = None
+    for k in _MODEL_KEYS:
+        _state[k] = meta.get(k)
 
     steps = meta.get("steps")
     if steps is None and recipe:
@@ -131,6 +138,21 @@ def begin(
     except Exception:
         pass
     return rid
+
+
+def bind_model(
+    *,
+    logged_model: str | None = None,
+    checkpoint: str | None = None,
+    data_hash: str | None = None,
+) -> None:
+    """Attach stable model id + checkpoint + dataset to this metrics session."""
+    if logged_model is not None:
+        _state["logged_model"] = logged_model
+    if checkpoint is not None:
+        _state["checkpoint"] = checkpoint
+    if data_hash is not None:
+        _state["data_hash"] = data_hash
 
 
 def end(**meta: Any) -> dict[str, str]:
@@ -181,6 +203,9 @@ def emit(event: str, **fields: Any) -> None:
         body["elapsed_ms"] = elapsed
     if event == "step" and _state.get("steps") is not None:
         body["steps"] = _state["steps"]
+    for k in _MODEL_KEYS:
+        if k not in fields and _state.get(k) is not None:
+            body[k] = _state[k]
     for k, v in fields.items():
         if v is None:
             continue
@@ -234,6 +259,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "tags",
             "notes",
             "metric",
+            "model",
             "step",
             "epoch",
             "end",
@@ -243,7 +269,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 tui.on_start(body)
-            elif event in ("info", "params", "code", "env", "integrations", "tags", "notes", "metric"):
+            elif event in ("info", "params", "code", "env", "integrations", "tags", "notes", "metric", "model"):
                 tui.on_info(body)
             elif event == "step":
                 tui.on_step(body)
@@ -265,15 +291,24 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             rows.append(("family", body["family"]))
         if body.get("checkpoint"):
             rows.append(("checkpoint", body["checkpoint"]))
+        if body.get("logged_model"):
+            rows.append(("model", _short_id(body["logged_model"])))
+        if body.get("data_hash"):
+            rows.append(("data", _short_id(body["data_hash"])))
         print_kv(rows)
         return
 
-    if event in ("info", "params", "code", "env", "integrations", "tags", "notes", "metric"):
+    if event in ("info", "params", "code", "env", "integrations", "tags", "notes", "metric", "model"):
         rows = [
             (k, v)
             for k, v in body.items()
             if k not in ("ts", "event", "run_id", "op", "elapsed_ms") and v is not None
         ]
+        if event == "model":
+            rows = [
+                (k, _short_id(v) if k in ("id", "logged_model", "data_hash") and isinstance(v, str) else v)
+                for k, v in rows
+            ]
         # Params can be long — show a short head in non-TUI mode.
         if event == "params" and len(rows) > 12:
             rows = rows[:12] + [("…", f"+{len(rows) - 12} more")]
@@ -404,6 +439,15 @@ def event(name: str, **fields: Any) -> None:
     emit(name, **fields)
 
 
+def _short_id(value: str, n: int = 16) -> str:
+    s = str(value)
+    if s.startswith("sha256:") and len(s) > 7 + n:
+        return s[: 7 + n] + "…"
+    if len(s) > n + 1:
+        return s[:n] + "…"
+    return s
+
+
 def _json_default(obj: Any) -> Any:
     if isinstance(obj, Path):
         return str(obj)
@@ -431,6 +475,7 @@ def model_summary(model: dict) -> dict[str, Any]:
         "tokenizer",
         "merges",
         "vocab",
+        "aq_model_id",
     }
     out: dict[str, Any] = {}
     for k, v in model.items():

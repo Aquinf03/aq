@@ -169,6 +169,55 @@ def log_artifact(key: str, path: str | Path, *, train: str | Path | None = None)
     proto_autolog.log_artifact(key, path)
 
 
+def log_model(
+    checkpoint: str | Path | None = None,
+    *,
+    train: str | Path | None = None,
+    data_hash: str | None = None,
+) -> str | None:
+    """Bind a checkpoint as the logged model for this run (stable id + dataset link).
+
+    If ``checkpoint`` is omitted, uses ``artifacts/checkpoints/last.json`` under the
+    active train folder. Returns the content-addressed ``logged_model`` id.
+    """
+    from protocol.model_log import id_from_checkpoint
+    from protocol.paths import ckpt_dir
+    from protocol.record import data_hash as record_data_hash
+    from protocol.recipe import load_recipe
+
+    _, aq_metrics, proto_autolog, _ = _kernel()
+    root = _ensure_session(train)
+    if root is None:
+        return None
+    if checkpoint is None:
+        ckpt = ckpt_dir(root) / "last.json"
+        ckpt_rel = "artifacts/checkpoints/last.json"
+    else:
+        p = Path(checkpoint)
+        if not p.is_absolute():
+            p = (root / p).resolve()
+        ckpt = p
+        try:
+            ckpt_rel = str(ckpt.relative_to(root))
+        except ValueError:
+            ckpt_rel = str(checkpoint)
+    mid = id_from_checkpoint(ckpt)
+    if not mid:
+        return None
+    dh = data_hash
+    if dh is None:
+        try:
+            rec = load_recipe(root)
+            dh = record_data_hash(root, rec)
+        except Exception:
+            dh = None
+    aq_metrics.bind_model(logged_model=mid, checkpoint=ckpt_rel, data_hash=dh)
+    aq_metrics.event("model", id=mid, checkpoint=ckpt_rel, data_hash=dh)
+    proto_autolog.log_artifact("logged_model", mid)
+    proto_autolog.log_artifact("checkpoint", ckpt_rel)
+    return mid
+
+
 def finish(**meta: Any) -> dict[str, str]:
     """End a metrics session started by autolog/log_*."""
     _, aq_metrics, _, _ = _kernel()
