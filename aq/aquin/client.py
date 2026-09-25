@@ -161,6 +161,11 @@ class Aquin:
 
         _log_params(params, train=self.root)
 
+    def log_param(self, key: str | dict[str, Any], value: Any = None) -> None:
+        from aquin.autolog import log_param as _log_param
+
+        _log_param(key, value, train=self.root)
+
     def log_metric(self, key: str, value: float | int, *, step: int | None = None) -> None:
         from aquin.autolog import log_metric as _log_metric
 
@@ -189,6 +194,12 @@ class Aquin:
         from aquin.autolog import set_notes as _set_notes
 
         return _set_notes(text, train=self.root)
+
+    def finish(self, **meta: Any) -> dict[str, str]:
+        """End a standalone tracking session (writes runs/<id>.json when op=log)."""
+        from aquin.autolog import finish as _finish
+
+        return _finish(**meta)
 
     def eval(self, name: str | None = None, *, ckpt: str | None = None) -> list[str]:
         """Score probes in evals/ (or training gate)."""

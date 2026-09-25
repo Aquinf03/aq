@@ -1,12 +1,12 @@
-"""Public tracking API — autolog hooks + params / metrics / tags / notes.
+"""Public tracking API — few-line W&B / MLflow-shaped surface.
 
-    from aquin import autolog, log_params, log_metrics, set_tags, set_notes
+    from aquin import autolog, log_params, log_metric, set_tags, finish
 
     autolog(train=".")                 # hooks + metrics session
     log_params({"lr": 1e-3, "batch": 32})
-    log_metrics({"loss": 0.4, "acc": 0.9}, step=10)
+    log_metric("loss", 0.4, step=10)
     set_tags("baseline", "gpu")
-    set_notes("tried lower LR after spike")
+    finish()                           # writes runs/<id>.json
 """
 
 from __future__ import annotations
@@ -100,6 +100,21 @@ def log_params(params: dict[str, Any], *, train: str | Path | None = None) -> No
     _, _, _, runlog = _kernel()
     _ensure_session(train)
     runlog.log_params(params)
+
+
+def log_param(
+    key: str | dict[str, Any],
+    value: Any = None,
+    *,
+    train: str | Path | None = None,
+) -> None:
+    """Log one param (``log_param("lr", 1e-3)``) or a dict (``log_param({"lr": 1e-3})``)."""
+    if isinstance(key, dict):
+        log_params(key, train=train)
+        return
+    if value is None:
+        raise TypeError('log_param("key", value) needs a value (or pass a dict)')
+    log_params({str(key): value}, train=train)
 
 
 def log_metric(
@@ -219,10 +234,29 @@ def log_model(
 
 
 def finish(**meta: Any) -> dict[str, str]:
-    """End a metrics session started by autolog/log_*."""
+    """End a metrics session started by autolog/log_*.
+
+    For standalone SDK sessions (``op=log``), also writes ``artifacts/runs/<id>.json``.
+    ``aq train`` already persists the run after ``end`` — no double write.
+    """
+    from protocol.record import write_run
+
     _, aq_metrics, _, _ = _kernel()
-    return aq_metrics.end(**meta)
+    train = None
+    op = None
+    try:
+        train = aq_metrics._state.get("train")  # type: ignore[attr-defined]
+        op = aq_metrics._state.get("op")  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    arts = aq_metrics.end(**meta)
+    if train is not None and op == "log":
+        extra_arts = dict(arts)
+        extra_arts.setdefault("metrics", "artifacts/metrics.jsonl")
+        write_run(Path(train), {"artifacts": extra_arts})
+    return arts
 
 
 # Aliases ML engs often type
-log_param = log_params  # wandb-style singular often used for one dict too
+finish_autolog = finish
+

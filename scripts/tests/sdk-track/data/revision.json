@@ -1,0 +1,18 @@
+{
+  "path": "data.csv",
+  "hash": "sha256:8cc270755cefed89bbbde6081ca3318d8e5fc7a4a7d526e7d2c035b467c4f05f",
+  "bytes": 92,
+  "files": 1,
+  "snapshot": null,
+  "at": "2026-09-25T16:32:18.003926+00:00",
+  "kind": "file",
+  "target": "y",
+  "format": "csv",
+  "columns": [
+    "x",
+    "z",
+    "y"
+  ],
+  "n_columns": 3,
+  "n": 10
+}

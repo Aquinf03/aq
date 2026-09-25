@@ -9,6 +9,25 @@ pip install -e ./aq
 pip install -r aq/kernel/requirements.txt
 ```
 
+## Few-line tracking (any script)
+
+W&B / MLflow-shaped. One call turns on framework hooks; metrics live in the train folder
+(`artifacts/metrics.jsonl` + `artifacts/runs/<id>.json`) — same store as `aq train`.
+
+```python
+from aquin import autolog, log_params, log_metric, set_tags, finish
+
+autolog(train=".")              # hooks + metrics session
+log_params({"lr": 1e-3})        # or log_param("lr", 1e-3)
+# … your Trainer.fit / model.fit / loop …
+log_metric("loss", 0.4, step=10)
+set_tags("baseline")
+finish()                        # writes runs/<id>.json
+```
+
+Also automatic inside `aq train` / `Aquin.train()` — no extra call required.  
+Example: [`scripts/tests/sdk-track`](../scripts/tests/sdk-track/).
+
 ## Init a run
 
 ```bash
@@ -101,19 +120,22 @@ Also automatic inside `aq train` / `Aquin.train()` — no extra call required.
 Explicit logging API (W&B / MLflow-shaped). Same folder store: `metrics.jsonl` + `runs/<id>.json`.
 
 ```python
-from aquin import Aquin, log_params, log_metrics, set_tags, set_notes, finish_autolog
+from aquin import Aquin, log_param, log_params, log_metrics, set_tags, set_notes, finish
 
 aq = Aquin(".")
 aq.log_params({"lr": 1e-3, "batch": 32})
+aq.log_param("seed", 0)
 aq.log_metrics({"loss": 0.42, "acc": 0.91}, step=10)
 aq.set_tags("baseline", "gpu")
 aq.set_notes("lower LR after loss spike")
 
 # module-level (uses cwd run or active session):
 log_params({"seed": 0})
+log_param("wd", 1e-4)
 log_metrics({"val_loss": 0.5}, step=10)
 set_tags("ablation")
 set_notes("…")
+finish()   # standalone sessions → runs/<id>.json
 ```
 
 ## Logged models
@@ -251,6 +273,6 @@ out = p.sweep(["aq", "train", "--shard", "{i}/{n}"], shard=8, manage=True)
 Placeholders in the command: `{i}` `{n}` `{shard}` `{shards}` plus each `--grid` key.
 Env on each job: `AQ_SWEEP`, `AQ_SHARD`, `AQ_SHARDS`, `AQ_SWEEP_I`, `AQ_SWEEP_N`, and `AQ_<GRIDKEY>`.
 
-Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first).
+Examples: [`scripts/tests/sdk-ridge`](../scripts/tests/sdk-ridge/) (YAML-first), [`scripts/tests/sdk-from-dict`](../scripts/tests/sdk-from-dict/) / [`scripts/tests/sdk-run-class`](../scripts/tests/sdk-run-class/) (SDK-first), [`scripts/tests/sdk-track`](../scripts/tests/sdk-track/) (few-line tracking).
 
 Set `AQ_KERNEL` to `aq/kernel` if discovery fails.
