@@ -1,0 +1,8 @@
+# Path map — few-line tracking demo (your own fit loop, not aq train).
+family: tabular
+method: ridge
+data:
+  path: data.csv
+  target: y
+eval:
+  metric: mse

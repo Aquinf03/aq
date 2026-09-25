@@ -64,6 +64,10 @@ export type KernelReq = {
   capture_system?: boolean
   /** sample grad/param norms during train */
   capture_grads?: boolean
+  /** aq plot table — table name */
+  table?: string
+  /** aq plot table --run <id> */
+  run?: string
   // plot options (CLI / SDK → kernel plot config)
   charts?: string[]
   title?: string
@@ -116,17 +120,26 @@ function waitChild(child: ChildProcess): Promise<{ code: number | null; signal: 
  * Run the Python kernel. The child is its own process group so Ctrl+C hits
  * Node only — we then SIGKILL the whole tree. Avoids HF Trainer's
  * "first SIGINT = soft stop, second = exit" dance.
+ *
+ * Pass `interactive: true` for TUIs that need the real terminal (stdin + no detach),
+ * e.g. `aq plot table`.
  */
-export async function runKernel(train: string, req: KernelReq): Promise<void> {
+export async function runKernel(
+  train: string,
+  req: KernelReq,
+  opts?: { interactive?: boolean },
+): Promise<void> {
   const art = artifactsDir(train)
   mkdirSync(art, { recursive: true })
   writeFileSync(path.join(art, "request.json"), JSON.stringify(req, null, 2) + "\n")
 
+  const interactive = Boolean(opts?.interactive)
   const child = spawn(pythonBin(), [runPy, train], {
     cwd: kernelDir,
-    stdio: ["ignore", "inherit", "inherit"],
-    // Own process group on Unix: terminal SIGINT goes to Node, not HF Trainer.
-    detached: process.platform !== "win32",
+    // Interactive TUIs need a real stdin; train/eval keep stdin ignored so Node owns Ctrl+C.
+    stdio: interactive ? "inherit" : ["ignore", "inherit", "inherit"],
+    // Detach only for non-interactive — curses needs the same session as the terminal.
+    detached: !interactive && process.platform !== "win32",
     env: process.env,
   })
 
@@ -155,7 +168,9 @@ export async function runKernel(train: string, req: KernelReq): Promise<void> {
       throw new Error(result.error || "kernel failed")
     }
     const lines = result.lines ?? []
-    process.stdout.write(lines.join("\n") + (lines.length ? "\n" : ""))
+    if (lines.length) {
+      process.stdout.write(lines.join("\n") + "\n")
+    }
   } finally {
     process.off("SIGINT", onInterrupt)
     process.off("SIGTERM", onInterrupt)

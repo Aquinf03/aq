@@ -82,6 +82,28 @@ enable_grads(every=10)
 log_grads(model, step=100)
 ```
 
+## Tables (predictions / errors)
+
+One call logs a row with **any** columns; aq owns the JSONL. Browse with an interactive CLI.
+
+```python
+from aquin import table
+
+table(y=1, yhat=0, loss=0.9, note="whatever you want")  # default table
+table("preds", id=i, y=y, yhat=yhat, err=e, text=t)     # named
+table("errors", path=p, score=s, tag="hard")            # another table — any fields
+```
+
+```bash
+aq plot table              # default / only table
+aq plot table preds        # one named table
+aq plot table all          # everything logged (adds _table column)
+aq plot table all --run <id>
+```
+
+TUI: `↑↓` scroll · `/` or `Ctrl+F` find · `s` sort · `c` clear · `q` quit.  
+Example: [`scripts/tests/sdk-table`](../scripts/tests/sdk-table/).
+
 ## Init a run
 
 ```bash

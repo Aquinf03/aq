@@ -26,6 +26,7 @@ from aquin.autolog import (
     set_tags,
     start_system,
     stop_system,
+    table,
 )
 from aquin.client import Aquin
 from aquin.fleet import Job, Place, Queue
@@ -65,5 +66,6 @@ __all__ = [
     "set_tags",
     "start_system",
     "stop_system",
+    "table",
 ]
 __version__ = "0.1.0"

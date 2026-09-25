@@ -176,6 +176,63 @@ def log_grads(model: Any = None, *, step: int | None = None, train: str | Path |
     return aq_grads.emit(step, **body)
 
 
+def table(
+    *args: Any,
+    train: str | Path | None = None,
+    step: int | None = None,
+    **fields: Any,
+) -> str:
+    """Append one row to a logged table (``artifacts/tables/<name>.jsonl``).
+
+    Keyword fields become columns — aq handles the file, schema, and run link::
+
+        table(y=1, yhat=0, loss=0.9)              # default table
+        table("preds", id=i, y=y, yhat=yhat)      # named table
+
+    Browse later: ``aq plot table`` / ``aq plot table preds``.
+    """
+    from protocol import tables as aq_tables
+    from protocol import metrics as aq_metrics
+
+    name = "default"
+    if len(args) == 1 and isinstance(args[0], str):
+        name = args[0]
+    elif len(args) > 0:
+        raise TypeError('table("name", col=val, …) or table(col=val, …)')
+    if not fields:
+        raise TypeError("table() needs at least one column keyword, e.g. table(y=1, yhat=0)")
+
+    root = _ensure_session(train)
+    if root is None:
+        raise RuntimeError("table() needs a train folder (pass train=… or cwd with recipe.yaml)")
+
+    rid = aq_metrics.active_run_id()
+    st = step
+    if st is None:
+        try:
+            st = aq_metrics._state.get("step")  # type: ignore[attr-defined]
+            if st is not None and int(st) < 0:
+                st = None
+        except Exception:
+            st = None
+
+    path = aq_tables.append_row(root, name, fields, step=st, run_id=rid)
+    rel = f"artifacts/tables/{aq_tables.safe_name(name)}.jsonl"
+    try:
+        _, _, proto_autolog, _ = _kernel()
+        proto_autolog.log_artifact(f"table_{aq_tables.safe_name(name)}", rel)
+    except Exception:
+        pass
+    try:
+        aq_metrics.event("table", name=aq_tables.safe_name(name), path=rel, n_fields=len(fields))
+    except Exception:
+        pass
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
 def log_params(params: dict[str, Any], *, train: str | Path | None = None) -> None:
     """Log hyperparameters (dict). Same idea as wandb.config / mlflow.log_params."""
     _, _, _, runlog = _kernel()

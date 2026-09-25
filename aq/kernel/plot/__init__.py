@@ -28,6 +28,12 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
     req = req or {}
     import os
 
+    kind = str(req.get("kind") or "all").lower()
+    if kind == "table":
+        from plot.table_view import browse_table
+
+        return browse_table(train, req)
+
     mpl_dir = art_dir(train) / ".matplotlib"
     mpl_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(mpl_dir))

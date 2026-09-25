@@ -4,10 +4,12 @@ import path from "node:path"
 import { assertTrain } from "../core/schema.js"
 import { runKernel, type KernelReq } from "../core/python.js"
 
-const KINDS = new Set(["metrics", "jobs", "runs", "samples", "vision", "all"])
+const KINDS = new Set(["metrics", "jobs", "runs", "samples", "vision", "table", "all"])
 
 const USAGE = [
-  "usage: aq plot [dir] [metrics|jobs|runs|samples|all]",
+  "usage: aq plot [dir] [metrics|jobs|runs|samples|table|all]",
+  "  aq plot table [name]         interactive CLI table (from aquin.table rows)",
+  "  --run <id>                   filter table rows by run_id",
   "  --charts metrics,samples   which charts (overrides all)",
   "  --fields loss,lr           metrics y-fields",
   "  --x step                   metrics x-field",
@@ -77,13 +79,40 @@ function parsePlotArgs(argv: string[]): { train: string; req: KernelReq; open: b
   rest = noSamples.rest
   const openF = popBool(rest, "--open")
   rest = openF.rest
+  const runF = popFlag(rest, "--run")
+  rest = runF.rest
 
   let kind = "all"
   let trainArg: string | undefined
+  let tableName: string | undefined
   for (const token of rest) {
     if (token.startsWith("-")) throw new Error(`${USAGE}\nunknown: ${token}`)
-    if (KINDS.has(token)) kind = token
-    else if (!trainArg) trainArg = token
+    if (KINDS.has(token)) {
+      // `aq plot table all` — "all" is a table name, not chart kind=all
+      if (kind === "table" && !tableName) {
+        tableName = token
+        continue
+      }
+      kind = token
+      continue
+    }
+    if (kind === "table" && !tableName && trainArg) {
+      tableName = token
+      continue
+    }
+    if (kind === "table" && !tableName && !trainArg) {
+      // `aq plot table preds` — preds is table name, train is cwd
+      // vs `aq plot myrun table` — myrun is train
+      try {
+        assertTrain(token)
+        trainArg = token
+      } catch {
+        tableName = token
+      }
+      continue
+    }
+    if (!trainArg) trainArg = token
+    else if (kind === "table" && !tableName) tableName = token
     else throw new Error(USAGE)
   }
 
@@ -116,6 +145,8 @@ function parsePlotArgs(argv: string[]): { train: string; req: KernelReq; open: b
   if (flags.from) req.from = flags.from.split(",").map((s) => s.trim()).filter(Boolean)
   if (flags.backend) req.backend = flags.backend
   if (noSamples.on) req.no_samples = true
+  if (tableName) req.table = tableName
+  if (runF.value) req.run = runF.value
 
   return { train, req, open: openF.on }
 }
@@ -136,7 +167,7 @@ export async function plot(argv: string[]): Promise<void> {
     return
   }
   const { train, req, open } = parsePlotArgs(argv)
-  await runKernel(train, req)
+  await runKernel(train, req, { interactive: req.kind === "table" })
   if (open && req.out_file && existsSync(req.out_file)) {
     openFile(req.out_file)
   }
@@ -144,12 +175,14 @@ export async function plot(argv: string[]): Promise<void> {
 
 export function plotHelp(): string {
   return [
-    "  aq plot [dir] [metrics|jobs|runs|samples|all]",
+    "  aq plot [dir] [metrics|jobs|runs|samples|table|all]",
     "  aq plot metrics --fields loss,lr --style line --title 'loss'",
     "  aq plot samples --max 32 --nrow 4 --from artifacts/samples",
+    "  aq plot table [name] [--run id]   interactive rows (name=all → every table)",
     "  aq plot --charts metrics,samples --dpi 200",
     "",
     "  Charts: metrics/jobs/runs = matplotlib · samples = torchvision/Pillow grid",
+    "          table = interactive CLI (↑↓ / find · s sort · q quit)",
     "  Flags:  --fields --x --style --title --figsize --metric-charts --lr/--no-lr",
     "          --max --thumb --nrow --from --backend --charts --out --format --dpi --open",
     "",

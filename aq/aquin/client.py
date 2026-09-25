@@ -220,6 +220,12 @@ class Aquin:
 
         return _log_grads(model, step=step, train=self.root)
 
+    def table(self, *args: Any, step: int | None = None, **fields: Any) -> str:
+        """Append one row to artifacts/tables (see aquin.table)."""
+        from aquin.autolog import table as _table
+
+        return _table(*args, train=self.root, step=step, **fields)
+
     def set_tags(self, *tags: str, replace: bool = False) -> list[str]:
         from aquin.autolog import set_tags as _set_tags
 
