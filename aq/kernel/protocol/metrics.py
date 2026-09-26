@@ -137,6 +137,14 @@ def begin(
             emit("integrations", frameworks=hooked)
     except Exception:
         pass
+    # Fleet recover / managed retry → infra badge on the new session.
+    try:
+        from protocol import infra as aq_infra
+
+        aq_infra.reset_disk_warn()
+        aq_infra.stamp_recover_env()
+    except Exception:
+        pass
     return rid
 
 
@@ -236,6 +244,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "start",
             "info",
             "system",
+            "infra",
             "eval.probe",
             "end",
             "error",
@@ -244,6 +253,8 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             if event == "start":
                 et.on_start(body)
             elif event in ("info", "system"):
+                et.on_info(body)
+            elif event == "infra":
                 et.on_info(body)
             elif event == "eval.probe":
                 et.on_probe(body)
@@ -267,6 +278,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "model",
             "system",
             "grads",
+            "infra",
             "step",
             "epoch",
             "end",
@@ -276,6 +288,8 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         ):
             if event == "start":
                 tui.on_start(body)
+            elif event == "infra":
+                tui.on_infra(body)
             elif event in (
                 "info",
                 "params",
@@ -310,6 +324,12 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
         # Compact one-liner in non-TUI; TUI handled above.
         if body.get("grad_s"):
             print_kv([("grads", body["grad_s"])])
+        return
+
+    if event == "infra":
+        # Always surface infra badges outside TUI (CI / pipes).
+        label = body.get("infra_s") or body.get("kind") or "infra"
+        print_kv([("infra", label)])
         return
 
     if event == "start":

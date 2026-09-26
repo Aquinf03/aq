@@ -121,6 +121,12 @@ def emit_sample() -> dict[str, Any]:
         net_s=body.get("net_s"),
         gpu_s=body.get("gpu_s"),
     )
+    try:
+        from protocol import infra as aq_infra
+
+        aq_infra.maybe_disk(body)
+    except Exception:
+        pass
     return body
 
 

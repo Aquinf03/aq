@@ -2143,7 +2143,14 @@ async function recoverJob(opts: {
       worldSize,
       masterAddr,
       masterPort,
-      extra: { AQ_RECOVERED: "1" },
+      extra: {
+        AQ_RECOVERED: "1",
+        AQ_INFRA_KIND: anyUnreachable ? "preempt" : "retry",
+        AQ_INFRA_MESSAGE: anyUnreachable
+          ? "job recovered after place unreachable"
+          : "job recovered / retry",
+        AQ_JOB_ID: id,
+      },
     })
     if (needGpu > 0) {
       const devs = allocateGpus(id, g.name, g.place, needGpu)

@@ -229,6 +229,12 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
         aq_metrics.end(ok=False, aborted=True, error=str(e))
         raise
     except Exception as e:
+        try:
+            from protocol import infra as aq_infra
+
+            aq_infra.emit_from_error(e)
+        except Exception:
+            pass
         aq_metrics.event("error", error=str(e))
         aq_metrics.end(ok=False, error=str(e))
         raise
@@ -419,6 +425,12 @@ def do_eval(
         aq_metrics.end(ok=False, aborted=True, error=str(e))
         raise
     except Exception as e:
+        try:
+            from protocol import infra as aq_infra
+
+            aq_infra.emit_from_error(e)
+        except Exception:
+            pass
         aq_metrics.event("error", error=str(e))
         aq_metrics.end(ok=False, error=str(e))
         raise
@@ -520,6 +532,12 @@ def do_serve(
             lines.append("  tokens: " + str(out.get("tokens")))
         return lines
     except Exception as e:
+        try:
+            from protocol import infra as aq_infra
+
+            aq_infra.emit_from_error(e)
+        except Exception:
+            pass
         aq_metrics.event("error", error=str(e))
         aq_metrics.end(ok=False, error=str(e))
         raise

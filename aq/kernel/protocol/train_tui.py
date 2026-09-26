@@ -19,6 +19,7 @@ _RESET = "\033[0m"
 _DIM = "\033[2m"
 _BOLD = "\033[1m"
 _GREEN = "\033[32m"
+_YELLOW = "\033[33m"
 _YELLOW_BG = "\033[48;5;178m\033[30m"  # warm yellow highlight
 _HIDE = "\033[?25l"
 _SHOW = "\033[?25h"
@@ -46,6 +47,7 @@ class TrainTui:
         self.latest: dict[str, Any] = {}
         self.steps: list[dict[str, Any]] = []
         self.epochs: list[dict[str, Any]] = []
+        self.infra: list[dict[str, Any]] = []
         self._lines = 0
         self._started = False
         self._last_draw = 0.0
@@ -62,6 +64,22 @@ class TrainTui:
             if k in ("ts", "event", "run_id", "op", "elapsed_ms") or v is None:
                 continue
             self.info[k] = v
+        self._draw(force=True)
+
+    def on_infra(self, body: dict[str, Any]) -> None:
+        """Discrete host/GPU/scheduler badge on the same run timeline."""
+        evt = dict(body)
+        self.infra.append(evt)
+        if len(self.infra) > 40:
+            self.infra = self.infra[-40:]
+        for k in ("kind", "message", "infra_s", "step"):
+            if body.get(k) is not None:
+                self.info[k if k != "kind" else "infra_kind"] = body[k]
+        if body.get("infra_s"):
+            self.info["infra_s"] = body["infra_s"]
+        elif body.get("kind"):
+            label = body.get("message") or body["kind"]
+            self.info["infra_s"] = f"{body['kind']}: {label}" if body.get("message") else str(body["kind"])
         self._draw(force=True)
 
     def on_step(self, body: dict[str, Any]) -> None:
@@ -158,6 +176,52 @@ class TrainTui:
             return _truncate(line, inner + 2)
         return line
 
+    def _infra_line(self, info: dict[str, Any], inner: int) -> str | None:
+        """Latest infra incident badge (OOM / preempt / disk / …)."""
+        label = info.get("infra_s")
+        if not label and self.infra:
+            last = self.infra[-1]
+            label = last.get("infra_s") or last.get("kind")
+        if not label:
+            return None
+        n = len(self.infra)
+        suffix = f"  {_DIM}(+{n - 1} more){_RESET}" if n > 1 else ""
+        line = f"  {_YELLOW}infra{_RESET} {fmt_cell(label)}{suffix}"
+        if _visible_len(line) > inner + 2:
+            return _truncate(line, inner + 2)
+        return line
+
+    def _infra_marker_row(self, step_vals: list[float], width: int) -> str | None:
+        """Place `▼` under the loss chart at infra event steps."""
+        if not self.infra or not step_vals or width < 4:
+            return None
+        lo, hi = min(step_vals), max(step_vals)
+        span = hi - lo if hi > lo else 1.0
+        marks = [" "] * width
+        hit = False
+        for ev in self.infra:
+            raw = ev.get("step")
+            if raw is None:
+                continue
+            try:
+                s = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if s < lo or s > hi:
+                # still clamp into window so late OOMs show at the right edge
+                if s > hi:
+                    s = hi
+                else:
+                    continue
+            col = int(round((s - lo) / span * (width - 1)))
+            col = max(0, min(width - 1, col))
+            marks[col] = "▼"
+            hit = True
+        if not hit:
+            # no step on events — put a tip at the end of the chart
+            marks[-1] = "▼"
+        return "  " + _YELLOW + "".join(marks) + _RESET
+
     def _frame(self) -> list[str]:
         info = self.info
         lat = self.latest
@@ -252,6 +316,9 @@ class TrainTui:
         grads_line = self._grads_line(info, lat, inner)
         if grads_line:
             lines.append(grads_line)
+        infra_line = self._infra_line(info, inner)
+        if infra_line:
+            lines.append(infra_line)
 
         if info.get("error"):
             lines.append(f"  {_BOLD}error  {info['error']}{_RESET}")
@@ -264,11 +331,21 @@ class TrainTui:
             if s.get("loss") is not None
             and _finite(s.get("loss"))
         ]
+        step_xs = [
+            float(s["step"])
+            for s in self.steps
+            if s.get("step") is not None
+            and s.get("loss") is not None
+            and _finite(s.get("loss"))
+        ]
         if losses:
             lines.append("")
             lines.append(f"  {_DIM}loss @ step{_RESET}")
             for row in _step_chart(losses, width=chart_w, height=4):
                 lines.append(f"  {_GREEN}{row}{_RESET}")
+            marker = self._infra_marker_row(step_xs, chart_w)
+            if marker:
+                lines.append(marker)
             lines.append(f"  {_DIM}{fmt_cell(min(losses))}{_RESET}" + " " * max(0, chart_w - 12) + f"{_DIM}{fmt_cell(max(losses))}{_RESET}")
             lines.append(f"  {_DIM}loss  {_RESET}{_GREEN}{_sparkline(losses, chart_w)}{_RESET}")
         lrs = [

@@ -660,6 +660,12 @@ def fit(src: Path, rec: dict, *, method_name: str | None = None) -> dict:
     except Exception as e:
         msg = str(e)
         if "out of memory" in msg.lower() or "oom" in msg.lower():
+            try:
+                from protocol import infra as aq_infra
+
+                aq_infra.emit("oom", msg[:500], backend="hf_lm")
+            except Exception:
+                pass
             raise SystemExit(
                 f"{msg}\n\n"
                 "VRAM tips: method/objective lora (or bits: 4 QLoRA), lower max_seq_len, "
@@ -667,6 +673,12 @@ def fit(src: Path, rec: dict, *, method_name: str | None = None) -> dict:
                 "gradient_checkpointing: true. "
                 f"(load_dtype={load_dtype})"
             ) from e
+        try:
+            from protocol import infra as aq_infra
+
+            aq_infra.emit_from_error(e)
+        except Exception:
+            pass
         raise
     train_loss = float(result.training_loss) if result.training_loss is not None else None
 

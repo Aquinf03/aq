@@ -76,6 +76,20 @@ def _plot_steps(out_dir: Path, *, fmt: str, dpi: int, rows: list[dict], opts: di
     if not xs:
         return None
 
+    infra_marks: list[tuple[float, str]] = []
+    for row in rows:
+        if row.get("event") != "infra":
+            continue
+        raw = row.get("step")
+        if raw is None:
+            continue
+        try:
+            sx = float(raw)
+        except (TypeError, ValueError):
+            continue
+        kind = str(row.get("kind") or "infra")
+        infra_marks.append((sx, kind))
+
     apply_theme()
     fig, ax1 = plt.subplots(figsize=_figsize(opts, (7, 4)))
     if style == "scatter":
@@ -88,6 +102,28 @@ def _plot_steps(out_dir: Path, *, fmt: str, dpi: int, rows: list[dict], opts: di
     ax1.set_ylabel(y_key)
     ax1.set_title(title)
     ax1.grid(True)
+
+    # Infra badges on the same step axis as loss (OOM / preempt / disk / …).
+    if infra_marks and opts.get("infra", True) is not False:
+        y_lo, y_hi = ax1.get_ylim()
+        labeled: set[str] = set()
+        for sx, kind in infra_marks:
+            if sx < min(xs) or sx > max(xs):
+                continue
+            lab = kind if kind not in labeled else None
+            ax1.axvline(sx, color="#ca8a04", linestyle=":", linewidth=1.2, alpha=0.85, label=lab)
+            if lab:
+                labeled.add(kind)
+            ax1.annotate(
+                kind,
+                xy=(sx, y_hi),
+                xytext=(0, -4),
+                textcoords="offset points",
+                ha="center",
+                va="top",
+                fontsize=8,
+                color="#a16207",
+            )
 
     if show_lr and lrs and len(lrs) == len(xs):
         ax2 = ax1.twinx()

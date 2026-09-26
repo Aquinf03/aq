@@ -199,6 +199,19 @@ class Aquin:
 
         return _log_system(train=self.root)
 
+    def log_infra(
+        self,
+        kind: str,
+        message: str | None = None,
+        *,
+        step: int | None = None,
+        **fields: Any,
+    ) -> dict[str, Any]:
+        """Stamp a discrete infra incident (OOM / preempt / …) onto the run timeline."""
+        from aquin.autolog import log_infra as _log_infra
+
+        return _log_infra(kind, message, train=self.root, step=step, **fields)
+
     def start_system(self, interval: float = 2.0) -> None:
         """Background system metrics (same as ``aq train --system``)."""
         from aquin.autolog import start_system as _start_system

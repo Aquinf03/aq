@@ -18,6 +18,7 @@ _DIM = "\033[2m"
 _BOLD = "\033[1m"
 _GREEN = "\033[32m"
 _RED = "\033[31m"
+_YELLOW = "\033[33m"
 _YELLOW_BG = "\033[48;5;178m\033[30m"
 _HIDE = "\033[?25l"
 _SHOW = "\033[?25h"
@@ -200,6 +201,13 @@ class EvalTui:
                 # soft truncate
                 sys_line = sys_line[: inner + 2]
             lines.append(sys_line)
+
+        infra = info.get("infra_s")
+        if infra:
+            line = f"  {_YELLOW}infra{_RESET} {fmt_cell(infra)}"
+            if _visible_len(line) > inner + 2:
+                line = line[: inner + 2]
+            lines.append(line)
 
         if info.get("error"):
             lines.append(f"  {_BOLD}{_RED}error{_RESET}  {info['error']}")

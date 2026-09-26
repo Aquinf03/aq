@@ -104,6 +104,24 @@ aq plot table all --run <id>
 TUI: `↑↓` scroll · `/` or `Ctrl+F` find · `s` sort · `c` clear · `q` quit.  
 Example: [`scripts/tests/sdk-table`](../scripts/tests/sdk-table/).
 
+## Infra events (OOM / preempt / disk on the loss timeline)
+
+Discrete host/GPU/scheduler incidents stamped onto the **same** `metrics.jsonl` as loss — not a separate ops dashboard.
+
+Auto: CUDA OOM / device errors in train/eval, VLM OOM retry, low disk (when `--system`), fleet `aq jobs recover` (`AQ_RECOVERED` → `preempt`/`retry` on restart).
+
+```python
+from aquin import autolog, log_infra, finish
+
+autolog(train=".")
+log_infra("gpu", "Xid 79", xid=79, step=12400)
+# … or let aq stamp OOM / recover for you …
+finish()
+```
+
+Kinds: `oom`, `gpu`, `preempt`, `node`, `disk`, `net`, `retry`, `signal`.  
+TUI shows an `infra` badge + ▼ under the loss chart; `aq plot metrics` draws vertical markers.
+
 ## Init a run
 
 ```bash

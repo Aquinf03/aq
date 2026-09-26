@@ -256,9 +256,27 @@ def fit(src: Path, rec: dict) -> dict:
     except Exception as e:
         if not is_oom(e):
             raise
+        try:
+            from protocol import infra as aq_infra
+
+            aq_infra.emit("oom", str(e)[:500], backend="vlm", phase="first")
+        except Exception:
+            pass
         print(f"  oom   {e}", file=sys.stderr)
         plan = shrink_plan_for_oom(plan)
         log_plan(plan, prefix="  retry ")
+        try:
+            from protocol import infra as aq_infra
+
+            aq_infra.emit(
+                "retry",
+                "VLM OOM auto-shrink",
+                backend="vlm",
+                batch_size=plan.batch_size,
+                max_seq_len=plan.max_seq_len,
+            )
+        except Exception:
+            pass
         cuda_alloc_hygiene()
         batch = plan.batch_size
         max_len = int(plan.max_seq_len or max_len)
@@ -267,6 +285,12 @@ def fit(src: Path, rec: dict) -> dict:
             trainer.train()
         except Exception as e2:
             if is_oom(e2):
+                try:
+                    from protocol import infra as aq_infra
+
+                    aq_infra.emit("oom", str(e2)[:500], backend="vlm", phase="retry")
+                except Exception:
+                    pass
                 raise SystemExit(
                     f"{e2}\n\n"
                     "VLM still OOM after aq auto-shrink. Try a smaller `model:`, "

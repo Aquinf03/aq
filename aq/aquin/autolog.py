@@ -123,6 +123,25 @@ def log_system(*, train: str | Path | None = None) -> dict[str, Any]:
     return sysmetrics.emit_sample()
 
 
+def log_infra(
+    kind: str,
+    message: str | None = None,
+    *,
+    train: str | Path | None = None,
+    step: int | None = None,
+    **fields: Any,
+) -> dict[str, Any]:
+    """Stamp a discrete infra incident onto the run timeline (OOM, preempt, …).
+
+    Lands in ``artifacts/metrics.jsonl`` as ``event=infra`` — same stream as loss.
+    Kinds: oom, gpu, preempt, node, disk, net, retry, signal.
+    """
+    from protocol import infra as aq_infra
+
+    _ensure_session(train)
+    return aq_infra.emit(kind, message, step=step, **fields)
+
+
 def start_system(
     *,
     train: str | Path | None = None,
