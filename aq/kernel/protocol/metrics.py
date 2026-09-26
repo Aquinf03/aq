@@ -248,6 +248,7 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
             "eval.probe",
             "eval.suite",
             "eval.plot",
+            "eval.extra",
             "end",
             "error",
             "guard.abort",
@@ -262,6 +263,8 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
                 et.on_probe(body)
             elif event == "eval.suite":
                 et.on_suite(body)
+            elif event == "eval.extra":
+                et.on_extra(body)
             elif event == "eval.plot":
                 et.on_info({"eval_plot": body.get("kind") or body.get("path")})
             elif event == "end":
@@ -458,6 +461,14 @@ def _print_live(event: str, body: dict[str, Any]) -> None:
 
     if event == "eval.suite":
         print_kv([("suite", body.get("suite_s") or body.get("task") or "eval")])
+        return
+
+    if event == "eval.extra":
+        name = body.get("key") or "extra"
+        if body.get("error"):
+            print_kv([("extra", f"{name}=err")])
+        else:
+            print_kv([("extra", f"{name}={body.get('score')}")])
         return
 
     if event == "eval.plot":

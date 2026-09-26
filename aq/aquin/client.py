@@ -222,8 +222,9 @@ class Aquin:
         average: str = "macro",
         plots: bool = True,
         path: str | None = None,
+        **extras: Any,
     ) -> dict[str, Any]:
-        """Standard metrics + plots logged to this run (see aquin.evaluate)."""
+        """Standard metrics + plots (+ optional extra named scores) on this run."""
         from aquin.autolog import evaluate as _evaluate
 
         return _evaluate(
@@ -235,6 +236,7 @@ class Aquin:
             average=average,
             plots=plots,
             path=path,
+            **extras,
         )
 
     def start_system(self, interval: float = 2.0) -> None:

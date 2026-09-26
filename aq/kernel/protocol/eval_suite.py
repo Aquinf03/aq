@@ -1,12 +1,11 @@
 """Classical model evaluation suite — metrics + plots on the run.
 
     from aquin import evaluate
-    evaluate(y_true, y_pred, y_prob=proba)
+    evaluate(y_true, y_pred, y_prob=proba, cost=240, fairness=gap)
 
-Emits ``eval.suite`` / ``eval.plot`` into ``artifacts/metrics.jsonl`` and writes
-charts under ``artifacts/plots/`` (confusion, roc, pr, residuals, pred_vs_true).
-
-Also used by ``aq eval`` when suite is on (tabular default / ``eval.suite`` / ``--suite``).
+Extra named kwargs (numbers or callables) land on the same UI as the suite
+(``eval.extra``). Optional recipe ``eval.extra: [cost]`` loads ``scorers.py:cost``
+for ``aq eval``.
 """
 
 from __future__ import annotations
@@ -340,8 +339,12 @@ def run(
     dpi: int = 120,
     prefix: str = "",
     emit: bool = True,
+    extras: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Compute suite, write plots, emit metrics events. Returns suite body."""
+    """Compute suite, write plots, emit metrics events. Returns suite body.
+
+    ``extras`` — named org scores (float or ``fn(y_true, y_pred)``), same UI as suite.
+    """
     from protocol import metrics as aq_metrics
 
     body = compute(y_true, y_pred, y_prob=y_prob, task=task, average=average)
@@ -360,18 +363,193 @@ def run(
         )
         if plot_rows:
             body["plots"] = [r["kind"] for r in plot_rows]
+    extra_rows = resolve_extras(extras or {}, y_true, y_pred, y_prob=y_prob)
+    if extra_rows:
+        body["extra"] = {r["key"]: r.get("score") for r in extra_rows if "score" in r}
+        body["extra_s"] = compact_extras(extra_rows)
     if emit:
         # Drop non-json-friendly / huge fields — metrics only
         event_body = {
             k: v
             for k, v in body.items()
-            if k not in ("y_true", "y_pred", "y_prob") and v is not None
+            if k not in ("y_true", "y_pred", "y_prob", "extra") and v is not None
         }
         aq_metrics.event("eval.suite", **event_body)
         for row in plot_rows:
             aq_metrics.event("eval.plot", kind=row["kind"], path=row["path"], path_probe=path)
+        for row in extra_rows:
+            # use emit — metrics.event(name=...) would clash with a "name" field
+            aq_metrics.emit("eval.extra", path=path, **row)
     body["_plots"] = plot_rows
+    body["_extras"] = extra_rows
     return body
+
+
+_RESERVED_EXTRA = frozenset(
+    {
+        "train",
+        "task",
+        "average",
+        "plots",
+        "path",
+        "emit",
+        "dpi",
+        "prefix",
+        "y_true",
+        "y_pred",
+        "y_prob",
+        "extras",
+    }
+)
+
+
+def resolve_extras(
+    extras: dict[str, Any],
+    y_true: Sequence[Any],
+    y_pred: Sequence[Any],
+    *,
+    y_prob: Sequence[Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Turn kwargs / recipe extras into emit-ready rows.
+
+    Value may be a number, a ``dict`` of numbers, or ``callable(y_true, y_pred[, y_prob])``.
+    """
+    rows: list[dict[str, Any]] = []
+    for name, raw in extras.items():
+        if name in _RESERVED_EXTRA or raw is None:
+            continue
+        name = str(name)
+        try:
+            val = _call_extra(raw, y_true, y_pred, y_prob)
+        except Exception as e:
+            rows.append({"key": name, "error": str(e)[:200]})
+            continue
+        if isinstance(val, dict):
+            # Primary score = first numeric, rest as fields
+            fields = {str(k): _as_float(v) for k, v in val.items() if _as_float(v) is not None}
+            if not fields:
+                continue
+            score = fields.get("score")
+            if score is None:
+                score = next(iter(fields.values()))
+            row = {"key": name, "score": score, **{k: v for k, v in fields.items() if k != "score"}}
+            rows.append(row)
+        else:
+            num = _as_float(val)
+            if num is None:
+                continue
+            rows.append({"key": name, "score": num})
+    return rows
+
+
+def compact_extras(rows: list[dict[str, Any]]) -> str:
+    bits: list[str] = []
+    for r in rows:
+        name = r.get("key") or "extra"
+        if r.get("error"):
+            bits.append(f"{name}=err")
+            continue
+        if r.get("score") is not None:
+            bits.append(f"{name}={_fmt(r['score'])}")
+    return "  ".join(bits)
+
+
+def _call_extra(
+    raw: Any,
+    y_true: Sequence[Any],
+    y_pred: Sequence[Any],
+    y_prob: Sequence[Any] | None,
+) -> Any:
+    if not callable(raw):
+        return raw
+    try:
+        return raw(y_true, y_pred, y_prob)
+    except TypeError:
+        return raw(y_true, y_pred)
+
+
+def _as_float(v: Any) -> float | None:
+    if isinstance(v, bool):
+        return float(v)
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def recipe_extras(train: Path, rec: dict) -> dict[str, Any]:
+    """Optional CI glue: ``eval.extra: [cost]`` → load ``scorers.py:cost`` (or ``path:fn``)."""
+    ev = rec.get("eval") if isinstance(rec, dict) else None
+    if not isinstance(ev, dict) or "extra" not in ev:
+        return {}
+    raw = ev.get("extra")
+    names: list[str] = []
+    if isinstance(raw, str):
+        names = [raw]
+    elif isinstance(raw, list):
+        names = [str(x) for x in raw if x]
+    elif isinstance(raw, dict):
+        # {cost: scorers:cost} or {cost: true} → scorers.cost
+        out: dict[str, Any] = {}
+        for k, v in raw.items():
+            if v is True or v is None or v == "":
+                fn = load_scorer(train, str(k))
+            else:
+                fn = load_scorer(train, str(v) if ":" in str(v) or "/" in str(v) else f"scorers:{v}")
+                if fn is None:
+                    fn = load_scorer(train, str(k))
+            if fn is not None:
+                out[str(k)] = fn
+        return out
+    else:
+        return {}
+    out = {}
+    for spec in names:
+        fn = load_scorer(train, spec)
+        if fn is None:
+            continue
+        # name = function name after :
+        key = spec.split(":")[-1].split(".")[-1] if ":" in spec else spec
+        out[key] = fn
+    return out
+
+
+def load_scorer(train: Path, spec: str):
+    """Load ``scorers:cost``, ``scorers.py:cost``, or ``tools/fair.py:gap``."""
+    import importlib.util
+
+    spec = str(spec).strip()
+    if not spec:
+        return None
+    if ":" in spec:
+        mod_part, fn_name = spec.rsplit(":", 1)
+    else:
+        mod_part, fn_name = "scorers", spec
+    mod_part = mod_part.strip().removesuffix(".py")
+    fn_name = fn_name.strip()
+    # path relative to train
+    candidates = [
+        train / f"{mod_part}.py",
+        train / mod_part if mod_part.endswith(".py") else train / f"{mod_part.replace('.', '/')}.py",
+    ]
+    if mod_part == "scorers":
+        candidates.insert(0, train / "scorers.py")
+    path = next((p for p in candidates if p.is_file()), None)
+    if path is None:
+        return None
+    try:
+        uid = f"aq_scorer_{path.stem}_{fn_name}"
+        um = importlib.util.spec_from_file_location(uid, path)
+        if um is None or um.loader is None:
+            return None
+        mod = importlib.util.module_from_spec(um)
+        um.loader.exec_module(mod)
+        fn = getattr(mod, fn_name, None)
+        return fn if callable(fn) else None
+    except Exception:
+        return None
 
 
 def predict_arrays(

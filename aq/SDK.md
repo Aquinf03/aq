@@ -130,8 +130,20 @@ Standard classical suite on the run — not one scalar.
 from aquin import autolog, evaluate, finish
 
 autolog(train=".")
-evaluate(y_true, y_pred, y_prob=proba)   # clf or reg inferred
+evaluate(
+    y_true, y_pred, y_prob=proba,
+    cost=240,              # your number
+    fairness=gap,          # or a float you already computed
+)
+# callables work too: evaluate(y, yhat, cost=my_cost_fn)
 finish()
+```
+
+Same board:
+
+```
+  suite    acc=0.91  F1=0.87  auc=0.93
+  extra    cost=240  fairness=0.02
 ```
 
 ```bash
@@ -148,11 +160,13 @@ eval:
   metric: accuracy      # pass/fail gate
   min_score: 0.85
   suite: true           # optional; tabular defaults on
+  # optional CI glue — loads scorers.py:cost on every aq eval
+  extra: [cost]
 ```
 
 Classification → accuracy / P/R/F1 / ROC-AUC + confusion · ROC · PR.  
 Regression → MAE/MSE/RMSE/R² + residuals · pred-vs-true.  
-Events: `eval.suite`, `eval.plot` in `artifacts/metrics.jsonl`.
+Events: `eval.suite`, `eval.plot`, `eval.extra` in `artifacts/metrics.jsonl`.
 
 ## Init a run
 

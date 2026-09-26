@@ -358,22 +358,35 @@ def do_eval(
                 n=n,
                 **{"pass": fp},
             )
-            # Classical suite (metrics + plots) on the same run timeline.
+            # Classical suite + optional recipe extras on the same run timeline.
             try:
                 from protocol import eval_suite as aq_suite
 
-                if aq_suite.want(rec, req):
+                want_suite = aq_suite.want(rec, req)
+                extras = aq_suite.recipe_extras(train, rec)
+                if want_suite or extras:
                     arrays = aq_suite.predict_arrays(train, rec, model, src)
                     if arrays:
-                        prefix = Path(rel).stem.replace(" ", "_")[:40]
-                        aq_suite.run(
-                            train,
-                            arrays["y_true"],
-                            arrays["y_pred"],
-                            y_prob=arrays.get("y_prob"),
-                            path=rel,
-                            prefix=prefix if len(files) > 1 else "",
-                        )
+                        if want_suite:
+                            prefix = Path(rel).stem.replace(" ", "_")[:40]
+                            aq_suite.run(
+                                train,
+                                arrays["y_true"],
+                                arrays["y_pred"],
+                                y_prob=arrays.get("y_prob"),
+                                path=rel,
+                                prefix=prefix if len(files) > 1 else "",
+                                extras=extras or None,
+                            )
+                        elif extras:
+                            rows = aq_suite.resolve_extras(
+                                extras,
+                                arrays["y_true"],
+                                arrays["y_pred"],
+                                y_prob=arrays.get("y_prob"),
+                            )
+                            for row in rows:
+                                aq_metrics.emit("eval.extra", path=rel, **row)
             except Exception:
                 pass
             wsum += sc * n

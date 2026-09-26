@@ -152,13 +152,16 @@ def evaluate(
     average: str = "macro",
     plots: bool = True,
     path: str | None = None,
+    **extras: Any,
 ) -> dict[str, Any]:
     """Standard metrics + plots logged to the active run.
 
     Classification → accuracy / P/R/F1 / ROC-AUC (+ confusion, ROC, PR plots).
     Regression → MAE/MSE/RMSE/R² (+ residuals, pred-vs-true).
 
-        evaluate(y, yhat, y_prob=proba)
+    Extra named scores are just kwargs (number or ``fn(y_true, y_pred)``)::
+
+        evaluate(y, yhat, y_prob=p, cost=240, fairness=gap)
     """
     from protocol import eval_suite as aq_suite
 
@@ -174,6 +177,7 @@ def evaluate(
         average=average,
         plots=plots,
         path=path,
+        extras=extras or None,
     )
 
 

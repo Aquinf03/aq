@@ -86,6 +86,24 @@ class EvalTui:
             self.info["suite_s"] = body["suite_s"]
         if body.get("plots"):
             self.info["suite_plots"] = body["plots"]
+        if body.get("extra_s"):
+            self.info["extra_s"] = body["extra_s"]
+        self._draw(force=True)
+
+    def on_extra(self, body: dict[str, Any]) -> None:
+        """Org / business scores — same board as suite."""
+        name = str(body.get("key") or "extra")
+        bits: list[str] = []
+        prev = self.info.get("extra_s")
+        if prev:
+            # replace if same name already present
+            keep = [p for p in str(prev).split() if not p.startswith(name + "=")]
+            bits.extend(keep)
+        if body.get("error"):
+            bits.append(f"{name}=err")
+        elif body.get("score") is not None:
+            bits.append(f"{name}={fmt_cell(body['score'])}")
+        self.info["extra_s"] = "  ".join(bits)
         self._draw(force=True)
 
     def on_probe(self, body: dict[str, Any]) -> None:
@@ -221,6 +239,12 @@ class EvalTui:
         suite_s = info.get("suite_s") or self.suite.get("suite_s")
         if suite_s:
             line = f"  {_DIM}suite{_RESET}  {fmt_cell(suite_s)}"
+            if _visible_len(line) > inner + 2:
+                line = line[: inner + 2]
+            lines.append(line)
+        extra_s = info.get("extra_s")
+        if extra_s:
+            line = f"  {_DIM}extra{_RESET}  {fmt_cell(extra_s)}"
             if _visible_len(line) > inner + 2:
                 line = line[: inner + 2]
             lines.append(line)
