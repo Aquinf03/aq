@@ -122,6 +122,38 @@ finish()
 Kinds: `oom`, `gpu`, `preempt`, `node`, `disk`, `net`, `retry`, `signal`.  
 TUI shows an `infra` badge + ▼ under the loss chart; `aq plot metrics` draws vertical markers.
 
+## Model evaluation (metrics + plots)
+
+Standard classical suite on the run — not one scalar.
+
+```python
+from aquin import autolog, evaluate, finish
+
+autolog(train=".")
+evaluate(y_true, y_pred, y_prob=proba)   # clf or reg inferred
+finish()
+```
+
+```bash
+aq eval                 # suite on by default for tabular/classic
+aq eval --suite         # force
+aq eval --no-suite      # primary metric only
+aq plot eval            # all suite charts
+aq plot eval confusion
+aq plot eval roc
+```
+
+```yaml
+eval:
+  metric: accuracy      # pass/fail gate
+  min_score: 0.85
+  suite: true           # optional; tabular defaults on
+```
+
+Classification → accuracy / P/R/F1 / ROC-AUC + confusion · ROC · PR.  
+Regression → MAE/MSE/RMSE/R² + residuals · pred-vs-true.  
+Events: `eval.suite`, `eval.plot` in `artifacts/metrics.jsonl`.
+
 ## Init a run
 
 ```bash

@@ -68,6 +68,11 @@ export type KernelReq = {
   table?: string
   /** aq plot table --run <id> */
   run?: string
+  /** aq plot eval — confusion|roc|pr|residuals|pred|all */
+  chart?: string
+  /** aq eval --suite — classical metrics + plots on the run */
+  suite?: boolean
+  eval_suite?: boolean
   // plot options (CLI / SDK → kernel plot config)
   charts?: string[]
   title?: string
@@ -194,6 +199,7 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   let captureEnv: string | boolean | undefined
   let captureSystem: boolean | undefined
   let captureGrads: boolean | undefined
+  let evalSuite: boolean | undefined
   const nextRest: string[] = []
   for (const a of rest) {
     if (a === "--capture-code" || a === "--capture=code") {
@@ -239,6 +245,14 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
     }
     if (a === "--no-grads" || a === "--no-capture-grads") {
       captureGrads = false
+      continue
+    }
+    if (a === "--suite" || a === "--eval-suite") {
+      evalSuite = true
+      continue
+    }
+    if (a === "--no-suite" || a === "--no-eval-suite") {
+      evalSuite = false
       continue
     }
     nextRest.push(a)
@@ -299,6 +313,14 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
   if (captureSystem === false) req.capture_system = false
   if (captureGrads === true) req.capture_grads = true
   if (captureGrads === false) req.capture_grads = false
+  if (evalSuite === true) {
+    req.suite = true
+    req.eval_suite = true
+  }
+  if (evalSuite === false) {
+    req.suite = false
+    req.eval_suite = false
+  }
   const root = openRun(train).root
   await runKernel(root, req)
   return root

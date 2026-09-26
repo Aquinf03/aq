@@ -358,6 +358,24 @@ def do_eval(
                 n=n,
                 **{"pass": fp},
             )
+            # Classical suite (metrics + plots) on the same run timeline.
+            try:
+                from protocol import eval_suite as aq_suite
+
+                if aq_suite.want(rec, req):
+                    arrays = aq_suite.predict_arrays(train, rec, model, src)
+                    if arrays:
+                        prefix = Path(rel).stem.replace(" ", "_")[:40]
+                        aq_suite.run(
+                            train,
+                            arrays["y_true"],
+                            arrays["y_pred"],
+                            y_prob=arrays.get("y_prob"),
+                            path=rel,
+                            prefix=prefix if len(files) > 1 else "",
+                        )
+            except Exception:
+                pass
             wsum += sc * n
             ntot += n
             if all_pass is True and fp is False:
@@ -416,6 +434,13 @@ def do_eval(
             "  artifacts/metrics.jsonl",
             "  artifacts/runs/" + rid + ".json",
         ]
+        try:
+            from protocol import eval_suite as aq_suite
+
+            if aq_suite.want(rec, req) and (art_dir(train) / "plots").is_dir():
+                lines.append("  artifacts/plots/")
+        except Exception:
+            pass
         if len(probes) > 1 or (probes and probes[0]["path"].startswith("evals/")):
             for p in probes:
                 lines.append("  " + p["path"] + "  " + str(p["score"]))

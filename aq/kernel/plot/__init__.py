@@ -10,6 +10,7 @@ from plot.config import chart_options, resolve_plot_config
 
 
 def _renderers() -> dict[str, Callable[..., Path | None]]:
+    from plot.eval_charts import plot_eval
     from plot.jobs import plot_jobs
     from plot.metrics import plot_metrics
     from plot.runs import plot_runs
@@ -21,6 +22,7 @@ def _renderers() -> dict[str, Callable[..., Path | None]]:
         "runs": plot_runs,
         "samples": plot_vision,
         "vision": plot_vision,
+        "eval": plot_eval,
     }
 
 
@@ -33,6 +35,13 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
         from plot.table_view import browse_table
 
         return browse_table(train, req)
+
+    if kind == "eval":
+        # Pass chart subkind (confusion|roc|pr|residuals|pred|all)
+        chart = str(req.get("chart") or req.get("table") or "all").lower()
+        req = {**req, "kind": "eval"}
+        # stash on a private key for chart_options / renderer
+        req.setdefault("fields", [chart] if chart != "all" else ["all"])
 
     mpl_dir = art_dir(train) / ".matplotlib"
     mpl_dir.mkdir(parents=True, exist_ok=True)
@@ -82,6 +91,11 @@ def do_plot(train: Path, req: dict[str, Any] | None = None) -> list[str]:
             skipped.append(f"unknown chart: {name}")
             continue
         opts = chart_options(cfg, name)
+        if name == "eval":
+            chart = req.get("chart")
+            if not chart and isinstance(req.get("fields"), list) and req["fields"]:
+                chart = req["fields"][0]
+            opts = {**opts, "chart": chart or "all"}
         path = fn(train, out_dir, fmt=fmt, dpi=dpi, opts=opts)
         if path is None:
             skipped.append(f"no data for {name}")

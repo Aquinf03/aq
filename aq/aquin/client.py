@@ -212,6 +212,31 @@ class Aquin:
 
         return _log_infra(kind, message, train=self.root, step=step, **fields)
 
+    def evaluate(
+        self,
+        y_true: Any,
+        y_pred: Any,
+        y_prob: Any = None,
+        *,
+        task: str | None = None,
+        average: str = "macro",
+        plots: bool = True,
+        path: str | None = None,
+    ) -> dict[str, Any]:
+        """Standard metrics + plots logged to this run (see aquin.evaluate)."""
+        from aquin.autolog import evaluate as _evaluate
+
+        return _evaluate(
+            y_true,
+            y_pred,
+            y_prob,
+            train=self.root,
+            task=task,
+            average=average,
+            plots=plots,
+            path=path,
+        )
+
     def start_system(self, interval: float = 2.0) -> None:
         """Background system metrics (same as ``aq train --system``)."""
         from aquin.autolog import start_system as _start_system

@@ -34,7 +34,7 @@ export function help(): string {
     "                          --capture-env → artifacts/env/ (lock=pip freeze; full=7z venv)",
     "                          recipe capture.system / capture.grads / capture.code / capture.env · AQ_CAPTURE_*",
     "                          recipe guard.safety / guard.leak = opt-in fail-closed watches",
-    "  aq eval [dir] [name] [--ckpt name] [--tracker] [--system]  score; system vitals in TUI",
+    "  aq eval [dir] [name] [--ckpt name] [--tracker] [--system] [--suite]  score; --suite → metrics+plots",
     "  aq checkpoint [dir] [--keep name]  list or copy last to name",
     "  aq serve [dir] [prompt] [--image path] [--ckpt name] [--max-tokens n] [--temperature t]",
     "  aq diff [dir] [<a> <b>]     compare run records (files, not screenshots)",

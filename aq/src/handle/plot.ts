@@ -4,11 +4,14 @@ import path from "node:path"
 import { assertTrain } from "../core/schema.js"
 import { runKernel, type KernelReq } from "../core/python.js"
 
-const KINDS = new Set(["metrics", "jobs", "runs", "samples", "vision", "table", "all"])
+const KINDS = new Set(["metrics", "jobs", "runs", "samples", "vision", "table", "eval", "all"])
+
+const EVAL_CHARTS = new Set(["confusion", "roc", "pr", "residuals", "pred", "pred_vs_true", "all"])
 
 const USAGE = [
-  "usage: aq plot [dir] [metrics|jobs|runs|samples|table|all]",
+  "usage: aq plot [dir] [metrics|jobs|runs|samples|table|eval|all]",
   "  aq plot table [name]         interactive CLI table (from aquin.table rows)",
+  "  aq plot eval [confusion|roc|pr|residuals|pred]   suite charts from aq eval / evaluate()",
   "  --run <id>                   filter table rows by run_id",
   "  --charts metrics,samples   which charts (overrides all)",
   "  --fields loss,lr           metrics y-fields",
@@ -85,6 +88,7 @@ function parsePlotArgs(argv: string[]): { train: string; req: KernelReq; open: b
   let kind = "all"
   let trainArg: string | undefined
   let tableName: string | undefined
+  let evalChart: string | undefined
   for (const token of rest) {
     if (token.startsWith("-")) throw new Error(`${USAGE}\nunknown: ${token}`)
     if (KINDS.has(token)) {
@@ -93,7 +97,16 @@ function parsePlotArgs(argv: string[]): { train: string; req: KernelReq; open: b
         tableName = token
         continue
       }
+      // `aq plot eval all` — subchart, keep kind=eval
+      if (kind === "eval" && !evalChart && EVAL_CHARTS.has(token)) {
+        evalChart = token
+        continue
+      }
       kind = token
+      continue
+    }
+    if (kind === "eval" && !evalChart && EVAL_CHARTS.has(token)) {
+      evalChart = token
       continue
     }
     if (kind === "table" && !tableName && trainArg) {
@@ -113,6 +126,7 @@ function parsePlotArgs(argv: string[]): { train: string; req: KernelReq; open: b
     }
     if (!trainArg) trainArg = token
     else if (kind === "table" && !tableName) tableName = token
+    else if (kind === "eval" && !evalChart) evalChart = token
     else throw new Error(USAGE)
   }
 
@@ -147,6 +161,7 @@ function parsePlotArgs(argv: string[]): { train: string; req: KernelReq; open: b
   if (noSamples.on) req.no_samples = true
   if (tableName) req.table = tableName
   if (runF.value) req.run = runF.value
+  if (kind === "eval") req.chart = evalChart || "all"
 
   return { train, req, open: openF.on }
 }
@@ -175,14 +190,16 @@ export async function plot(argv: string[]): Promise<void> {
 
 export function plotHelp(): string {
   return [
-    "  aq plot [dir] [metrics|jobs|runs|samples|table|all]",
+    "  aq plot [dir] [metrics|jobs|runs|samples|table|eval|all]",
     "  aq plot metrics --fields loss,lr --style line --title 'loss'",
     "  aq plot samples --max 32 --nrow 4 --from artifacts/samples",
     "  aq plot table [name] [--run id]   interactive rows (name=all → every table)",
+    "  aq plot eval [confusion|roc|pr|residuals|pred]   suite charts from evaluate()",
     "  aq plot --charts metrics,samples --dpi 200",
     "",
     "  Charts: metrics/jobs/runs = matplotlib · samples = torchvision/Pillow grid",
     "          table = interactive CLI (↑↓ / find · s sort · q quit)",
+    "          eval = confusion / ROC / PR / residuals from last suite",
     "  Flags:  --fields --x --style --title --figsize --metric-charts --lr/--no-lr",
     "          --max --thumb --nrow --from --backend --charts --out --format --dpi --open",
     "",

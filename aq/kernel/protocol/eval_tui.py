@@ -62,6 +62,7 @@ class EvalTui:
         self.info: dict[str, Any] = {}
         self.probes: list[dict[str, Any]] = []
         self.latest: dict[str, Any] = {}
+        self.suite: dict[str, Any] = {}
         self._lines = 0
         self._started = False
         self._last_draw = 0.0
@@ -77,6 +78,14 @@ class EvalTui:
             if k in ("ts", "event", "run_id", "op", "elapsed_ms") or v is None:
                 continue
             self.info[k] = v
+        self._draw(force=True)
+
+    def on_suite(self, body: dict[str, Any]) -> None:
+        self.suite = dict(body)
+        if body.get("suite_s"):
+            self.info["suite_s"] = body["suite_s"]
+        if body.get("plots"):
+            self.info["suite_plots"] = body["plots"]
         self._draw(force=True)
 
     def on_probe(self, body: dict[str, Any]) -> None:
@@ -205,6 +214,20 @@ class EvalTui:
         infra = info.get("infra_s")
         if infra:
             line = f"  {_YELLOW}infra{_RESET} {fmt_cell(infra)}"
+            if _visible_len(line) > inner + 2:
+                line = line[: inner + 2]
+            lines.append(line)
+
+        suite_s = info.get("suite_s") or self.suite.get("suite_s")
+        if suite_s:
+            line = f"  {_DIM}suite{_RESET}  {fmt_cell(suite_s)}"
+            if _visible_len(line) > inner + 2:
+                line = line[: inner + 2]
+            lines.append(line)
+        plots = info.get("suite_plots") or self.suite.get("plots")
+        if plots:
+            bits = plots if isinstance(plots, list) else [plots]
+            line = f"  {_DIM}plots{_RESET}  {fmt_cell(' · '.join(str(x) for x in bits))}"
             if _visible_len(line) > inner + 2:
                 line = line[: inner + 2]
             lines.append(line)

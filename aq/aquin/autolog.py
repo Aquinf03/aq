@@ -142,6 +142,41 @@ def log_infra(
     return aq_infra.emit(kind, message, step=step, **fields)
 
 
+def evaluate(
+    y_true: Any,
+    y_pred: Any,
+    y_prob: Any = None,
+    *,
+    train: str | Path | None = None,
+    task: str | None = None,
+    average: str = "macro",
+    plots: bool = True,
+    path: str | None = None,
+) -> dict[str, Any]:
+    """Standard metrics + plots logged to the active run.
+
+    Classification → accuracy / P/R/F1 / ROC-AUC (+ confusion, ROC, PR plots).
+    Regression → MAE/MSE/RMSE/R² (+ residuals, pred-vs-true).
+
+        evaluate(y, yhat, y_prob=proba)
+    """
+    from protocol import eval_suite as aq_suite
+
+    root = _ensure_session(train)
+    if root is None:
+        raise SystemExit("evaluate: need an active run (autolog(train=…) or aq eval)")
+    return aq_suite.run(
+        root,
+        list(y_true),
+        list(y_pred),
+        y_prob=list(y_prob) if y_prob is not None else None,
+        task=task,
+        average=average,
+        plots=plots,
+        path=path,
+    )
+
+
 def start_system(
     *,
     train: str | Path | None = None,
