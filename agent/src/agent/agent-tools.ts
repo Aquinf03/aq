@@ -2,7 +2,7 @@
 
 import { spawnSync } from "node:child_process"
 import path from "node:path"
-import { aqRoot } from "../core/root.js"
+import { aqBin as frameworkAqBin } from "../core/root.js"
 import { memoryDigest, readMemory, searchMemory, writeMemory } from "../lib/memory.js"
 import { formatCards, searchTools, toolsDigest } from "../lib/registry.js"
 import { find as findPaths, glob as globPaths, grep as grepFiles, ls, readPath } from "../lib/explore.js"
@@ -529,7 +529,7 @@ export function formatPermitDisplay(label: string): string {
 export { clipToolLog }
 
 function aqBin(): string {
-  return path.join(aqRoot(), "bin", "aq")
+  return frameworkAqBin()
 }
 
 function jsonArg(args: Record<string, unknown>, key: string): string {

@@ -4,7 +4,7 @@ import { existsSync, accessSync, constants } from "node:fs"
 import { homedir } from "node:os"
 import path from "node:path"
 import { isTrain, REQUIRED } from "../core/schema.js"
-import { aqRoot, kernelRoot } from "../core/root.js"
+import { frameworkRoot, kernelRoot } from "../core/root.js"
 import { listSkills, loadSkill } from "../lib/skill.js"
 import { startMcp } from "../lib/mcp.js"
 import { extraTools } from "../lib/skill-runtime.js"
@@ -58,7 +58,7 @@ export async function runDoctor(cwd: string): Promise<{ checks: Check[]; ok: boo
   const checks: Check[] = []
   const add = (ok: Check["ok"], name: string, detail: string) => checks.push({ ok, name, detail })
 
-  add("ok", "aq", frameworkVersion().version)
+  add("ok", "aq-agent", frameworkVersion().version)
   add("ok", "node", process.version)
   add(Number(process.versions.node.split(".")[0]) >= 18 ? "ok" : "fail", "node.major", "need node >= 18")
 
@@ -68,14 +68,20 @@ export async function runDoctor(cwd: string): Promise<{ checks: Check[]; ok: boo
     add("fail", "python", err instanceof Error ? err.message : String(err))
   }
 
-  const kernel = path.join(kernelRoot(), "run.py")
-  add(existsSync(kernel) ? "ok" : "fail", "kernel", existsSync(kernel) ? kernel : "kernel/run.py missing")
+  try {
+    const fw = frameworkRoot()
+    add("ok", "aq.framework", fw)
+    const kernel = path.join(kernelRoot(), "run.py")
+    add(existsSync(kernel) ? "ok" : "fail", "kernel", existsSync(kernel) ? kernel : "kernel/run.py missing")
+  } catch (err) {
+    add("fail", "aq.framework", err instanceof Error ? err.message : String(err))
+  }
 
   const cfg = path.join(homedir(), ".aq", "config.json")
   add(existsSync(cfg) ? "ok" : "warn", "config", existsSync(cfg) ? cfg : "no ~/.aq/config.json yet")
 
   const id = activeId()
-  if (!id) add("fail", "provider", "none. aq provider openai")
+  if (!id) add("fail", "provider", "none. aq-agent provider openai")
   else {
     const e = entry(id)
     add("ok", "provider", activeLabel())

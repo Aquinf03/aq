@@ -9,6 +9,26 @@ pip install -e ./aq
 pip install -r aq/kernel/requirements.txt
 ```
 
+Shipped tracking / eval checklist: [internals/COMPLETED.md → Tracking](../internals/COMPLETED.md#tracking--experiment-capture). Open gaps: [internals/VS.md](../internals/VS.md).
+
+## TOC
+
+- [Few-line tracking](#few-line-tracking-any-script)
+- [System metrics](#system-metrics-gpu--cpu--mem--disk--net)
+- [Gradient & param norms](#gradient--param-norms)
+- [Tables](#tables-predictions--errors)
+- [Infra events](#infra-events-oom--preempt--disk-on-the-loss-timeline)
+- [Model evaluation](#model-evaluation-metrics--plots)
+- [Init a run](#init-a-run)
+- [YAML / SDK authoring](#option-a--edit-yaml-open-with-sdk--cli)
+- [Autolog](#autolog-framework-integrations)
+- [Params / metrics / tags / notes](#params--metrics--tags--notes)
+- [Logged models](#logged-models)
+- [Plot](#plot)
+- [Fleet](#fleet-ssh-place--same-jobs-from-python)
+
+---
+
 ## Few-line tracking (any script)
 
 W&B / MLflow-shaped. One call turns on framework hooks; metrics live in the train folder
@@ -300,6 +320,12 @@ aq = Aquin(".")
 aq.plot("metrics", fields=["loss", "lr"], style="line", title="loss")
 aq.plot("samples", max=32, nrow=4, from_dirs="artifacts/samples")
 aq.plot(charts=["metrics", "samples"], dpi=200)
+```
+
+```bash
+aq plot metrics --fields loss,lr --style line
+aq plot table [name|all]          # interactive rows from aquin.table
+aq plot eval [confusion|roc|…]    # suite charts from evaluate() / aq eval --suite
 ```
 
 Same knobs as CLI (`aq plot metrics --fields loss --style line`) and `recipe.yaml`:

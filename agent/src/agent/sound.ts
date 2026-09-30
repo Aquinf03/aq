@@ -4,9 +4,9 @@ import { spawn } from "node:child_process"
 import { existsSync } from "node:fs"
 import path from "node:path"
 import { soundEnabled } from "./provider.js"
-import { aqRoot } from "../core/root.js"
+import { agentRoot } from "../core/root.js"
 
-const assets = path.join(aqRoot(), "assets")
+const assets = path.join(agentRoot(), "assets")
 
 const files = {
   click: "ui-click.mp3",

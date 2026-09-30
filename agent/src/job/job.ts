@@ -4,8 +4,10 @@ import { existsSync } from "node:fs"
 import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { FORK_SKIP } from "../handle/fork.js"
 import { clampAsk, detectHost, type HostResources, type ResourceAsk } from "./resources.js"
+
+/** Skip when forking a train tree for a detached job (mirrors aq handle/fork). */
+const FORK_SKIP = new Set(["jobs", "artifacts", "node_modules", ".git"])
 
 /** Internal queue used by spawn / agent detach. Not a public CLI. */
 

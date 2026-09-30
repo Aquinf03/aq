@@ -59,7 +59,8 @@ Changes that touch the train contract or the TS ↔ Python bridge are reviewed m
 | Area | Paths |
 |------|--------|
 | CLI / verbs | `aq/src/cli.ts`, `aq/src/handle/`, `aq/src/core/` |
-| Agent | `aq/src/agent/` |
+| Agent | `agent/` (`aq-agent` package; separate from framework) |
+| Framework CLI | `aq/src/` (`aq` bin — train / eval / fleet) |
 | Kernel entry / engine | `aq/kernel/run.py`, `aq/kernel/engine/` |
 | Protocol (recipe, metrics, methods) | `aq/kernel/protocol/` |
 | Training methods | `aq/kernel/methods/` |

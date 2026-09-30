@@ -1,16 +1,16 @@
 # aq/src
 
-TypeScript CLI. The current directory is the run (`recipe.yaml`).
+TypeScript **framework** CLI. The current directory is the run (`recipe.yaml`).
 
 ```
 cli.ts          entry. routes verbs.
 help.ts
 core/           schema, recipe-yaml, paths, kernel bridge, package roots
-handle/         run verbs: init fork (internal) status diff data step
-fleet/          SSH places/pools: add / places / launch / go / jobs (multi-cloud later)
-job/            internal queue for spawn / agent detach (not a public CLI)
-agent/          chat, ask, spawn, doctor, provider
-lib/            files, explore, memory, skills, mcp, web, registry
+handle/         run verbs: init status diff data step track plot login update
+fleet/          SSH places/pools: add / places / launch / go / jobs
+lib/            plot-config, term-table
 ```
 
-Kernel lives in `kernel/` inside this package. Templates in `templates/` (recipe.yaml + example.py). Assets in `assets/`.
+Agent chat / ask / spawn / provider / doctor live in the sibling **`../agent`** package (`aq-agent`), not here.
+
+Kernel lives in `kernel/` inside this package. Templates in `templates/`. Assets that remain framework-specific stay under `assets/` if any.

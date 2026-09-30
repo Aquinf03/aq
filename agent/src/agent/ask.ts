@@ -14,10 +14,10 @@ function parseAsk(argv: string[]): { train: string; prompt: string; json: boolea
   for (const a of argv) {
     if (a === "--json") flags.add("json")
     else if (a === "-y" || a === "--yes") flags.add("yes")
-    else if (a.startsWith("-")) throw new Error(`unknown flag: ${a}\nusage: aq ask [-y] [--json] [dir] <prompt>`)
+    else if (a.startsWith("-")) throw new Error(`unknown flag: ${a}\nusage: aq-agent ask [-y] [--json] [dir] <prompt>`)
     else rest.push(a)
   }
-  if (!rest.length) throw new Error("usage: aq ask [-y] [--json] [dir] <prompt>")
+  if (!rest.length) throw new Error("usage: aq-agent ask [-y] [--json] [dir] <prompt>")
   let train = path.resolve(".")
   let words = rest
   if (rest.length >= 2 && isTrain(path.resolve(rest[0]!))) {
@@ -25,7 +25,7 @@ function parseAsk(argv: string[]): { train: string; prompt: string; json: boolea
     words = rest.slice(1)
   }
   const prompt = words.join(" ").trim()
-  if (!prompt) throw new Error("usage: aq ask [-y] [--json] [dir] <prompt>")
+  if (!prompt) throw new Error("usage: aq-agent ask [-y] [--json] [dir] <prompt>")
   return { train, prompt, json: flags.has("json"), yes: flags.has("yes") }
 }
 

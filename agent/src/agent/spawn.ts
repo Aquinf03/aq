@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto"
 import path from "node:path"
 import { cancelJob, enqueueJob, jobLogPath, waitForPid } from "../job/job.js"
 import { assertTrain, isTrain } from "../core/schema.js"
-import { aqRoot } from "../core/root.js"
+import { agentRoot } from "../core/root.js"
 import { artifactsDir } from "../core/paths.js"
 
 const KILLER_PREAMBLE = [
@@ -33,7 +33,7 @@ function specPath(train: string, id: string): string {
 }
 
 function aqArgv(args: string[]): string[] {
-  const root = aqRoot()
+  const root = agentRoot()
   const dist = path.join(root, "dist", "cli.js")
   if (existsSync(dist)) return [process.execPath, dist, ...args]
   const tsx = path.join(root, "node_modules", "tsx", "dist", "cli.mjs")
@@ -177,7 +177,7 @@ export async function spawnCmd(argv: string[]): Promise<void> {
     const rest = argv.slice(1)
     const train = rest.length === 2 ? assertTrain(rest[0]) : assertTrain(".")
     const id = rest.length === 2 ? rest[1] : rest[0]
-    if (!id) throw new Error("usage: aq spawn log [dir] <id>")
+    if (!id) throw new Error("usage: aq-agent spawn log [dir] <id>")
     console.log(agentLog(train, id))
     return
   }
@@ -185,7 +185,7 @@ export async function spawnCmd(argv: string[]): Promise<void> {
     const rest = argv.slice(1)
     const train = rest.length === 2 ? assertTrain(rest[0]) : assertTrain(".")
     const id = rest.length === 2 ? rest[1] : rest[0]
-    if (!id) throw new Error("usage: aq spawn cancel [dir] <id>")
+    if (!id) throw new Error("usage: aq-agent spawn cancel [dir] <id>")
     const spec = await cancelAgent(train, id)
     console.log("canceled")
     console.log("  " + spec.id)
@@ -228,7 +228,7 @@ export async function spawnCmd(argv: string[]): Promise<void> {
       console.log("  " + spec.id + "  " + spec.status + "  " + spec.name)
       return
     }
-    throw new Error("usage: aq spawn agent [dir] [--name NAME] [--kill] -- <prompt>")
+    throw new Error("usage: aq-agent spawn agent [dir] [--name NAME] [--kill] -- <prompt>")
   }
   throw new Error(`unknown spawn command: ${sub}\n${spawnHelp()}`)
 }

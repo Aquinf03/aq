@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Agent · aq Docs</title>
-  <meta name="description" content="The aq agent lives inside the train Unix: same cwd, same files, same verbs. On a TTY, bare aq opens chat. It is not a chat toy with a private filesystem." />
+  <meta name="description" content="The aq agent lives inside the train Unix: same cwd, same files, same verbs. On a TTY, run aq-agent (separate package from the aq framework CLI). It is not a chat toy with a private filesystem." />
   <link rel="icon" href="../../assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -46,10 +46,10 @@
 </nav>
     </aside>
     <main class="docs-main"><h1>Agent</h1>
-<p class="lead">The aq agent lives inside the train Unix: same cwd, same files, same verbs. On a TTY, bare aq opens chat. It is not a chat toy with a private filesystem.</p>
+<p class="lead">The aq agent lives inside the train Unix: same cwd, same files, same verbs. On a TTY, run aq-agent (separate package from the aq framework CLI). It is not a chat toy with a private filesystem.</p>
 <div class="prereq"><span class="prereq-label">Prerequisite</span>aq provider configured · cwd is a train folder</div>
 <section class="tool" id="aq--aq-agent">
-  <h3 class="tool-cmd">aq / aq agent</h3>
+  <h3 class="tool-cmd">aq-agent / aq-agent agent</h3>
   
   <p class="tool-desc">Interactive agent chat (TTY). Uses tools that wrap aq verbs against this train — including fleet (<code>aq_add</code>, <code>aq_launch</code>, <code>aq_jobs</code>, …). Every mutating step shows an <strong>allow yes/no</strong> picker (file writes include a unified diff preview). Tool runs show <code>→</code> / <code>running</code> / <code>ok|fail</code> with command output. After remote <code>jobs train|run|…</code>, the agent should <code>aq jobs wait &lt;id&gt;</code> (polls until done; never hangs on <code>logs -f</code>). Reads (ls/status) skip the picker.</p>
   
@@ -63,7 +63,7 @@
   
 </section>
 <section class="tool" id="aq-ask-prompt">
-  <h3 class="tool-cmd">aq ask &lt;prompt&gt;</h3>
+  <h3 class="tool-cmd">aq-agent ask &lt;prompt&gt;</h3>
   
   <p class="tool-desc">One-shot answer without the interactive UI.</p>
   <div class="table-wrap mb">
@@ -84,21 +84,21 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq ask &quot;hash the data then train&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq-agent ask &quot;hash the data then train&quot;</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq ask -y &quot;run eval and summarize&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq-agent ask -y &quot;run eval and summarize&quot;</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq ask --json &quot;what failed last run?&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>aq-agent ask --json &quot;what failed last run?&quot;</span></span></code></pre>
 </div>
   
 </section>

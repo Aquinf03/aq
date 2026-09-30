@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process"
 import { existsSync } from "node:fs"
 import path from "node:path"
 import { pythonBin } from "../core/python.js"
-import { aqRoot, kernelRoot } from "../core/root.js"
+import { agentRoot, frameworkRoot, kernelRoot } from "../core/root.js"
 
 export function runFileCaptured(train: string, file: string, extra: string[] = []): string {
   const ext = path.extname(file)
@@ -14,8 +14,12 @@ export function runFileCaptured(train: string, file: string, extra: string[] = [
     cmd = pythonBin()
     args = [file, ...extra]
   } else if (ext === ".ts") {
-    const tsxCli = path.join(aqRoot(), "node_modules", "tsx", "dist", "cli.mjs")
-    if (!existsSync(tsxCli)) throw new Error("tsx not found (need it to run .ts skill code)")
+    const tsxCli =
+      [
+        path.join(agentRoot(), "node_modules", "tsx", "dist", "cli.mjs"),
+        path.join(frameworkRoot(), "node_modules", "tsx", "dist", "cli.mjs"),
+      ].find((p) => existsSync(p)) || ""
+    if (!tsxCli) throw new Error("tsx not found (need it to run .ts skill code)")
     cmd = process.execPath
     args = [tsxCli, file, ...extra]
   } else if (ext === ".js" || ext === ".mjs" || ext === ".cjs") {

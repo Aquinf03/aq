@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** aq framework CLI — train / eval / fleet. Agent chat is the separate `aq-agent` package. */
 
 import path from "node:path"
 import { init, resolveInitRoot } from "./handle/init.js"
@@ -14,16 +15,11 @@ import { jobsCmd } from "./fleet/jobs.js"
 import { queueCmd } from "./fleet/queue.js"
 import { portCmd } from "./fleet/port.js"
 import { tagCmd } from "./fleet/tag.js"
-import { runAgent } from "./agent/agent.js"
-import { ask } from "./agent/ask.js"
-import { chatCmd } from "./agent/chat.js"
-import { providerCmd } from "./agent/provider.js"
-import { doctorCmd } from "./agent/doctor.js"
-import { spawnCmd } from "./agent/spawn.js"
 import { loginCmd, logoutCmd, switchCmd } from "./handle/login.js"
 import { updateCmd } from "./handle/update.js"
 import { versionReport } from "./core/version.js"
 import { InterruptedError } from "./core/python.js"
+import { help } from "./help.js"
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2)
@@ -38,8 +34,8 @@ async function main(): Promise<void> {
     await updateCmd(argv.slice(1))
     return
   }
-  if (!cmd || cmd === "agent" || cmd === "help" || cmd === "-h" || cmd === "--help") {
-    await runAgent(argv, process.cwd())
+  if (!cmd || cmd === "help" || cmd === "-h" || cmd === "--help") {
+    console.log(help())
     return
   }
 
@@ -114,16 +110,6 @@ async function main(): Promise<void> {
     return
   }
 
-  if (cmd === "doctor") {
-    await doctorCmd(argv.slice(1))
-    return
-  }
-
-  if (cmd === "spawn") {
-    await spawnCmd(argv.slice(1))
-    return
-  }
-
   if (cmd === "login") {
     await loginCmd(argv.slice(1))
     return
@@ -136,11 +122,6 @@ async function main(): Promise<void> {
 
   if (cmd === "switch") {
     await switchCmd(argv.slice(1))
-    return
-  }
-
-  if (cmd === "provider") {
-    await providerCmd(argv.slice(1))
     return
   }
 
@@ -194,13 +175,18 @@ async function main(): Promise<void> {
     return
   }
 
-  if (cmd === "ask") {
-    await ask(argv.slice(1))
-    return
-  }
-
-  if (cmd === "chat") {
-    await chatCmd(argv.slice(1))
+  if (
+    cmd === "agent" ||
+    cmd === "ask" ||
+    cmd === "chat" ||
+    cmd === "provider" ||
+    cmd === "doctor" ||
+    cmd === "spawn"
+  ) {
+    console.error(`'aq ${cmd}' moved to the aq-agent package.`)
+    console.error("  cd agent && npm i && npm link   # or: npx aq-agent …")
+    console.error(`  aq-agent ${cmd === "agent" ? "" : cmd + " "}…`)
+    process.exitCode = 1
     return
   }
 

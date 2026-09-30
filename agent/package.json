@@ -1,25 +1,21 @@
 {
-  "name": "aq",
+  "name": "aq-agent",
   "version": "0.0.2",
-  "description": "Aquin CLI. The current directory is the train.",
+  "description": "Aquin agent chat — separate from the aq framework CLI.",
   "type": "module",
   "bin": {
-    "aq": "./bin/aq"
+    "aq-agent": "./bin/aq-agent"
   },
   "files": [
     "bin",
     "dist",
-    "kernel",
     "assets",
-    "scripts",
-    "aquin",
-    "pyproject.toml",
-    "SDK.md"
+    "scripts"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-job-wait.mjs",
     "prepare": "npm run build",
-    "aq": "node dist/cli.js"
+    "aq-agent": "node dist/cli.js"
   },
   "engines": {
     "node": ">=18"

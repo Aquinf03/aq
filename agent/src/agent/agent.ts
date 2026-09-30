@@ -1,4 +1,4 @@
-/** Terminal chat. `aq` and `aq agent` are the same entry. */
+/** Terminal chat. `aq-agent` and `aq-agent agent` are the same entry. */
 
 import { stdin, stdout } from "node:process"
 import { startChatUi } from "./chat-ui.js"
@@ -24,7 +24,7 @@ export async function runAgent(argv: string[], cwd: string): Promise<void> {
     return
   }
   if (decision === "usage") {
-    throw new Error("usage: aq agent")
+    throw new Error("usage: aq-agent agent")
   }
   await startChat(cwd)
 }
