@@ -194,9 +194,11 @@ def _find_convert_hf_to_gguf() -> Path | None:
             root / "convert-hf-to-gguf.py",
             root,
         ]
-    home = Path.home() / ".aq" / "tools" / "llama.cpp"
+    home = Path.home() / ".axi" / "tools" / "llama.cpp"
+    legacy = Path.home() / ".aq" / "tools" / "llama.cpp"
     candidates += [
         home / "convert_hf_to_gguf.py",
+        legacy / "convert_hf_to_gguf.py",
         Path("/usr/local/share/llama.cpp/convert_hf_to_gguf.py"),
     ]
     which = shutil.which("convert_hf_to_gguf.py")
@@ -526,8 +528,12 @@ def _export_exl2(hf_dir: Path, out_dir: Path, rec: dict) -> dict:
     which = shutil.which("convert.py")
     if which:
         candidates.append(Path(which))
-    home = Path.home() / ".aq" / "tools" / "exllamav2" / "convert.py"
-    candidates.append(home)
+    home = Path.home() / ".axi" / "tools" / "exllamav2" / "convert.py"
+    if home.is_file():
+        candidates.append(home)
+    legacy = Path.home() / ".aq" / "tools" / "exllamav2" / "convert.py"
+    if legacy.is_file():
+        candidates.append(legacy)
 
     script = next((p for p in candidates if p.is_file()), None)
     if script is None:

@@ -1,0 +1,11 @@
+---
+description: Keep aq framework internals separate from axi
+globs: internals/**/*.md
+alwaysApply: false
+---
+
+# Internals are framework-only
+
+`internals/` in this repo is **aq** (train folder, kernel, fleet, tracking, methods).
+
+`axi` is a separate package. Its notes live in that package's own `internals/` (gitignored there). Do not add agent checklists or `agent-todo` files here. Do not link across.

@@ -1,1 +1,0 @@
-Run the tool named broken. It will fail. Then finish by running the tool named ok. Do not stop after the error.

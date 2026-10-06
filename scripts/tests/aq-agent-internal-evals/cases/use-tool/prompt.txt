@@ -1,1 +1,0 @@
-How many rows are in data.csv (not counting the header)? Use the existing tool count_rows. Do not write a new script.

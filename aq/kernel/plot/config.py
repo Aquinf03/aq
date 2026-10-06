@@ -1,4 +1,4 @@
-"""Merge plot config: recipe.yaml plot:, ~/.aq/config.json, CLI / SDK overrides."""
+"""Merge plot config: recipe.yaml plot:, ~/.axi/config.json (legacy ~/.aq), CLI / SDK overrides."""
 
 from __future__ import annotations
 
@@ -12,15 +12,17 @@ KNOWN_CHARTS = ("metrics", "jobs", "runs", "samples", "vision")
 
 
 def _global_plot() -> dict[str, Any]:
-    p = Path.home() / ".aq" / "config.json"
-    if not p.is_file():
-        return {}
-    try:
-        cfg = json.loads(p.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-    block = cfg.get("plot")
-    return dict(block) if isinstance(block, dict) else {}
+    for name in (".axi", ".aq"):
+        p = Path.home() / name / "config.json"
+        if not p.is_file():
+            continue
+        try:
+            cfg = json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        block = cfg.get("plot")
+        return dict(block) if isinstance(block, dict) else {}
+    return {}
 
 
 def _recipe_plot(train: Path) -> dict[str, Any]:
@@ -159,7 +161,7 @@ def _normalize(cfg: dict[str, Any]) -> dict[str, Any]:
 
 def resolve_plot_config(train: Path, req: dict[str, Any] | None = None) -> dict[str, Any]:
     """
-    Precedence (low → high): defaults → ~/.aq/config.json plot → recipe plot → req.
+    Precedence (low → high): defaults → ~/.axi/config.json plot → recipe plot → req.
 
     req may be flat CLI fields and/or nested {metrics, samples, jobs, runs}.
     """

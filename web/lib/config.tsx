@@ -1,7 +1,7 @@
 export const siteConfig = {
   name: "Aquin Labs",
   description:
-    "Developer environment and framework for building and checking models. Train folders, aq CLI, Python kernel, and the in-train agent.",
+    "Developer environment and framework for building and checking models. Train folders, aq CLI, Python kernel. Agent chat is axi (separate package).",
   url: process.env.NEXT_PUBLIC_APP_URL ?? "https://aq.aquin.app",
   keywords: [
     "Aquin",

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Agent · aq Docs</title>
-  <meta name="description" content="The aq agent lives inside the train Unix: same cwd, same files, same verbs. On a TTY, run aq-agent (separate package from the aq framework CLI). It is not a chat toy with a private filesystem." />
+  <title>axi · aq Docs</title>
+  <meta name="description" content="axi lives inside the train Unix: same cwd, same files, same verbs. On a TTY, run axi (separate package from the aq framework CLI). It is not a chat toy with a private filesystem." />
   <link rel="icon" href="../../assets/favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -41,15 +41,15 @@
 <a class="nav-link nested" href="../methods/custom/">Custom</a>
 <a class="nav-link" href="../eval/">Eval &amp; inspect</a>
 <a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link active" href="../agent/">Agent</a>
+<a class="nav-link active" href="../agent/">axi</a>
 <a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
 </nav>
     </aside>
-    <main class="docs-main"><h1>Agent</h1>
-<p class="lead">The aq agent lives inside the train Unix: same cwd, same files, same verbs. On a TTY, run aq-agent (separate package from the aq framework CLI). It is not a chat toy with a private filesystem.</p>
-<div class="prereq"><span class="prereq-label">Prerequisite</span>aq provider configured · cwd is a train folder</div>
-<section class="tool" id="aq--aq-agent">
-  <h3 class="tool-cmd">aq-agent / aq-agent agent</h3>
+    <main class="docs-main"><h1>axi</h1>
+<p class="lead">axi lives inside the train Unix: same cwd, same files, same verbs. On a TTY, run <code>axi</code> (separate package from the aq framework CLI). It is not a chat toy with a private filesystem.</p>
+<div class="prereq"><span class="prereq-label">Prerequisite</span>axi provider configured · cwd is a train folder · <code>aq</code> on PATH (or AQ_ROOT)</div>
+<section class="tool" id="aq--axi">
+  <h3 class="tool-cmd">axi / axi agent</h3>
   
   <p class="tool-desc">Interactive agent chat (TTY). Uses tools that wrap aq verbs against this train — including fleet (<code>aq_add</code>, <code>aq_launch</code>, <code>aq_jobs</code>, …). Every mutating step shows an <strong>allow yes/no</strong> picker (file writes include a unified diff preview). Tool runs show <code>→</code> / <code>running</code> / <code>ok|fail</code> with command output. After remote <code>jobs train|run|…</code>, the agent should <code>aq jobs wait &lt;id&gt;</code> (polls until done; never hangs on <code>logs -f</code>). Reads (ls/status) skip the picker.</p>
   
@@ -58,12 +58,12 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi</span></span></code></pre>
 </div>
   
 </section>
 <section class="tool" id="aq-ask-prompt">
-  <h3 class="tool-cmd">aq-agent ask &lt;prompt&gt;</h3>
+  <h3 class="tool-cmd">axi ask &lt;prompt&gt;</h3>
   
   <p class="tool-desc">One-shot answer without the interactive UI.</p>
   <div class="table-wrap mb">
@@ -84,26 +84,26 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq-agent ask &quot;hash the data then train&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi ask &quot;hash the data then train&quot;</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq-agent ask -y &quot;run eval and summarize&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi ask -y &quot;run eval and summarize&quot;</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq-agent ask --json &quot;what failed last run?&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi ask --json &quot;what failed last run?&quot;</span></span></code></pre>
 </div>
   
 </section>
 <section class="tool" id="aq-chat-list-last-id">
-  <h3 class="tool-cmd">aq chat list | last | &lt;id&gt;</h3>
+  <h3 class="tool-cmd">axi chat list | last | &lt;id&gt;</h3>
   
   <p class="tool-desc">List or resume chats under artifacts/chats/.</p>
   
@@ -112,26 +112,26 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq chat list</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi chat list</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq chat last</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi chat last</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq chat &lt;id&gt;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi chat &lt;id&gt;</span></span></code></pre>
 </div>
   
 </section>
 <section class="tool" id="aq-spawn-agent----prompt">
-  <h3 class="tool-cmd">aq spawn agent -- &lt;prompt&gt;</h3>
+  <h3 class="tool-cmd">axi spawn agent -- &lt;prompt&gt;</h3>
   
   <p class="tool-desc">Background worker agent. list / log / cancel manage workers under artifacts/agents/.</p>
   
@@ -140,28 +140,28 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq spawn agent -- &quot;train then eval&quot;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi spawn agent -- &quot;train then eval&quot;</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq spawn list</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi spawn list</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq spawn log &lt;id&gt;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi spawn log &lt;id&gt;</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq spawn cancel &lt;id&gt;</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi spawn cancel &lt;id&gt;</span></span></code></pre>
 </div>
   
 </section>

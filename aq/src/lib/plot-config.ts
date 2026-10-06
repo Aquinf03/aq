@@ -11,14 +11,18 @@ export type PlotConfig = {
 }
 
 export function loadGlobalPlotConfig(): PlotConfig {
-  const p = path.join(homedir(), ".aq", "config.json")
-  if (!existsSync(p)) return {}
-  try {
-    const cfg = JSON.parse(readFileSync(p, "utf8")) as { plot?: PlotConfig }
-    return cfg.plot && typeof cfg.plot === "object" ? cfg.plot : {}
-  } catch {
-    return {}
+  const home = homedir()
+  const candidates = [path.join(home, ".axi", "config.json"), path.join(home, ".aq", "config.json")]
+  for (const p of candidates) {
+    if (!existsSync(p)) continue
+    try {
+      const cfg = JSON.parse(readFileSync(p, "utf8")) as { plot?: PlotConfig }
+      return cfg.plot && typeof cfg.plot === "object" ? cfg.plot : {}
+    } catch {
+      continue
+    }
   }
+  return {}
 }
 
 /** Minimal recipe.yaml plot: block reader (no full YAML parser). */

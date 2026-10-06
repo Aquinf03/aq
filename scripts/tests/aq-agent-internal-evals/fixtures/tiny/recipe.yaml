@@ -1,8 +1,0 @@
-family: tabular
-method: linear
-data:
-  path: data.csv
-  target: label
-eval:
-  metric: accuracy
-  min_score: 0.5

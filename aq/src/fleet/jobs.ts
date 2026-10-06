@@ -1523,8 +1523,8 @@ async function jobsStatus(argv: string[]): Promise<void> {
 
 async function jobsLogs(argv: string[]): Promise<void> {
   let id = ""
-  /** Default: stream. Agent / AQ_AGENT=1 defaults to snapshot. `--once` / `--no-follow` = snapshot. */
-  let follow = process.env.AQ_AGENT !== "1"
+  /** Default: stream. axi / AXI=1 (or AQ_AGENT=1) defaults to snapshot. `--once` / `--no-follow` = snapshot. */
+  let follow = process.env.AXI !== "1" && process.env.AQ_AGENT !== "1"
   let lines = 80
   let on: string | undefined
   let rank: number | undefined

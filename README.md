@@ -1,7 +1,8 @@
 # Aquin Framework
 
 **aq** is the CLI. The Python kernel ships inside the `aq` package.  
-**SDK shape:** `recipe.yaml` (path map) + `artifacts/` (runtime). Author with **YAML and/or `aquin`** — both first-class.
+**SDK shape:** `recipe.yaml` (path map) + `artifacts/` (runtime). Author with **YAML and/or `aquin`** — both first-class.  
+Chat (`axi`) is a **separate package** — not this repo’s product surface.
 
 **Docs:** https://aquinf03.github.io/aq/documentation/ · **Changelog:** https://aquinf03.github.io/aq/changelog/ · **Account / install:** https://aq.aquin.app  
 **SDK:** [`aq/aquin`](./aq/SDK.md) · **Trains:** [`scripts/tests/`](./scripts/tests/README.md)
@@ -12,7 +13,7 @@
 curl -fsSL https://aq.aquin.app/framework/install.sh | bash
 ```
 
-Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. Then `aq help` · `aq doctor`.
+Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. Then `aq help`.
 
 ## SDK (few lines)
 
@@ -49,7 +50,7 @@ aq train && aq eval && aq status
 | `scripts/desktop/` | Electron workspace (Vite UI + AsyncSSH) |
 | `docs/` | GitHub Pages: `documentation/` + `changelog/` (markdown notes + HTML) + `assets/` |
 | `web/` | Auth / account app (`aq.aquin.app`) |
-| `internals/` | Builder checklists |
+| `internals/` | Builder checklists (framework only) |
 
 - Publish: [`scripts/helpers/release.sh`](./scripts/helpers/release.sh)
 - SDK: [`aq/SDK.md`](./aq/SDK.md)

@@ -77,11 +77,10 @@ Other suites are science fixtures (CLI + optional `Aquin("scripts/tests/…")`).
 | [vlm-clip](vlm-clip/) | `vlm-clip` |
 | [vlm-llava](vlm-llava/) | `vlm-llava` |
 
-### Safety / agent
+### Safety
 
 | Suite | Path(s) |
 |-------|---------|
 | [guard-safety](guard-safety/) | `good`, `bad` |
-| [aq-agent-internal-evals](aq-agent-internal-evals/) | agent probes |
 
 Kernel deps: `pip install -r aq/kernel/requirements.txt` (prefer `aq/kernel/.venv`).

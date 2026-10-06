@@ -203,7 +203,7 @@ export function plotHelp(): string {
     "  Flags:  --fields --x --style --title --figsize --metric-charts --lr/--no-lr",
     "          --max --thumb --nrow --from --backend --charts --out --format --dpi --open",
     "",
-    "  Defaults from recipe.yaml plot: block and ~/.aq/config.json (plot).",
+    "  Defaults from recipe.yaml plot: block and ~/.axi/config.json (plot).",
     "  plot.auto: true → charts after aq train",
   ].join("\n")
 }

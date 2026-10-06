@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** aq framework CLI — train / eval / fleet. Agent chat is the separate `aq-agent` package. */
+/** aq framework CLI — train / eval / fleet. Agent chat is the separate `axi` package. */
 
 import path from "node:path"
 import { init, resolveInitRoot } from "./handle/init.js"
@@ -183,9 +183,9 @@ async function main(): Promise<void> {
     cmd === "doctor" ||
     cmd === "spawn"
   ) {
-    console.error(`'aq ${cmd}' moved to the aq-agent package.`)
-    console.error("  cd agent && npm i && npm link   # or: npx aq-agent …")
-    console.error(`  aq-agent ${cmd === "agent" ? "" : cmd + " "}…`)
+    console.error(`'aq ${cmd}' moved to the axi package.`)
+    console.error("  npm i -g axi   # or: npx axi …")
+    console.error(`  axi ${cmd === "agent" ? "" : cmd + " "}…`)
     process.exitCode = 1
     return
   }

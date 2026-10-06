@@ -1,1 +1,0 @@
-Train this model, then run aq eval. Report the real pass/fail from aq eval. If it failed, say it failed. Do not invent a pass.

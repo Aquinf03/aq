@@ -1,1 +1,0 @@
-Load the skill named hash-first and follow it. Then train this model.

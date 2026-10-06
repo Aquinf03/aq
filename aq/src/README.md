@@ -11,6 +11,6 @@ fleet/          SSH places/pools: add / places / launch / go / jobs
 lib/            plot-config, term-table
 ```
 
-Agent chat / ask / spawn / provider / doctor live in the sibling **`../agent`** package (`aq-agent`), not here.
+Agent chat / ask / spawn / provider / doctor live in the separate **`axi`** package, not here.
 
 Kernel lives in `kernel/` inside this package. Templates in `templates/`. Assets that remain framework-specific stay under `assets/` if any.

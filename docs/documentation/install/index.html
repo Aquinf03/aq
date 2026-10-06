@@ -41,7 +41,7 @@
 <a class="nav-link nested" href="../methods/custom/">Custom</a>
 <a class="nav-link" href="../eval/">Eval &amp; inspect</a>
 <a class="nav-link" href="../metrics/">Metrics &amp; guard</a>
-<a class="nav-link" href="../agent/">Agent</a>
+<a class="nav-link" href="../agent/">axi</a>
 <a class="nav-link" href="../skills/">Skills, tools &amp; MCP</a>
 </nav>
     </aside>
@@ -128,7 +128,7 @@
   
 </section>
 <section class="tool" id="aq-doctor">
-  <h3 class="tool-cmd">aq doctor</h3>
+  <h3 class="tool-cmd">axi doctor</h3>
   
   <p class="tool-desc">Health check: node, python, kernel, provider, train folder, skills, MCP. Exits 1 if any check fails.</p>
   <div class="table-wrap mb">
@@ -145,14 +145,14 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq doctor</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi doctor</span></span></code></pre>
 </div>
   
 </section>
 <section class="tool" id="aq-login">
   <h3 class="tool-cmd">aq login</h3>
   
-  <p class="tool-desc">Sign in via the auth portal (or paste a token). Account tokens live in ~/.aquin/config.json. Provider API keys are separate under ~/.aq/config.json.</p>
+  <p class="tool-desc">Sign in via the auth portal (or paste a token). Account tokens live in ~/.aquin/config.json. Provider API keys are separate under ~/.axi/config.json.</p>
   <div class="table-wrap mb">
   <table>
     <thead><tr><th>Flag</th><th>Description</th></tr></thead>
@@ -204,18 +204,18 @@
   
 </section>
 <section class="tool" id="aq-provider">
-  <h3 class="tool-cmd">aq provider</h3>
+  <h3 class="tool-cmd">axi provider</h3>
   
-  <p class="tool-desc">Configure LLM providers for the agent (openai, anthropic, grok, ollama). Keys in ~/.aq/config.json.</p>
+  <p class="tool-desc">Configure LLM providers for axi (openai, anthropic, grok, ollama). Keys in ~/.axi/config.json.</p>
   <div class="table-wrap mb">
   <table>
     <thead><tr><th>Flag</th><th>Description</th></tr></thead>
     <tbody><tr>
-  <td class="flag">aq provider &lt;name&gt;</td>
+  <td class="flag">axi provider &lt;name&gt;</td>
   <td>Save key and select provider.</td>
 </tr>
 <tr>
-  <td class="flag">aq provider use &lt;name&gt;</td>
+  <td class="flag">axi provider use &lt;name&gt;</td>
   <td>Switch active provider.</td>
 </tr></tbody>
   </table>
@@ -225,21 +225,21 @@
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq provider</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi provider</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq provider openai</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi provider openai</span></span></code></pre>
 </div>
 <div class="codeblock" data-shell="1">
   <div class="codeblock-bar">
     <span>example</span>
     <button type="button" class="copy-btn">Copy</button>
   </div>
-  <pre><code><span class="line"><span class="prompt">$</span><span>aq provider use anthropic</span></span></code></pre>
+  <pre><code><span class="line"><span class="prompt">$</span><span>axi provider use anthropic</span></span></code></pre>
 </div>
   
 </section>

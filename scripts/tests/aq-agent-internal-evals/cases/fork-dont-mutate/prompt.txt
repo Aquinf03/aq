@@ -1,1 +1,0 @@
-Fork this train to ../variant. Pass a predicted metric range on the fork (--lo --hi --why). In that fork only, set method to boosting in recipe.yaml. Train the fork. Do not change this train's recipe.yaml.
