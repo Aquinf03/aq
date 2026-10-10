@@ -4,6 +4,7 @@ Current notes: **[docs/changelog/](./docs/changelog/)**. Older releases: **[docs
 
 | Version | Status | Notes |
 |---------|--------|--------|
+| [0.0.3](./docs/changelog/v0.0.3.md) | Released 2026-10-10 | aquin.app/aq + install cutover |
 | [0.0.2](./docs/changelog/v0.0.2.md) | Released 2026-09-24 | SDK + YAML + artifacts |
 | [0.0.1](./docs/changelog/versions/v0.0.1.md) | Released 2026-08-31 | First cut (pre-SDK) |
 
