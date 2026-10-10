@@ -1,50 +1,83 @@
 # Framework releases (R2 + Worker)
 
-Packaged `aq` tarballs and the install script live in R2. A Worker on `aq.aquin.app` serves them and logs download events to R2.
+Packaged `aq` tarballs and the install script live in R2. The Worker serves them from Cloudflare.
+
+## Public URLs (what users hit)
 
 ```
-https://aq.aquin.app/framework/install.sh
-https://aq.aquin.app/releases/aq-latestv.tar.gz
-https://aq.aquin.app/releases/aq-<version>v.tar.gz
+https://aquin.app/aq/download/install.sh     # Next.js static (Aquin repo)
+https://aquin.app/releases/aq-latestv.tar.gz
+https://aquin.app/releases/aq-<version>v.tar.gz
 ```
 
-Each successful download writes a small JSON event under `metrics/events/YYYY-MM-DD/` in the same bucket.
+Aquin’s `next.config.ts` rewrites `/releases/*` → the Worker origin (see below). Apex/`www` stay on **Vercel**, so they cannot host Worker routes unless you orange-cloud those hostnames through Cloudflare.
 
-## One-time setup
+## Worker origin (Cloudflare)
 
-1. Create R2 bucket **`releases`** (Cloudflare dashboard → R2).
+| Host | Status |
+|------|--------|
+| `https://aqfw-releases.aquin-explore.workers.dev` | Live now (always CF) |
+| `https://releases.aquin.app` | Preferred; needs DNS (below) |
+| `https://aq.aquin.app` | **Deprecated — remove** |
 
-2. Deploy the worker:
+`wrangler.toml` routes:
+
+- `releases.aquin.app/releases/*`
+- `releases.aquin.app/framework/install.sh`
+- `workers_dev = true`
+
+## One-time: create `releases.aquin.app` DNS
+
+OAuth token from `wrangler login` cannot edit DNS — do this in the Cloudflare dashboard (zone **aquin.app**):
+
+1. **DNS → Add record**
+   - Type: **AAAA**
+   - Name: `releases`
+   - IPv6: `100::`
+   - Proxy status: **Proxied** (orange cloud)
+2. Wait a minute, then:
 
    ```bash
-   cd scripts/helpers/cloudflare/releases-worker
-   npm install
-   npx wrangler deploy
+   curl -sI https://releases.aquin.app/releases/aq-latestv.tar.gz
+   # expect 200, server: cloudflare
    ```
 
-3. Routes are in `wrangler.toml`:
+3. In Aquin, set env (optional; defaults to workers.dev until DNS is ready):
 
-   - `aq.aquin.app/releases/*`
-   - `aq.aquin.app/framework/install.sh`
-
-   Redeploy after changes:
-
-   ```bash
-   npx wrangler deploy
+   ```
+   RELEASES_ORIGIN=https://releases.aquin.app
    ```
 
-4. Upload the install script once (also done automatically on every release):
+4. Redeploy Aquin so `/releases/*` rewrites use that origin.
 
-   ```bash
-   wrangler r2 object put releases/framework/install.sh \
-     --file=../../../install.sh \
-     --content-type "text/x-shellscript; charset=utf-8" \
-     --remote
-   ```
+## Deploy worker
 
-5. Optional — **Cloudflare Access** on `/releases/*` so only your team can download. Install script stays public; tarball is gated.
+```bash
+cd scripts/helpers/cloudflare/releases-worker
+npm install
+npx wrangler deploy
+```
 
-6. Optional — create an **R2 API token** with Object Read on `releases` to query download metrics locally (see below).
+Upload install script (also done by `scripts/helpers/release.sh`):
+
+```bash
+wrangler r2 object put releases/framework/install.sh \
+  --file=../../../install.sh \
+  --content-type "text/x-shellscript; charset=utf-8" \
+  --remote
+```
+
+## Delete `aq.aquin.app` wholly
+
+After Aquin is live at `aquin.app/aq/` and `/releases/*` rewrites work:
+
+1. **Cloudflare DNS** — delete the `aq` record (A/CNAME/AAAA for `aq.aquin.app`).
+2. **Cloudflare Workers** — already removed from `wrangler.toml` (redeployed). Confirm no leftover routes on `aq.aquin.app` in the dashboard.
+3. **Vercel** — remove the `aq.aquin.app` domain from the old `web/` project (or delete that project).
+4. **Supabase Auth** — Site URL / redirect allowlist: replace `https://aq.aquin.app` with `https://aquin.app` and `https://aquin.app/aq/`.
+5. **aqfw** — stop deploying `web/`; delete the folder when cutover is verified.
+
+Do **not** orange-cloud `aquin.app` / `www` onto Cloudflare unless you intentionally want CF in front of Vercel; the rewrite + `releases.aquin.app` pattern avoids that.
 
 ## Publish a release
 
@@ -52,49 +85,16 @@ From repo root:
 
 ```bash
 chmod +x scripts/helpers/release.sh
-./scripts/helpers/release.sh latest          # → aq-latestv.tar.gz
-./scripts/helpers/release.sh 0.0.2           # → aq-0.0.2v.tar.gz + updates aq-latestv.tar.gz
+./scripts/helpers/release.sh latest
+./scripts/helpers/release.sh 0.0.2
 ```
-
-Uploads tarball(s) and `framework/install.sh`. Requires `wrangler login`.
 
 ## Team install
 
 ```bash
-curl -fsSL https://aq.aquin.app/framework/install.sh | bash
+curl -fsSL https://aquin.app/aq/download/install.sh | bash
 ```
-
-Downloads `aq-latestv.tar.gz` from R2 via the Worker, runs `npm install && npm link` in `aq/`.
 
 ## Download metrics
 
-The worker logs one JSON object per successful download:
-
-```json
-{
-  "ts": "2026-09-01T11:22:33.456Z",
-  "path": "/releases/aq-latestv.tar.gz",
-  "asset": "aq-latestv.tar.gz",
-  "kind": "tarball",
-  "country": "IN",
-  "ua": "curl/8.7.1",
-  "status": 200
-}
-```
-
-Query from your machine with R2 credentials:
-
-```bash
-export R2_ACCOUNT_ID=...
-export R2_ACCESS_KEY_ID=...
-export R2_SECRET_ACCESS_KEY=...
-# optional: export AQUIN_R2_BUCKET=releases
-
-./scripts/helpers/download-metrics.sh
-./scripts/helpers/download-metrics.sh --days 7
-./scripts/helpers/download-metrics.sh --since 2026-09-01
-```
-
-Create the token in Cloudflare → R2 → Manage R2 API Tokens → Object Read on `releases`.
-
-Metrics only start accumulating after the updated worker is deployed. Historical downloads before that are not backfilled.
+Each successful download writes JSON under `metrics/events/YYYY-MM-DD/` in the `releases` R2 bucket.

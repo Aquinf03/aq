@@ -42,7 +42,7 @@ async function requestOrigin(): Promise<string> {
     const proto = h.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
     return `${proto}://${host}`;
   }
-  return process.env.NEXT_PUBLIC_APP_URL || "https://aq.aquin.app";
+  return process.env.NEXT_PUBLIC_APP_URL || "https://aquin.app";
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

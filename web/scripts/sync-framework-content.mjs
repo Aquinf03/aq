@@ -16,7 +16,7 @@ if (existsSync(installSrc)) {
   console.warn(`sync-framework-content: skip missing ${installSrc}`)
 }
 
-const site = (process.env.NEXT_PUBLIC_APP_URL || "https://aq.aquin.app").replace(/\/$/, "")
+const site = (process.env.NEXT_PUBLIC_APP_URL || "https://aquin.app/aq/").replace(/\/$/, "")
 const ghDocs = "https://aquinf03.github.io/aq/documentation"
 const ghCl = "https://aquinf03.github.io/aq/changelog"
 const llms = [

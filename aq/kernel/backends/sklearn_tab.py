@@ -250,7 +250,7 @@ def fit_estimator(src: Path, rec: dict, kind: str) -> dict:
                     raise SystemExit(
                         "catboost not installed. From the framework tree run:\n"
                         "  python3 -m pip install catboost\n"
-                        "Or reinstall: curl -fsSL https://aq.aquin.app/framework/install.sh | bash"
+                        "Or reinstall: curl -fsSL https://aquin.app/aq/download/install.sh | bash"
                     ) from None
         if lib in ("auto", "xgboost"):
             try:
@@ -319,7 +319,7 @@ def fit_estimator(src: Path, rec: dict, kind: str) -> dict:
                     raise SystemExit(
                         "lightgbm not installed. From the framework tree run:\n"
                         "  python3 -m pip install lightgbm\n"
-                        "Or reinstall: curl -fsSL https://aq.aquin.app/framework/install.sh | bash"
+                        "Or reinstall: curl -fsSL https://aquin.app/aq/download/install.sh | bash"
                     ) from None
         est = ensemble.GradientBoostingRegressor(
             n_estimators=n, max_depth=depth, learning_rate=lr, random_state=seed

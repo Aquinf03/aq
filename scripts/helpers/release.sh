@@ -51,7 +51,7 @@ fi
 echo ""
 echo "Published:"
 echo "  R2:  ${BUCKET}/${REMOTE}"
-echo "  URL: https://aq.aquin.app/releases/${REMOTE}"
+echo "  URL: https://aquin.app/releases/${REMOTE}"
 if [ "$VERSION" != "latest" ]; then
-  echo "  URL: https://aq.aquin.app/releases/$(release_object_name latest)"
+  echo "  URL: https://aquin.app/releases/$(release_object_name latest)"
 fi

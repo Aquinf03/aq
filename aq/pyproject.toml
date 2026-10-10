@@ -22,8 +22,8 @@ kernel = [
 ]
 
 [project.urls]
-Homepage = "https://aq.aquin.app"
-Docs = "https://aq.aquin.app/docs"
+Homepage = "https://aquin.app/aq/"
+Docs = "https://aquinf03.github.io/aq/documentation/"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -12,7 +12,7 @@ type PipInstallPillProps = {
   fullWidth?: boolean;
 };
 
-const CMD = "curl -fsSL https://aq.aquin.app/framework/install.sh | bash";
+const CMD = "curl -fsSL https://aquin.app/aq/download/install.sh | bash";
 
 export function PipInstallPill({
   className,
@@ -108,7 +108,7 @@ export function PipInstallPill({
   );
 }
 
-/** Single outlined strip: $ | curl | copy | Docs → | aq.aquin.app */
+/** Single outlined strip: $ | curl | copy | Docs → | aquin.app/aq */
 export function AqInstallStrip({ className }: { className?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {

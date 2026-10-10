@@ -2,7 +2,7 @@ export const siteConfig = {
   name: "Aquin Labs",
   description:
     "Developer environment and framework for building and checking models. Train folders, aq CLI, Python kernel. Agent chat is axi (separate package).",
-  url: process.env.NEXT_PUBLIC_APP_URL ?? "https://aq.aquin.app",
+  url: process.env.NEXT_PUBLIC_APP_URL ?? "https://aquin.app",
   keywords: [
     "Aquin",
     "Aquin Labs",
@@ -18,9 +18,9 @@ export const siteConfig = {
     email: "aquin@aquin.app",
     mainSite: "https://www.aquin.app",
     docs: "https://aquinf03.github.io/aq/documentation/",
-    home: "https://aq.aquin.app",
+    home: "https://aquin.app/aq/",
     changelog: "https://aquinf03.github.io/aq/changelog",
-    login: "/",
+    login: "/aq/",
   },
 };
 

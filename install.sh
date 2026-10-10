@@ -6,7 +6,7 @@ set -euo pipefail
 
 INSTALL_DIR="${AQUIN_INSTALL_DIR:-$HOME/.local/share/aquin-framework}"
 BRANCH="${AQUIN_BRANCH:-main}"
-DEFAULT_RELEASE_URL="https://aq.aquin.app/releases/aq-latestv.tar.gz"
+DEFAULT_RELEASE_URL="https://aquin.app/releases/aq-latestv.tar.gz"
 # User-writable npm global prefix (avoids EACCES on /usr/local/lib/node_modules)
 NPM_PREFIX="${AQUIN_NPM_PREFIX:-$HOME/.local}"
 
@@ -283,7 +283,7 @@ if [ -n "${AQUIN_REPO:-}" ]; then
   exit 0
 fi
 
-# 4) R2 release via aq.aquin.app (default for curl | bash)
+# 4) R2 release via aquin.app (Cloudflare worker)
 if [ "${AQUIN_NO_RELEASE:-}" != "1" ]; then
   install_from_release "${AQUIN_RELEASE_URL:-$DEFAULT_RELEASE_URL}"
   exit 0
@@ -293,5 +293,5 @@ echo "Install options:" >&2
 echo "  ./install.sh              (from a checkout that contains aq/)" >&2
 echo "  AQUIN_SOURCE=/path/to/aqfw ./install.sh" >&2
 echo "  AQUIN_REPO=<git-url> ./install.sh" >&2
-echo "  curl -fsSL https://aq.aquin.app/framework/install.sh | bash" >&2
+echo "  curl -fsSL https://aquin.app/aq/download/install.sh | bash" >&2
 exit 1

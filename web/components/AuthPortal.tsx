@@ -32,7 +32,7 @@ type AuthPortalProps = {
   embedded?: boolean;
 };
 
-const INSTALL_CMD = "curl -fsSL https://aq.aquin.app/framework/install.sh | bash";
+const INSTALL_CMD = "curl -fsSL https://aquin.app/aq/download/install.sh | bash";
 
 const NEXT_CMDS = [
   { id: "login", label: "Sign in", cmd: "aq login" },

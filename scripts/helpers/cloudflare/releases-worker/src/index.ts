@@ -1,7 +1,7 @@
-/** Proxy /releases/* and /framework/install.sh on aq.aquin.app → R2; log downloads. */
+/** Proxy /releases/* and /aq/download/install.sh → R2; log downloads. Host: releases.aquin.app (+ workers.dev). */
 
 const RELEASES_PREFIX = "/releases/";
-const INSTALL_PATH = "/framework/install.sh";
+const INSTALL_PATHS = new Set(["/aq/download/install.sh", "/framework/install.sh"]);
 const INSTALL_KEY = "framework/install.sh";
 const METRICS_PREFIX = "metrics/events/";
 
@@ -78,7 +78,7 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const path = new URL(request.url).pathname;
 
-    if (path === INSTALL_PATH) {
+    if (INSTALL_PATHS.has(path)) {
       return serveR2(
         request,
         env,

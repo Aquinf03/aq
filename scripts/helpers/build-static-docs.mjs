@@ -131,7 +131,7 @@ ${footerHtml}`
 
 /** Map web path → static page id ('' = index). */
 const NAV = [
-  { label: "Live docs", href: "https://aq.aquin.app/docs", external: true },
+  { label: "Live docs", href: "https://aquinf03.github.io/aq/documentation/", external: true },
   { label: "Getting started", id: "" },
   { label: "Install", id: "install" },
   { label: "Train folder", id: "train" },
@@ -228,7 +228,7 @@ function pageShell({ id, title, description, body }) {
       </a>
       <div class="header-actions">
         <a class="header-link" href="https://aquin.app/changelog" rel="noopener">Changelog</a>
-        <a class="header-cta" href="https://aq.aquin.app/" rel="noopener">Sign in</a>
+        <a class="header-cta" href="https://aquin.app/aq/" rel="noopener">Sign in</a>
       </div>
     </div>
   </header>
@@ -276,7 +276,7 @@ function gettingStartedHtml() {
       </tbody>
     </table>
   </div>
-  <p class="lead">Flow is always the same shape: you work in a train folder, the CLI routes verbs, the kernel does the numeric work, artifacts land back on disk. Accounts and docs live at ${chip("aq.aquin.app")}. Auth is identity and tokens only — it does not own trains. <a href="https://aq.aquin.app/">Sign in</a>.</p>
+  <p class="lead">Flow is always the same shape: you work in a train folder, the CLI routes verbs, the kernel does the numeric work, artifacts land back on disk. Accounts live at ${chip("aquin.app/aq/")}. Auth is identity and tokens only — it does not own trains. <a href="https://aquin.app/aq/">Sign in</a>.</p>
 
   <h2>The directory system</h2>
   <p class="lead">A <strong>train</strong> is any folder with both ${chip("instructions.md")} (what this is for) and ${chip("recipe.yaml")} (the full train API for built-ins). ${chip("aq init")} scaffolds the rest. Convention over registration: drop a file in the right slot and it exists. No central registry.</p>
@@ -500,7 +500,7 @@ Point GitHub Pages at the \`/docs\` folder on your default branch.
   console.log(`build-static-docs: ${pages.length} pages → ${outDir}`)
 }
 
-const CSS = `/* Mirror of aq.aquin.app docs chrome */
+const CSS = `/* Docs chrome */
 :root {
   --bg: #f5f5f3;
   --text: #1c1917;

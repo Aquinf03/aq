@@ -1,4 +1,4 @@
--- Unique public username for aq.aquin.app/user/<username>
+-- Unique public username for aquin.app/user/<username>
 -- Run in Supabase SQL editor (or your migration runner).
 
 alter table public.profiles
@@ -14,4 +14,4 @@ create unique index if not exists profiles_username_unique
   where username is not null;
 
 comment on column public.profiles.username is
-  'Public slug for https://aq.aquin.app/user/<username>';
+  'Public slug for https://aquin.app/user/<username>';

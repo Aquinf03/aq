@@ -1,4 +1,4 @@
-/** Aquin account login: aq.aquin.app desktop handoff → aq- token in ~/.aquin/config.json. */
+/** Aquin account login: aquin.app/aq/ desktop handoff → aq- token in ~/.aquin/config.json. */
 
 import { spawn } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -8,7 +8,7 @@ import { join } from "node:path"
 import { stdin, stdout } from "node:process"
 
 const CONFIG_PATH = join(homedir(), ".aquin", "config.json")
-const DEFAULT_AUTH_URL = "https://aq.aquin.app"
+const DEFAULT_AUTH_URL = "https://aquin.app"
 
 type Account = {
   api_key: string
@@ -25,7 +25,7 @@ type AuthCfg = {
   active_account: string
 }
 
-/** Auth app host. Prod: https://aq.aquin.app. Local web: AQUIN_AUTH_URL=http://localhost:3000 */
+/** Auth app host. Prod: https://aquin.app (portal at /aq/). Local: AQUIN_AUTH_URL=http://localhost:3000 */
 function authBase(): string {
   return (process.env.AQUIN_AUTH_URL || DEFAULT_AUTH_URL).replace(/\/$/, "")
 }
@@ -96,7 +96,7 @@ function saveLogin(payload: {
 }): string {
   const key = normalizeToken(payload.api_key)
   if (!key.startsWith("aq-") || key.length < 20) {
-    throw new Error("Invalid account token from aq.aquin.app.")
+    throw new Error("Invalid account token from aquin.app.")
   }
   const aid = accountId(payload.email, payload.name, payload.user_id)
   const cfg = loadCfg()
@@ -254,7 +254,7 @@ export async function loginCmd(argv: string[]): Promise<void> {
         "       aq logout [email]",
         "       aq switch [email]",
         "",
-        "Opens aq.aquin.app/?view=desktop&client=cli, then paste",
+        "Opens aquin.app/aq/?view=desktop&client=cli, then paste",
         "aquin://auth?code=… (or the bare code). Token is stored in ~/.aquin/config.json.",
         "Override host with AQUIN_AUTH_URL (e.g. http://localhost:3000).",
       ].join("\n"),
@@ -304,8 +304,8 @@ export async function loginCmd(argv: string[]): Promise<void> {
   }
 
   const base = authBase()
-  const url = `${base}/?view=desktop&client=cli`
-  console.log("sign in at " + base.replace(/^https?:\/\//, ""))
+  const url = `${base}/aq/?view=desktop&client=cli`
+  console.log("sign in at aquin.app/aq/")
   console.log("  " + url)
   try {
     openBrowser(url)

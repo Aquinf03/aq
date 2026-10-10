@@ -7,7 +7,7 @@ import path from "node:path"
 import { aqRoot } from "../core/root.js"
 import { frameworkVersion } from "../core/version.js"
 
-const DEFAULT_INSTALL_SH = "https://aq.aquin.app/framework/install.sh"
+const DEFAULT_INSTALL_SH = "https://aquin.app/aq/download/install.sh"
 
 function findBash(): string {
   const fromPath = spawnSync("bash", ["-c", "echo ok"], { encoding: "utf8" })
@@ -24,7 +24,7 @@ function findBash(): string {
   }
   throw new Error(
     "bash is required for aq update (macOS/Linux shell, or Git Bash on Windows).\n" +
-      "Or run: curl -fsSL https://aq.aquin.app/framework/install.sh | bash",
+      "Or run: curl -fsSL https://aquin.app/aq/download/install.sh | bash",
   )
 }
 

@@ -1,15 +1,22 @@
 name = "aqfw-releases"
 main = "src/index.ts"
 compatibility_date = "2024-08-01"
+workers_dev = true
 
 [[r2_buckets]]
 binding = "RELEASES"
 bucket_name = "releases"
 
+# Public CDN host (CF-proxied). Create DNS first (see README), then deploy.
+# Apex/www stay on Vercel; aquin.app/releases is rewritten there → this host.
 [[routes]]
-pattern = "aq.aquin.app/releases/*"
+pattern = "releases.aquin.app/releases/*"
 zone_name = "aquin.app"
 
 [[routes]]
-pattern = "aq.aquin.app/framework/install.sh"
+pattern = "releases.aquin.app/framework/install.sh"
+zone_name = "aquin.app"
+
+[[routes]]
+pattern = "releases.aquin.app/aq/download/install.sh"
 zone_name = "aquin.app"
