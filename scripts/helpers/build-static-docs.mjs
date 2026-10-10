@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Generate static HTML docs under docs/ for GitHub Pages.
- * Source of truth: web/lib/docs/sections + getting-started / train extras.
+ * Source of truth: sections embedded in this file (+ getting-started / train extras).
  *
  *   node --experimental-strip-types scripts/helpers/build-static-docs.mjs
  */
@@ -471,9 +471,9 @@ ${codeBlock(train.ARTIFACTS_LAYOUT, "artifacts")}
     path.join(outDir, "README.md"),
     `# Static aq docs (GitHub Pages)
 
-HTML mirror of the product docs. Same stone / \`#f5f5f3\` chrome as \`web/app/docs\`.
+HTML mirror of the product docs (stone / \`#f5f5f3\` chrome).
 
-**Regenerate** (after editing \`web/lib/docs/sections\`):
+**Regenerate** (after editing sections in this script):
 
 \`\`\`bash
 node --experimental-strip-types scripts/helpers/build-static-docs.mjs

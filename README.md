@@ -49,7 +49,6 @@ aq train && aq eval && aq status
 | `scripts/tests/` | E2E trains (CLI + SDK) |
 | `scripts/desktop/` | Electron workspace (Vite UI + AsyncSSH) |
 | `docs/` | GitHub Pages: `documentation/` + `changelog/` (markdown notes + HTML) + `assets/` |
-| `web/` | Legacy auth app (moved to aquin.app/aq/; keep until cutover) |
 | `internals/` | Builder checklists (framework only) |
 
 - Publish: [`scripts/helpers/release.sh`](./scripts/helpers/release.sh)

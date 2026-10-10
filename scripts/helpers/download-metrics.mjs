@@ -4,7 +4,7 @@
  *
  * Loads credentials from (first found):
  *   scripts/helpers/.env.r2
- *   web/.env
+ *   scripts/helpers/.env.r2
  *
  * Or set manually:
  *   R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
@@ -49,7 +49,6 @@ function loadEnvFile(path) {
 
 function loadEnv() {
   loadEnvFile(join(SCRIPT_DIR, ".env.r2"));
-  loadEnvFile(join(SCRIPT_DIR, "..", "..", "web", ".env"));
   if (!process.env.AQUIN_R2_BUCKET) {
     process.env.AQUIN_R2_BUCKET = DEFAULT_BUCKET;
   }
@@ -58,7 +57,7 @@ function loadEnv() {
 function usage() {
   console.error(`Usage: download-metrics.mjs [--days N] [--since YYYY-MM-DD]
 
-Loads R2 creds from scripts/helpers/.env.r2 or web/.env automatically.
+Loads R2 creds from scripts/helpers/.env.r2 automatically.
 
 Manual override:
   R2_ACCOUNT_ID
@@ -97,7 +96,7 @@ function requireEnv(name) {
   if (!value) {
     console.error(`Missing ${name}.`);
     console.error("");
-    console.error("Expected R2 creds in scripts/helpers/.env.r2 or web/.env");
+    console.error("Expected R2 creds in scripts/helpers/.env.r2");
     process.exit(1);
   }
   return value;

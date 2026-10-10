@@ -73,9 +73,9 @@ After Aquin is live at `aquin.app/aq/` and `/releases/*` rewrites work:
 
 1. **Cloudflare DNS** — delete the `aq` record (A/CNAME/AAAA for `aq.aquin.app`).
 2. **Cloudflare Workers** — already removed from `wrangler.toml` (redeployed). Confirm no leftover routes on `aq.aquin.app` in the dashboard.
-3. **Vercel** — remove the `aq.aquin.app` domain from the old `web/` project (or delete that project).
-4. **Supabase Auth** — Site URL / redirect allowlist: replace `https://aq.aquin.app` with `https://aquin.app` and `https://aquin.app/aq/`.
-5. **aqfw** — stop deploying `web/`; delete the folder when cutover is verified.
+3. **Vercel** — remove the `aq.aquin.app` domain / old web project if still attached.
+4. **Supabase Auth** — Site URL / redirect allowlist: `https://aquin.app` and `https://aquin.app/aq`.
+5. **aqfw** — `web/` removed; account UI lives in the Aquin repo at `/aq`.
 
 Do **not** orange-cloud `aquin.app` / `www` onto Cloudflare unless you intentionally want CF in front of Vercel; the rewrite + `releases.aquin.app` pattern avoids that.
 

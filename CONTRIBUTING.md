@@ -63,7 +63,7 @@ Changes that touch the train contract or the TS ↔ Python bridge are reviewed m
 | Kernel entry / engine | `aq/kernel/run.py`, `aq/kernel/engine/` |
 | Protocol (recipe, metrics, methods) | `aq/kernel/protocol/` |
 | Training methods | `aq/kernel/methods/` |
-| Install / release | `install.sh`, `scripts/helpers/release.sh`, `web/public/framework/` |
+| Install / release | `install.sh`, `scripts/helpers/release.sh` · account UI at aquin.app/aq |
 
 For these areas, please:
 
