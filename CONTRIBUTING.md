@@ -2,8 +2,43 @@
 
 Thanks for taking the time to contribute. We welcome bug reports, docs fixes, tests, and pull requests.
 
+## Who this is for
+
+People who train and check models as **directory-shaped work** — researchers, applied ML engineers, and anyone who wants a train to be forkable, resumable, and auditable from disk. If you live in notebooks that never become a repo, or platforms that own your runs for you, this is probably not your primary tool.
+
+## What problem it solves
+
+ML work scatters across scripts, mystery checkpoints, and chat logs. **aq** makes the unit of work a folder: `recipe.yaml` (what to run) + `artifacts/` (what happened). The CLI (`aq`) and Python kernel share that contract. You grow the folder, run verbs against it, and leave enough on disk that someone else (or you next week) can resume without reconstructing context from memory.
+
+## What makes this different
+
+| | Direct / adjacent | aq |
+|--|-------------------|-----|
+| Notebooks / ad-hoc scripts | Fast start, weak provenance | Same speed for a train folder; disk is the source of truth |
+| Trainer / Lightning / HF stacks | Strong libraries; you still invent the project shell | Thin adapters over those stacks; the shell is the product |
+| MLflow / W&B / platforms | Tracking as a service | Tracking as files under `artifacts/` you can `git`-friend and fork |
+| Agent-only tools | Chat owns the session | Agent is **axi** (separate); aq owns trains and verbs |
+
+Indirect competition is “just write a script.” aq is for when you want that script to become a **reproducible train** without adopting a heavyweight platform.
+
+## What success feels like
+
+```bash
+aq doctor    # exit 0
+aq version   # prints 0.0.x
+aq init demo && cd demo
+# point recipe.yaml → a tiny dataset
+aq train && aq eval   # exit 0; artifacts/ written
+```
+
+**Success = exit code 0** and a train folder you can reopen later. If doctor or train fails, fix that before opening a PR about higher-level behavior.
+
 ## Table of contents
 
+- [Who this is for](#who-this-is-for)
+- [What problem it solves](#what-problem-it-solves)
+- [What makes this different](#what-makes-this-different)
+- [What success feels like](#what-success-feels-like)
 - [Quick start](#quick-start)
 - [PR requirements](#pr-requirements)
 - [Core areas (higher bar)](#core-areas-higher-bar)
@@ -18,23 +53,34 @@ Thanks for taking the time to contribute. We welcome bug reports, docs fixes, te
 
 ## Quick start
 
+Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. You must **create the kernel Python env** — the CLI alone is not enough for train/eval.
+
 ```bash
 # 1. Fork, then clone your fork
-git clone https://github.com/YOUR_USERNAME/aqfw.git
-cd aqfw
+git clone https://github.com/YOUR_USERNAME/aq.git
+cd aq
 
 # 2. Install the CLI from the checkout
 cd aq && npm install && npm link
-# or from the repo root:
+cd ..
+
+# 3. Create the Python env (required — do not skip)
+python3 -m venv aq/kernel/.venv
+aq/kernel/.venv/bin/pip install -U pip
+aq/kernel/.venv/bin/pip install -r aq/kernel/requirements.txt
+# optional SDK editable install:
+# aq/kernel/.venv/bin/pip install -e ./aq
+
+# or from the repo root (creates the venv for you):
 # ./install.sh
 
-# 3. Smoke-check
+# 4. Smoke-check — expect exit code 0
 aq help
 aq doctor
 aq version
 ```
 
-Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. After TypeScript edits:
+`aq` prefers `aq/kernel/.venv` when present. After TypeScript edits:
 
 ```bash
 cd aq && npm run build
@@ -85,12 +131,26 @@ AI-assisted contributions are welcome. You are accountable for every line you su
 
 ## Testing
 
-This repo does **not** use a single unit-test suite as the primary gate. Coverage lives as **manual end-to-end trains** in [`scripts/tests/`](./scripts/tests/).
+### CI (GitHub Actions)
 
-Each folder is a train (plus a README). Typical loop:
+Every push/PR runs [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
+
+| Gate | What |
+|------|------|
+| TypeScript | `npm ci` + `npm run build` |
+| CLI packaging | `npm pack` includes `bin/aq` + `dist/cli.js`; `aq help` / `aq version` |
+| Python | create venv, `pip install -e ./aq`, `import aquin`, `compileall` on `aquin` + `kernel` |
+| Basic SDK | `scripts/tests/sdk-ridge` (`example.py` train/eval) with sklearn only |
+
+**Exit code 0 on CI is required.** It is a smoke gate — not full method coverage.
+
+### Manual end-to-end trains
+
+Deeper coverage is still **manual trains** under [`scripts/tests/`](./scripts/tests/). CI does not replace those for new methods or GPU paths.
 
 ```bash
 cd aq && npm run build   # if you changed TypeScript
+# create kernel venv if needed (see Quick start)
 cd ../scripts/tests/linear-regression   # or another relevant train
 aq train
 aq eval
@@ -102,10 +162,10 @@ Pick the train that proves what you changed. Index: [`scripts/tests/README.md`](
 
 | Change type | Expectation |
 |-------------|-------------|
-| Bug fix | Reproduce with a train (or add/adjust one), then show it passes |
+| Bug fix | Reproduce with a train (or add/adjust one), then show it passes; CI green |
 | New method / recipe knob | Add or extend a `scripts/tests/` train that exercises it |
-| Docs only | No train run required |
-| Refactor | Existing relevant trains still work; say which ones you ran |
+| Docs only | No train run required; CI still runs |
+| Refactor | Existing relevant trains still work; say which ones you ran; CI green |
 
 GPU-only paths (e.g. QLoRA) may need CUDA; note that in the PR if you could not run them locally.
 
