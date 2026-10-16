@@ -5,7 +5,7 @@
 Chat (`axi`) is a **separate package** — not this repo’s product surface.
 
 **Docs:** https://aquinf03.github.io/aq/documentation/ · **Changelog:** https://aquinf03.github.io/aq/changelog/ · **Account / install:** https://aquin.app/aq/  
-**SDK:** [`aq/aquin`](./aq/SDK.md) · **Trains:** [`scripts/tests/`](./scripts/tests/README.md)
+**SDK:** [`aq/aquin`](./aq/SDK.md) · **Trains:** [`scripts/tests/`](./scripts/tests/README.md) · **Shipped:** [`COMPLETED.md`](./COMPLETED.md)
 
 ## Published build install
 
@@ -49,6 +49,7 @@ aq train && aq eval && aq status
 | `scripts/tests/` | E2E trains (CLI + SDK) |
 | `scripts/desktop/` | Electron workspace (Vite UI + AsyncSSH) |
 | `docs/` | GitHub Pages: `documentation/` + `changelog/` (markdown notes + HTML) + `assets/` |
+| `COMPLETED.md` | What ships (public inventory) |
 | `internals/` | Builder checklists (framework only) |
 
 - Publish: [`scripts/helpers/release.sh`](./scripts/helpers/release.sh)

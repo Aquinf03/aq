@@ -29,7 +29,7 @@ pip install -r aq/kernel/requirements.txt
 | `protocol/eval_suite` | `eval.suite` / `eval.plot` / `eval.extra` + `artifacts/plots/` |
 | `protocol/tables` | `artifacts/tables/<name>.jsonl` (`aquin.table`) |
 
-SDK surface: [aq/SDK.md](../SDK.md). Shipped checklist: [internals/COMPLETED.md](../../internals/COMPLETED.md).
+SDK surface: [aq/SDK.md](../SDK.md). Shipped checklist: [COMPLETED.md](../../COMPLETED.md).
 
 ## Contract
 
@@ -43,4 +43,4 @@ SDK surface: [aq/SDK.md](../SDK.md). Shipped checklist: [internals/COMPLETED.md]
 - Devices: CUDA, MPS, ROCm, CPU.
 - Tabular eval suite on by default (`evaluate()` / `aq eval --suite`); extras via kwargs or `eval.extra: [name]` → `scorers.py`.
 
-See [Recipe docs](https://aquinf03.github.io/aq/documentation/) and [internals/COMPLETED.md](../../internals/COMPLETED.md).
+See [Recipe docs](https://aquinf03.github.io/aq/documentation/) and [COMPLETED.md](../../COMPLETED.md).

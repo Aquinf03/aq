@@ -9,7 +9,7 @@ pip install -e ./aq
 pip install -r aq/kernel/requirements.txt
 ```
 
-Shipped tracking / eval checklist: [internals/COMPLETED.md → Tracking](../internals/COMPLETED.md#tracking--experiment-capture). Open gaps: [internals/VS.md](../internals/VS.md).
+Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#tracking--experiment-capture). Open gaps: [internals/VS.md](../internals/VS.md).
 
 ## TOC
 
