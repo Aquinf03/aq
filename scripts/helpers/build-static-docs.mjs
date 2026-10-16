@@ -136,6 +136,7 @@ const NAV = [
   { label: "Install", id: "install" },
   { label: "Train folder", id: "train" },
   { label: "Recipe", id: "recipe" },
+  { label: "Templates", id: "templates" },
   { label: "CLI reference", id: "cli" },
   {
     label: "Methods",
