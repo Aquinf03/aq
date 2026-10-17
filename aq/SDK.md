@@ -19,6 +19,7 @@ Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#t
 - [Tables](#tables-predictions--errors)
 - [Infra events](#infra-events-oom--preempt--disk-on-the-loss-timeline)
 - [Model evaluation](#model-evaluation-metrics--plots)
+- [Load + predict](#load--predict)
 - [Init a run](#init-a-run)
 - [YAML / SDK authoring](#option-a--edit-yaml-open-with-sdk--cli)
 - [Autolog](#autolog-framework-integrations)
@@ -187,6 +188,25 @@ eval:
 Classification → accuracy / P/R/F1 / ROC-AUC + confusion · ROC · PR.  
 Regression → MAE/MSE/RMSE/R² + residuals · pred-vs-true.  
 Events: `eval.suite`, `eval.plot`, `eval.extra` in `artifacts/metrics.jsonl`.
+
+## Load + predict
+
+One call loads a checkpoint; `predict(x)` works the same for every method that supports it
+(joblib estimator when present, otherwise method weights).
+
+```python
+from aquin import load
+
+model = load("last", train=".")          # or path / step / sha256:…
+y = model.predict([[1.0, 2.0, 3.0]])     # rows → list of predictions
+y = model.predict([1.0, 2.0, 3.0])       # single row → one value
+y = model.predict({"f0": 1.0, "f1": 2.0})  # feature dict → one value
+```
+
+`path_or_id`: `"last"` / `"latest"`, relative/absolute checkpoint JSON, step (`"3"`),
+or `aq_model_id` (`sha256:…`). `train=` is the run root (defaults to cwd / nearest `recipe.yaml`).
+
+LLM / serve-style methods: `model.generate(prompt, …)` when the method implements it.
 
 ## Init a run
 

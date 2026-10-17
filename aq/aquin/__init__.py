@@ -31,13 +31,18 @@ from aquin.autolog import (
     table,
 )
 from aquin.client import Aquin
-from aquin.fleet import Job, Place, Queue
+try:
+    from aquin.fleet import Job, Place, Queue
+except ImportError:  # thin checkouts without fleet
+    Job = Place = Queue = None  # type: ignore[misc, assignment]
 from aquin.flow import Run
 from aquin.handle import RunHandle, open_run
+from aquin.model import Model, load
 from aquin.scaffold import init_run
 
 __all__ = [
     "Aquin",
+    "Model",
     "Job",
     "Place",
     "Queue",
@@ -56,6 +61,7 @@ __all__ = [
     "get_notes",
     "get_tags",
     "init_run",
+    "load",
     "log_artifact",
     "log_grads",
     "log_infra",

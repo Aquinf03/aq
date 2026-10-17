@@ -58,7 +58,7 @@ The experiment is a **directory**: `recipe.yaml` (path map) + `artifacts/` (runt
 
 Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 
-### Autolog & trackers
+### Experiment capture & autolog
 
 - After `aq train` / `aq eval`: run id + loss sparkline; `aq train --tracker` for live TUI
 - Auto-log params, metrics, console, artifacts from framework hooks (sklearn, HF Trainer, …)
@@ -77,7 +77,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - Tables: `aquin.table(...)` → `artifacts/tables/`; `aq plot table`
 - Infra events (oom / preempt / …) on the metrics timeline; fleet `recover` stamps them
 
-### Classical eval & templates
+### Classical ML evaluation
 
 - `aquin.evaluate(...)` (+ `aq eval --suite`) → suite metrics + plots under `artifacts/plots/`
 - Extra metrics via kwargs / recipe `eval.extra`
@@ -86,7 +86,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 
 ---
 
-## Artifacts & lineage
+## Artifacts, registry & lineage
 
 - Logged models (stable ids ↔ checkpoint + data hash)
 - Data revision on runs
@@ -94,9 +94,9 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 
 ---
 
-## Compute — SSH fleet
+## Compute, fleets & scheduling
 
-Laptop is the control plane; jobs run on **your** machines.
+Laptop is the control plane; jobs run on **your** machines over SSH.
 
 - Places — `aq add ssh` / `aq places`
 - Launch / go / sync / shutdown; shell via `aq go` / `aq launch --shell`
@@ -106,9 +106,10 @@ Laptop is the control plane; jobs run on **your** machines.
 
 ---
 
-## Serve
+## Serve & inference
 
 - `aq serve` on a checkpoint (method-native path)
+- **SDK load + predict** — `from aquin import load` → `model.predict(x)` (last / path / step / sha256; joblib when present)
 
 ---
 
