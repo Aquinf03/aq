@@ -1,11 +1,18 @@
 # Aquin Framework
 
+[![CI](https://github.com/aquinf03/aq/actions/workflows/ci.yml/badge.svg)](https://github.com/aquinf03/aq/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](./LICENSE)
+
 **aq** is the CLI. The Python kernel ships inside the `aq` package.  
 **SDK shape:** `recipe.yaml` (path map) + `artifacts/` (runtime). Author with **YAML and/or `aquin`** — both first-class.  
 Chat (`axi`) is a **separate package** — not this repo’s product surface.
 
-**Docs:** https://aquinf03.github.io/aq/documentation/ · **Changelog:** https://aquinf03.github.io/aq/changelog/ · **Account / install:** https://aquin.app/aq/  
-**SDK:** [`aq/aquin`](./aq/SDK.md) · **Trains:** [`scripts/tests/`](./scripts/tests/README.md) · **Shipped:** [`COMPLETED.md`](./COMPLETED.md)
+**Repo:** https://github.com/aquinf03/aq · **Docs:** https://aquinf03.github.io/aq/documentation/ · **Changelog:** https://aquinf03.github.io/aq/changelog/  
+**SDK:** [`aq/SDK.md`](./aq/SDK.md) · **Trains:** [`scripts/tests/`](./scripts/tests/README.md) · **Shipped:** [`COMPLETED.md`](./COMPLETED.md)
+
+**Contributing** · [`CONTRIBUTING.md`](./CONTRIBUTING.md) · **Code of conduct** · [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) · **Security** · [`SECURITY.md`](./SECURITY.md) · **License** · [`LICENSE`](./LICENSE)
+
+Good first contributions: docs clarifications under `docs/documentation/`, tighter trains under `scripts/tests/`, and small CLI / SDK fixes with a reproduction.
 
 ## Published build install
 
@@ -14,6 +21,8 @@ curl -fsSL https://aquin.app/aq/download/install.sh | bash
 ```
 
 Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. Then `aq help`.
+
+Or from source: clone https://github.com/aquinf03/aq and see [From a checkout](#from-a-checkout-cli).
 
 ## SDK (few lines)
 

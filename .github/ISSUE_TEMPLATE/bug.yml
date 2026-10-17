@@ -1,0 +1,58 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Fill in what you can so we can reproduce it.
+        Security issues: email **aquin@aquin.app** — do not file them here.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands, train folder, or minimal sequence.
+      placeholder: |
+        1. aq init demo && cd demo
+        2. ...
+        3. aq train
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include exit codes, logs, or stack traces when possible.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node, Python, aq version.
+      placeholder: |
+        OS:
+        node -v:
+        python3 --version:   # need >= 3.10
+        aq version:
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Links, related PRs, screenshots (optional).

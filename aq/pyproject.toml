@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Aquin SDK — Python authors; recipe.yaml path map; artifacts/ runtime"
 readme = "SDK.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 authors = [{ name = "Aquin Labs" }]
 dependencies = [
   # Kernel deps are installed separately into aq/kernel/.venv or the active env.
@@ -22,7 +22,8 @@ kernel = [
 ]
 
 [project.urls]
-Homepage = "https://aquin.app/aq/"
+Homepage = "https://github.com/aquinf03/aq"
+Repository = "https://github.com/aquinf03/aq"
 Docs = "https://aquinf03.github.io/aq/documentation/"
 
 [tool.setuptools.packages.find]

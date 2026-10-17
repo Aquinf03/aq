@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/aquinf03/aq/blob/main/SECURITY.md
+    about: Do not open a public issue. Email aquin@aquin.app (see SECURITY.md).
+  - name: Documentation
+    url: https://aquinf03.github.io/aq/documentation/
+    about: Usage and how-to for aq / aquin.

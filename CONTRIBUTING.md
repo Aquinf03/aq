@@ -49,6 +49,7 @@ aq train && aq eval   # exit 0; artifacts/ written
 - [Types of contributions](#types-of-contributions)
 - [Reporting bugs & proposing features](#reporting-bugs--proposing-features)
 - [Security](#security)
+- [Code of conduct](#code-of-conduct)
 - [Questions](#questions)
 
 ## Quick start
@@ -109,7 +110,7 @@ Changes that touch the train contract or the TS ↔ Python bridge are reviewed m
 | Kernel entry / engine | `aq/kernel/run.py`, `aq/kernel/engine/` |
 | Protocol (recipe, metrics, methods) | `aq/kernel/protocol/` |
 | Training methods | `aq/kernel/methods/` |
-| Install / release | `install.sh`, `scripts/helpers/release.sh` · account UI at aquin.app/aq |
+| Install / release | `install.sh`, `scripts/helpers/release.sh` · repo https://github.com/aquinf03/aq |
 
 For these areas, please:
 
@@ -220,6 +221,10 @@ All of these help. Docs and reproduction cases are as valuable as features.
 ## Security
 
 Public issues for vulnerabilities will be **closed immediately**. You must email **aquin@aquin.app**. See [`SECURITY.md`](./SECURITY.md).
+
+## Code of conduct
+
+Participation is governed by [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md). Report concerns to **aquin@aquin.app**.
 
 ## Questions
 
