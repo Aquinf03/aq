@@ -412,3 +412,9 @@ class Aquin:
         metrics = art / "metrics.jsonl"
         out["metrics"] = str(metrics) if metrics.is_file() else None
         return out
+
+    def lineage(self, ref: str | Path = "last") -> dict[str, Any]:
+        """Model → run → data (who trained these weights)."""
+        from aquin.lineage import lineage as _lineage
+
+        return _lineage(ref, train=self.root)

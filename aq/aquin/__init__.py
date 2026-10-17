@@ -37,6 +37,7 @@ except ImportError:  # thin checkouts without fleet
     Job = Place = Queue = None  # type: ignore[misc, assignment]
 from aquin.flow import Run
 from aquin.handle import RunHandle, open_run
+from aquin.lineage import lineage
 from aquin.model import Model, load
 from aquin.scaffold import init_run
 
@@ -61,6 +62,7 @@ __all__ = [
     "get_notes",
     "get_tags",
     "init_run",
+    "lineage",
     "load",
     "log_artifact",
     "log_grads",

@@ -8,6 +8,7 @@ import { data } from "./handle/data.js"
 import { plot } from "./handle/plot.js"
 import { checkpoint, evalCmd, serve, train } from "./handle/step.js"
 import { status } from "./handle/status.js"
+import { lineageCmd } from "./handle/lineage.js"
 import { track } from "./handle/track.js"
 import { addCmd, placesCmd } from "./fleet/add.js"
 import { goCmd, launchCmd, shutdownCmd, syncCmd } from "./fleet/launch.js"
@@ -97,6 +98,11 @@ async function main(): Promise<void> {
 
   if (cmd === "status") {
     await status(argv.slice(1))
+    return
+  }
+
+  if (cmd === "lineage") {
+    await lineageCmd(argv.slice(1))
     return
   }
 

@@ -175,6 +175,13 @@ class Model:
         rec = {**self.recipe, "_train": str(self.train.resolve())}
         return self._method.generate(self.payload, prompt, rec, **kw)
 
+    def lineage(self) -> dict[str, Any]:
+        """Model → run → data paper trail for this checkpoint."""
+        from aquin.lineage import lineage as _lineage
+
+        ref = self.id or str(self.checkpoint)
+        return _lineage(ref, train=self.train)
+
 
 def load(
     path_or_id: str | Path = "last",

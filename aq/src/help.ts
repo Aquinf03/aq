@@ -33,6 +33,7 @@ export function help(): string {
     "  aq diff [dir] [<a> <b>]     compare run records (files, not screenshots)",
     "  aq plot [dir] [metrics|jobs|runs|samples|table|eval|all]  charts / table TUI / eval suite",
     "  aq status [dir]            last run, eval, metrics",
+    "  aq lineage [dir] [ref]     model → run → data (who trained these weights)",
     "  aq track [dir]             browse runs / --follow live metrics",
     "  aq track [dir] <run_id> [-f]  show run · optional live tail filtered by run_id",
     "  aq add ssh [name]         register an SSH place (prompts)",

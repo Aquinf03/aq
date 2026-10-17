@@ -25,6 +25,7 @@ Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#t
 - [Autolog](#autolog-framework-integrations)
 - [Params / metrics / tags / notes](#params--metrics--tags--notes)
 - [Logged models](#logged-models)
+- [Lineage (model → run → data)](#lineage-model--run--data)
 - [Plot](#plot)
 - [Fleet](#fleet-ssh-place--same-jobs-from-python)
 
@@ -329,6 +330,24 @@ from aquin import log_model
 
 log_model()                              # last checkpoint
 log_model("artifacts/checkpoints/3.json")
+```
+
+## Lineage (model → run → data)
+
+Who trained these weights — resolve a checkpoint / model id / run id back to the run
+record and dataset revision.
+
+```bash
+aq lineage                  # last model
+aq lineage sha256:a59f…     # by logged model id
+aq lineage --json
+```
+
+```python
+from aquin import lineage, load
+
+print(lineage("last"))           # dict: model / run / data
+print(load("last").lineage())    # same for a loaded Model
 ```
 
 ## Plot

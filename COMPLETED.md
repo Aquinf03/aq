@@ -9,9 +9,9 @@ The experiment is a **directory**: `recipe.yaml` (path map) + `artifacts/` (runt
 |------|---------|
 | **Core protocol** | Train folder, CLI, local jobs, Python kernel, eval gate |
 | **Tracking** | Autolog, TUI / `aq track`, metrics, run records, classical eval suite |
-| **Artifacts** | Logged models, data revision, run records |
+| **Artifacts** | Logged models, data revision, run records, lineage |
 | **Compute** | SSH places → jobs → pools |
-| **Serve** | `aq serve` on a checkpoint |
+| **Serve** | `aq serve` on a checkpoint; SDK `load` + `predict` |
 | **Methods** | Tabular, transformers, LLM/LoRA/QLoRA, vision, VLM |
 
 ---
@@ -91,6 +91,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - Logged models (stable ids ↔ checkpoint + data hash)
 - Data revision on runs
 - Run records: `artifacts/runs/<id>.json` · `aq diff` · `aq status` · `aq track`
+- **Lineage** — `aq lineage` / `aquin.lineage()` / `model.lineage()`: model → run → data (who trained these weights)
 
 ---
 
