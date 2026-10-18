@@ -31,7 +31,7 @@ from aquin.autolog import (
     table,
 )
 from aquin.client import Aquin
-from aquin.flow import Run
+from aquin.flow import Flow, Run, step
 from aquin.handle import RunHandle, open_run
 from aquin.catalog import (
     alias,
@@ -52,6 +52,7 @@ except ImportError:  # thin checkouts without fleet
 
 __all__ = [
     "Aquin",
+    "Flow",
     "Job",
     "Model",
     "Place",
@@ -92,6 +93,7 @@ __all__ = [
     "set_notes",
     "set_tags",
     "start_system",
+    "step",
     "stop_system",
     "table",
 ]

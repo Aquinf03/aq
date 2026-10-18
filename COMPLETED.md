@@ -95,6 +95,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - **Catalog** — `artifacts/catalog/` content-addressed entries (model/data/code/run) with parent links; `aq artifacts` / `aquin.artifacts()`
 - **Aliases** — `latest` / `best` / custom pointers (`aq artifacts alias`, `load("prod")`)
 - **Promote + webhooks** — `aq artifacts promote [prod] [ref]` fires `artifacts.webhooks` (create/alias/promote) for CI/CD / Slack / deploy; events in `catalog/events.jsonl`
+- **Flow `self.x`** — `@step` flows persist assignments under `artifacts/flow/`; next step reads them with no manual save/load
 
 ---
 

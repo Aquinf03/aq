@@ -20,6 +20,7 @@ Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#t
 - [Infra events](#infra-events-oom--preempt--disk-on-the-loss-timeline)
 - [Model evaluation](#model-evaluation-metrics--plots)
 - [Load + predict](#load--predict)
+- [Flow steps (self.x persists)](#flow-steps-selfx-persists)
 - [Init a run](#init-a-run)
 - [YAML / SDK authoring](#option-a--edit-yaml-open-with-sdk--cli)
 - [Autolog](#autolog-framework-integrations)
@@ -209,6 +210,29 @@ y = model.predict({"f0": 1.0, "f1": 2.0})  # feature dict → one value
 or `aq_model_id` (`sha256:…`). `train=` is the run root (defaults to cwd / nearest `recipe.yaml`).
 
 LLM / serve-style methods: `model.generate(prompt, …)` when the method implements it.
+
+## Flow steps (`self.x` persists)
+
+Multi-step scripts: assign on `self` and the next `@step` sees it — no manual save/load.
+State lives under `artifacts/flow/<FlowName>/<run_id>/artifacts/`.
+
+```python
+from aquin import Flow, step
+
+class Prep(Flow):
+    @step
+    def start(self):
+        self.rows = [[1.0, 2.0]]
+        self.next(self.end)
+
+    @step
+    def end(self):
+        print(self.rows)          # [[1.0, 2.0]] — loaded from disk
+
+Prep().run(".")                  # train folder (or cwd)
+```
+
+JSON when possible, pickle otherwise. `flow.artifacts()` lists persisted keys; each step writes `steps/<name>.json`.
 
 ## Init a run
 
