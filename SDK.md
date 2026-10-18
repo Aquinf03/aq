@@ -26,6 +26,7 @@ Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#t
 - [Params / metrics / tags / notes](#params--metrics--tags--notes)
 - [Logged models](#logged-models)
 - [Lineage (model → run → data)](#lineage-model--run--data)
+- [Artifact catalog](#artifact-catalog-aliases--promote)
 - [Plot](#plot)
 - [Fleet](#fleet-ssh-place--same-jobs-from-python)
 
@@ -348,6 +349,38 @@ from aquin import lineage, load
 
 print(lineage("last"))           # dict: model / run / data
 print(load("last").lineage())    # same for a loaded Model
+```
+
+## Artifact catalog (aliases + promote)
+
+Content-addressed catalog under `artifacts/catalog/` (model / data / code / run nodes + parent links).
+Train auto-registers; `latest` moves on each model; `best` when the run passed the eval gate.
+
+```bash
+aq artifacts                  # list catalog + aliases
+aq artifacts show @latest
+aq artifacts alias staging last
+aq artifacts promote prod     # CI/CD handoff alias + webhooks
+aq artifacts rebuild          # index existing runs
+```
+
+```yaml
+# recipe.yaml
+artifacts:
+  promote:
+    require_pass: true
+  webhooks:
+    - on: [promote, alias, create]
+      url: https://example.com/hook
+```
+
+```python
+from aquin import artifacts, alias, promote, load
+
+artifacts(kind="model")
+alias("staging", "last")
+promote("prod", "best")          # fires webhooks; events → catalog/events.jsonl
+model = load("prod")             # alias → checkpoint
 ```
 
 ## Plot

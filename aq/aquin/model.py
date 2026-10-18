@@ -192,6 +192,7 @@ def load(
 
     ``path_or_id``:
       - ``\"last\"`` / ``\"latest\"`` → ``artifacts/checkpoints/last.json``
+      - alias (``prod`` / ``@best``) via catalog
       - relative/absolute path to a checkpoint JSON
       - step number (``\"3\"`` → ``…/3.json``)
       - ``aq_model_id`` (``sha256:…``)
@@ -203,7 +204,19 @@ def load(
     from protocol.recipe import load_recipe
 
     root = _find_train(train)
-    ckpt = _resolve_checkpoint(root, path_or_id)
+    ref = path_or_id
+    # catalog alias → model id / checkpoint path
+    try:
+        from protocol.catalog import resolve_ref
+
+        raw = str(path_or_id).strip()
+        if raw not in ("", "last") and not Path(raw).suffix:
+            entry = resolve_ref(root, raw)
+            if entry and entry.get("kind") == "model":
+                ref = entry.get("path") or entry.get("id") or path_or_id
+    except Exception:
+        pass
+    ckpt = _resolve_checkpoint(root, ref)
     payload = json.loads(ckpt.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"checkpoint is not an object: {ckpt}")

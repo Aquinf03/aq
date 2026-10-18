@@ -9,7 +9,7 @@ The experiment is a **directory**: `recipe.yaml` (path map) + `artifacts/` (runt
 |------|---------|
 | **Core protocol** | Train folder, CLI, local jobs, Python kernel, eval gate |
 | **Tracking** | Autolog, TUI / `aq track`, metrics, run records, classical eval suite |
-| **Artifacts** | Logged models, data revision, run records, lineage |
+| **Artifacts** | Catalog, aliases, promote/webhooks, lineage, logged models |
 | **Compute** | SSH places → jobs → pools |
 | **Serve** | `aq serve` on a checkpoint; SDK `load` + `predict` |
 | **Methods** | Tabular, transformers, LLM/LoRA/QLoRA, vision, VLM |
@@ -92,6 +92,9 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - Data revision on runs
 - Run records: `artifacts/runs/<id>.json` · `aq diff` · `aq status` · `aq track`
 - **Lineage** — `aq lineage` / `aquin.lineage()` / `model.lineage()`: model → run → data (who trained these weights)
+- **Catalog** — `artifacts/catalog/` content-addressed entries (model/data/code/run) with parent links; `aq artifacts` / `aquin.artifacts()`
+- **Aliases** — `latest` / `best` / custom pointers (`aq artifacts alias`, `load("prod")`)
+- **Promote + webhooks** — `aq artifacts promote [prod] [ref]` fires `artifacts.webhooks` (create/alias/promote) for CI/CD / Slack / deploy; events in `catalog/events.jsonl`
 
 ---
 

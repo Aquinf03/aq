@@ -192,6 +192,12 @@ def write_run(train: Path, extra: dict) -> str:
     path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
     (d / "last.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
     write_summary(d, body)
+    try:
+        from protocol.catalog import sync_from_run
+
+        sync_from_run(train, body)
+    except Exception:
+        pass
     return rid
 
 

@@ -31,25 +31,38 @@ from aquin.autolog import (
     table,
 )
 from aquin.client import Aquin
-try:
-    from aquin.fleet import Job, Place, Queue
-except ImportError:  # thin checkouts without fleet
-    Job = Place = Queue = None  # type: ignore[misc, assignment]
 from aquin.flow import Run
 from aquin.handle import RunHandle, open_run
+from aquin.catalog import (
+    alias,
+    aliases,
+    artifact,
+    artifacts,
+    promote,
+    rebuild_catalog,
+)
 from aquin.lineage import lineage
 from aquin.model import Model, load
 from aquin.scaffold import init_run
 
+try:
+    from aquin.fleet import Job, Place, Queue
+except ImportError:  # thin checkouts without fleet
+    Job = Place = Queue = None  # type: ignore[misc, assignment]
+
 __all__ = [
     "Aquin",
-    "Model",
     "Job",
+    "Model",
     "Place",
     "Queue",
     "Run",
     "RunHandle",
     "add_tags",
+    "alias",
+    "aliases",
+    "artifact",
+    "artifacts",
     "autolog",
     "clear_tags",
     "disable_autolog",
@@ -74,6 +87,8 @@ __all__ = [
     "log_params",
     "log_system",
     "open_run",
+    "promote",
+    "rebuild_catalog",
     "set_notes",
     "set_tags",
     "start_system",

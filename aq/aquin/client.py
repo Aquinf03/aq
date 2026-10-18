@@ -418,3 +418,15 @@ class Aquin:
         from aquin.lineage import lineage as _lineage
 
         return _lineage(ref, train=self.root)
+
+    def artifacts(self, *, kind: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+        """List content-addressed catalog entries."""
+        from aquin.catalog import artifacts as _artifacts
+
+        return _artifacts(kind=kind, limit=limit, train=self.root)
+
+    def promote(self, name: str = "prod", ref: str = "last", **kw: Any) -> dict[str, Any]:
+        """CI/CD handoff: set alias + fire promote webhooks."""
+        from aquin.catalog import promote as _promote
+
+        return _promote(name, ref, train=self.root, **kw)
