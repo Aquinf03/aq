@@ -21,6 +21,7 @@ function catalogDir(train: string): string {
 
 function runPy(train: string, code: string): string {
   const kernel = kernelRoot()
+  const pkg = path.dirname(kernel) // aq/ — contains aquin/
   const r = spawnSync(
     pythonBin(),
     ["-c", code],
@@ -29,7 +30,7 @@ function runPy(train: string, code: string): string {
       encoding: "utf8",
       env: {
         ...process.env,
-        PYTHONPATH: [kernel, process.env.PYTHONPATH || ""].filter(Boolean).join(path.delimiter),
+        PYTHONPATH: [pkg, kernel, process.env.PYTHONPATH || ""].filter(Boolean).join(path.delimiter),
         AQ_TRAIN: train,
       },
     },
@@ -65,6 +66,7 @@ function help(): void {
   console.log("  aq artifacts [dir] alias <name> [ref]   point name at artifact (default last)")
   console.log("  aq artifacts [dir] promote [name] [ref] CI/CD handoff (default prod last)")
   console.log("  aq artifacts [dir] rebuild            index existing runs into catalog")
+  console.log("  aq artifacts [dir] verify [flow]      re-hash flow CAS blobs (integrity)")
   console.log("")
   console.log("  ref = last | @alias | alias | sha256:…")
   console.log("  webhooks: recipe artifacts.webhooks / artifacts/webhooks.json")
@@ -126,6 +128,65 @@ export async function artifactsCmd(argv: string[]): Promise<void> {
         ["path", path.relative(process.cwd(), catalogDir(train)) || catalogDir(train)],
       ],
     )
+    return
+  }
+
+  if (sub === "verify") {
+    const flowFilter = rest[1] || ""
+    const code = `
+from pathlib import Path
+from aquin.flow_store import ArtifactStore
+root = train / "artifacts" / "flow"
+reports = []
+if root.is_dir():
+    for flow_dir in sorted(root.iterdir()):
+        if not flow_dir.is_dir():
+            continue
+        if ${JSON.stringify(flowFilter)} and flow_dir.name != ${JSON.stringify(flowFilter)}:
+            continue
+        for run_dir in sorted(flow_dir.iterdir()):
+            if not run_dir.is_dir() or run_dir.name == "latest":
+                continue
+            if not (run_dir / "cas").is_dir() and not (run_dir / "cas_index.json").is_file():
+                continue
+            rep = ArtifactStore(run_dir).verify()
+            reports.append({"flow": flow_dir.name, "run": run_dir.name, **rep})
+out = {"reports": reports, "pass": all(r.get("pass") for r in reports) if reports else True}
+`
+    const out = pyCall(train, code) as {
+      reports?: Array<{
+        flow: string
+        run: string
+        ok?: number
+        pass?: boolean
+        bad?: unknown[]
+        missing?: string[]
+        ids?: Record<string, string>
+      }>
+      pass?: boolean
+    }
+    if (json) {
+      console.log(JSON.stringify(out, null, 2))
+      return
+    }
+    console.log("verify")
+    const reps = out?.reports || []
+    if (!reps.length) {
+      console.log("  (no flow CAS stores — run a Flow with self.x = …)")
+      return
+    }
+    printTable(
+      ["flow", "run", "blobs", "result"],
+      reps.map((r) => [
+        r.flow,
+        r.run,
+        r.ok ?? 0,
+        r.pass ? "ok" : `bad ${((r.bad as unknown[]) || []).length + ((r.missing as string[]) || []).length}`,
+      ]),
+    )
+    if (!out?.pass) {
+      throw new Error("flow CAS verify failed (tampered or missing blobs)")
+    }
     return
   }
 

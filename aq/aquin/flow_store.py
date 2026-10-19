@@ -1,7 +1,12 @@
-"""Persist Flow step attributes under ``artifacts/flow/<name>/<run_id>/``."""
+"""Persist Flow step attributes under ``artifacts/flow/<name>/<run_id>/``.
+
+Blobs are content-addressed under ``cas/`` (sha256) for dedupe + integrity.
+Named files under ``artifacts/`` are small pointers (or legacy raw JSON/pkl).
+"""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import pickle
 from datetime import datetime, timezone
@@ -18,38 +23,147 @@ def _safe_name(name: str) -> str:
     return out or "x"
 
 
+def _sha256_bytes(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def _hex(aid: str) -> str:
+    s = aid.strip()
+    if s.startswith("sha256:"):
+        s = s[7:]
+    return s
+
+
 class ArtifactStore:
-    """Folder store: each ``self.x = …`` lands as ``artifacts/<name>.json`` or ``.pkl``."""
+    """Named artifacts backed by a content-addressed ``cas/`` store."""
 
     def __init__(self, root: Path):
         self.root = root
         self.dir = root / "artifacts"
+        self.cas = root / "cas"
         self.dir.mkdir(parents=True, exist_ok=True)
+        self.cas.mkdir(parents=True, exist_ok=True)
+
+    def _cas_path(self, aid: str) -> Path:
+        h = _hex(aid)
+        # shard: ab/cd/<rest> for lighter dirs
+        return self.cas / h[:2] / h[2:4] / h
+
+    def _write_cas(self, data: bytes) -> str:
+        aid = _sha256_bytes(data)
+        path = self._cas_path(aid)
+        if path.is_file():
+            # dedupe — already stored
+            return aid
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(path)
+        return aid
+
+    def _read_cas(self, aid: str) -> bytes:
+        path = self._cas_path(aid)
+        if not path.is_file():
+            raise FileNotFoundError(f"missing cas blob {aid}")
+        return path.read_bytes()
 
     def put(self, name: str, value: Any) -> Path:
+        """Store ``value`` by content hash; name points at the sha."""
         key = _safe_name(name)
-        json_path = self.dir / f"{key}.json"
-        pkl_path = self.dir / f"{key}.pkl"
-        # prefer JSON when possible
+        fmt = "json"
         try:
-            raw = json.dumps(value, indent=2)
+            data = (json.dumps(value, indent=2) + "\n").encode("utf-8")
         except TypeError:
-            if json_path.is_file():
-                json_path.unlink()
-            with pkl_path.open("wb") as f:
-                pickle.dump(value, f, protocol=pickle.HIGHEST_PROTOCOL)
-            return pkl_path
+            fmt = "pkl"
+            data = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
+
+        aid = self._write_cas(data)
+        pointer = {"aq_cas": aid, "format": fmt, "at": _now()}
+        # clear legacy raw siblings
+        for suffix in (".json", ".pkl"):
+            legacy = self.dir / f"{key}{suffix}"
+            # only remove if it's not our pointer file we'll overwrite
+            if suffix == ".pkl" and legacy.is_file():
+                legacy.unlink()
+            if suffix == ".json" and legacy.is_file():
+                try:
+                    old = json.loads(legacy.read_text(encoding="utf-8"))
+                    if not (isinstance(old, dict) and "aq_cas" in old):
+                        pass  # overwrite below
+                except Exception:
+                    pass
+        ptr_path = self.dir / f"{key}.json"
+        pkl_path = self.dir / f"{key}.pkl"
         if pkl_path.is_file():
             pkl_path.unlink()
-        json_path.write_text(raw + "\n", encoding="utf-8")
-        return json_path
+        ptr_path.write_text(json.dumps(pointer, indent=2) + "\n", encoding="utf-8")
+        self._update_index(key, aid, fmt)
+        return ptr_path
+
+    def _update_index(self, name: str, aid: str, fmt: str) -> None:
+        idx_path = self.root / "cas_index.json"
+        idx: dict[str, Any] = {}
+        if idx_path.is_file():
+            try:
+                raw = json.loads(idx_path.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    idx = raw
+            except json.JSONDecodeError:
+                idx = {}
+        idx[name] = {"id": aid, "format": fmt, "at": _now()}
+        idx_path.write_text(json.dumps(idx, indent=2) + "\n", encoding="utf-8")
+
+    def id_of(self, name: str) -> str | None:
+        """Content id for a named artifact, if known."""
+        key = _safe_name(name)
+        ptr = self.dir / f"{key}.json"
+        if ptr.is_file():
+            try:
+                body = json.loads(ptr.read_text(encoding="utf-8"))
+                if isinstance(body, dict) and body.get("aq_cas"):
+                    return str(body["aq_cas"])
+            except json.JSONDecodeError:
+                pass
+        idx_path = self.root / "cas_index.json"
+        if idx_path.is_file():
+            try:
+                idx = json.loads(idx_path.read_text(encoding="utf-8"))
+                ent = idx.get(key) if isinstance(idx, dict) else None
+                if isinstance(ent, dict) and ent.get("id"):
+                    return str(ent["id"])
+            except json.JSONDecodeError:
+                pass
+        return None
+
+    def ids(self) -> dict[str, str]:
+        """name → sha256 id."""
+        out: dict[str, str] = {}
+        for k in self.keys():
+            aid = self.id_of(k)
+            if aid:
+                out[k] = aid
+        return out
 
     def get(self, name: str) -> Any:
         key = _safe_name(name)
         json_path = self.dir / f"{key}.json"
         pkl_path = self.dir / f"{key}.pkl"
+
         if json_path.is_file():
-            return json.loads(json_path.read_text(encoding="utf-8"))
+            try:
+                body = json.loads(json_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                body = None
+            if isinstance(body, dict) and body.get("aq_cas"):
+                raw = self._read_cas(str(body["aq_cas"]))
+                fmt = str(body.get("format") or "json")
+                if fmt == "pkl":
+                    return pickle.loads(raw)
+                return json.loads(raw.decode("utf-8"))
+            # legacy: raw JSON value
+            if body is not None:
+                return body
+
         if pkl_path.is_file():
             with pkl_path.open("rb") as f:
                 return pickle.load(f)
@@ -57,27 +171,63 @@ class ArtifactStore:
 
     def load_all(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
-        if not self.dir.is_dir():
-            return out
-        seen: set[str] = set()
-        for p in sorted(self.dir.iterdir()):
-            if p.suffix == ".json":
-                key = p.stem
-                if key in seen:
-                    continue
-                out[key] = json.loads(p.read_text(encoding="utf-8"))
-                seen.add(key)
-            elif p.suffix == ".pkl":
-                key = p.stem
-                if key in seen:
-                    continue
-                with p.open("rb") as f:
-                    out[key] = pickle.load(f)
-                seen.add(key)
+        for k in self.keys():
+            try:
+                out[k] = self.get(k)
+            except Exception:
+                continue
         return out
 
     def keys(self) -> list[str]:
-        return sorted(self.load_all().keys())
+        if not self.dir.is_dir():
+            return []
+        names: set[str] = set()
+        for p in self.dir.iterdir():
+            if p.suffix in (".json", ".pkl"):
+                names.add(p.stem)
+        return sorted(names)
+
+    def verify(self) -> dict[str, Any]:
+        """Re-hash every CAS blob + check pointers. Returns report."""
+        ok: list[str] = []
+        bad: list[dict[str, str]] = []
+        missing: list[str] = []
+
+        # verify all cas files
+        if self.cas.is_dir():
+            for p in self.cas.rglob("*"):
+                if not p.is_file() or p.suffix == ".tmp":
+                    continue
+                data = p.read_bytes()
+                got = _sha256_bytes(data)
+                expect = "sha256:" + p.name
+                if got != expect:
+                    bad.append({"path": str(p.relative_to(self.root)), "expected": expect, "got": got})
+                else:
+                    ok.append(got)
+
+        # verify named pointers resolve
+        for name in self.keys():
+            aid = self.id_of(name)
+            if not aid:
+                # legacy raw file — hash it for reporting
+                continue
+            path = self._cas_path(aid)
+            if not path.is_file():
+                missing.append(f"{name} → {aid}")
+                continue
+            data = path.read_bytes()
+            got = _sha256_bytes(data)
+            if got != aid:
+                bad.append({"name": name, "expected": aid, "got": got})
+
+        return {
+            "ok": len(ok),
+            "bad": bad,
+            "missing": missing,
+            "ids": self.ids(),
+            "pass": not bad and not missing,
+        }
 
 
 def flow_base(train: Path, flow_name: str) -> Path:
@@ -174,11 +324,12 @@ def write_boundary_snapshot(
     artifacts: list[str],
     place: str | None = None,
     status: str = "ok",
+    artifact_ids: dict[str, str] | None = None,
 ) -> Path:
     """Freeze observability state at a step boundary (after the step finishes)."""
     snap_dir = root / "snapshots"
     snap_dir.mkdir(parents=True, exist_ok=True)
-    body = {
+    body: dict[str, Any] = {
         "index": index,
         "step": step,
         "next": next_step,
@@ -188,9 +339,10 @@ def write_boundary_snapshot(
         "artifacts": list(artifacts),
         "done": done_steps(root),
     }
+    if artifact_ids:
+        body["artifact_ids"] = artifact_ids
     path = snap_dir / f"{index:04d}-{_safe_name(step)}.json"
     path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
-    # also keep a rolling latest snapshot pointer
     (snap_dir / "latest.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
     return path
 
@@ -205,11 +357,9 @@ def resume_entry(root: Path) -> tuple[str | None, list[str]]:
             return None, done  # finished
         nxt = st.get("next")
         if status in ("failed", "running") and st.get("step") and not is_step_done(root, str(st["step"])):
-            # crash mid-step → re-run that step
             return str(st["step"]), [d for d in done if d != st["step"]]
         if nxt:
             return str(nxt), done
-    # fall back: if we have done steps, try next.json
     nxt_path = root / "next.json"
     if nxt_path.is_file():
         try:
@@ -220,6 +370,5 @@ def resume_entry(root: Path) -> tuple[str | None, list[str]]:
         except json.JSONDecodeError:
             pass
     if done:
-        # no next recorded — treat as complete
         return None, done
     return "start", []

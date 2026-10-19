@@ -242,7 +242,12 @@ Prep().run(".")
 Prep().run(".", resume=True)    # after a crash: skip done steps, continue from steps.json
 ```
 
-JSON when possible, pickle otherwise. Each step boundary writes `done/<step>`, `snapshots/NNNN-step.json`, and `steps.json` (status / next) — observability + resume substrate.
+JSON when possible, pickle otherwise. Blobs live in `cas/` keyed by `sha256:…` (dedupe + integrity); names under `artifacts/` are pointers. Each step boundary writes `done/<step>`, `snapshots/`, and `steps.json`.
+
+```bash
+aq artifacts verify           # re-hash flow CAS; non-zero exit if tampered
+aq find rows --kind flow      # shows sha id when present
+```
 
 ## Init a run
 

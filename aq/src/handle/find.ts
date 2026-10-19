@@ -53,9 +53,19 @@ function walkFlow(train: string, q: string): Hit[] {
       for (const f of readdirSync(artDir)) {
         if (!f.endsWith(".json") && !f.endsWith(".pkl")) continue
         const name = f.replace(/\.(json|pkl)$/, "")
-        const rel = path.relative(train, path.join(artDir, f))
-        if (match(q, name, flowName, runId, rel)) {
-          hits.push({ kind: "flow", name, path: rel, flow: flowName, run: runId })
+        const full = path.join(artDir, f)
+        const rel = path.relative(train, full)
+        let casId = ""
+        if (f.endsWith(".json")) {
+          try {
+            const body = JSON.parse(readFileSync(full, "utf8")) as { aq_cas?: string }
+            if (body?.aq_cas) casId = body.aq_cas
+          } catch {
+            /* legacy raw */
+          }
+        }
+        if (match(q, name, flowName, runId, rel, casId)) {
+          hits.push({ kind: "flow", name, path: rel, flow: flowName, run: runId, id: casId || undefined })
         }
       }
       // also match the flow/run itself

@@ -266,6 +266,23 @@ class Flow:
             return {}
         return store.load_all()
 
+    def artifact_ids(self) -> dict[str, str]:
+        """name → ``sha256:…`` content ids for this flow run."""
+        store = object.__getattribute__(self, "_aq_store")
+        if store is None:
+            return {}
+        return store.ids()
+
+    def verify(self) -> dict[str, Any]:
+        """Re-hash CAS blobs; fail closed if anything was tampered with."""
+        store = object.__getattribute__(self, "_aq_store")
+        if store is None:
+            run_root = object.__getattribute__(self, "_aq_run_root")
+            if run_root is None:
+                raise RuntimeError("no flow run loaded — call run() first or pass a store root")
+            store = ArtifactStore(run_root)
+        return store.verify()
+
     def _boundary(
         self,
         run_root: Path,
@@ -300,6 +317,7 @@ class Flow:
             artifacts=store.keys(),
             place=place,
             status=status,
+            artifact_ids=store.ids(),
         )
         write_steps(
             run_root,
