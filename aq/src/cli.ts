@@ -10,6 +10,7 @@ import { checkpoint, evalCmd, serve, train } from "./handle/step.js"
 import { status } from "./handle/status.js"
 import { lineageCmd } from "./handle/lineage.js"
 import { artifactsCmd } from "./handle/artifacts.js"
+import { findCmd } from "./handle/find.js"
 import { track } from "./handle/track.js"
 import { addCmd, placesCmd } from "./fleet/add.js"
 import { goCmd, launchCmd, shutdownCmd, syncCmd } from "./fleet/launch.js"
@@ -109,6 +110,11 @@ async function main(): Promise<void> {
 
   if (cmd === "artifacts") {
     await artifactsCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "find") {
+    await findCmd(argv.slice(1))
     return
   }
 

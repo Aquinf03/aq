@@ -98,6 +98,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - **Flow `self.x`** — `@step` flows persist assignments under `artifacts/flow/`; next step reads them with no manual save/load
 - **Flow local ↔ remote** — `@step(place=\"gpu\")` runs on a fleet place; `aq sync` / `jobs pull` are automatic (same artifact paths)
 - **Flow step freeze + resume** — each step writes `done/`, `snapshots/`, `steps.json`; `Flow().run(resume=True)` continues after a crash
+- **`aq find`** — locate flow / catalog / checkpoint / run artifacts by name (CLI, not a Python object tree)
 
 ---
 

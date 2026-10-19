@@ -396,6 +396,8 @@ aq artifacts show @latest
 aq artifacts alias staging last
 aq artifacts promote prod     # CI/CD handoff alias + webhooks
 aq artifacts rebuild          # index existing runs
+aq find rows                  # locate flow/catalog/checkpoint/run by name
+aq find Prep --kind flow
 ```
 
 ```yaml
