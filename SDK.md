@@ -216,6 +216,8 @@ LLM / serve-style methods: `model.generate(prompt, …)` when the method impleme
 Multi-step scripts: assign on `self` and the next `@step` sees it — no manual save/load.
 State lives under `artifacts/flow/<FlowName>/<run_id>/artifacts/`.
 
+Laptop and remote steps use the **same paths** — `@step(place=\"…\")` syncs the train folder, runs the step on that SSH place, and pulls artifacts back (fleet is the transfer glue).
+
 ```python
 from aquin import Flow, step
 
@@ -223,13 +225,20 @@ class Prep(Flow):
     @step
     def start(self):
         self.rows = [[1.0, 2.0]]
+        self.next(self.heavy)
+
+    @step(place="gpu")            # fleet place from `aq add ssh`
+    def heavy(self):
+        self.rows = self.rows + [[3.0, 4.0]]
         self.next(self.end)
 
     @step
     def end(self):
-        print(self.rows)          # [[1.0, 2.0]] — loaded from disk
+        print(self.rows)          # sees remote writes — no manual upload/download
 
-Prep().run(".")                  # train folder (or cwd)
+Prep().run(".")
+# Prep().run(".", place="gpu")  # default place for every step
+# @step(place="local")          # worker subprocess on this machine (no SSH)
 ```
 
 JSON when possible, pickle otherwise. `flow.artifacts()` lists persisted keys; each step writes `steps/<name>.json`.

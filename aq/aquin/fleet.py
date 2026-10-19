@@ -59,6 +59,19 @@ class Job:
         r = _aq(*args, check=False)
         return r.stdout
 
+    def wait(self, *, poll: float | None = None) -> dict[str, Any]:
+        """Block until this job finishes (`aq jobs wait`)."""
+        args = ["jobs", "wait", self.id]
+        if self.place:
+            args += ["--on", self.place]
+        if poll is not None:
+            args += ["--poll", str(poll)]
+        _aq(*args, check=False)
+        try:
+            return self.status()
+        except Exception:
+            return {"id": self.id}
+
     def pull(self, dest: str | Path | None = None) -> Path:
         args = ["jobs", "pull", self.id]
         out = Path(dest) if dest else Path("jobs-pull") / self.id

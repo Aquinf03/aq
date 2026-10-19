@@ -3,12 +3,17 @@
 ``Run`` — class attrs → recipe.yaml path map.
 
 ``Flow`` — Metaflow-shaped steps; assigning ``self.x`` writes an artifact so the
-next step can read it with no manual save/load.
+next step can read it with no manual save/load. Steps may run on a fleet place
+(``@step(place=\"gpu\")``) — sync / pull is automatic.
 """
 
 from __future__ import annotations
 
 import inspect
+import json
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
@@ -16,10 +21,21 @@ from aquin.client import Aquin
 from aquin.flow_store import ArtifactStore, flow_run_dir, write_step_meta
 
 
-def step(fn: Callable[..., Any]) -> Callable[..., Any]:
-    """Mark a Flow method as a step."""
-    setattr(fn, "_aq_step", True)
-    return fn
+def step(fn: Callable[..., Any] | None = None, *, place: str | None = None):
+    """Mark a Flow method as a step.
+
+    ``place`` — SSH place name from ``aq add`` / ``Place``. When set, the step
+    runs on that box; train folder sync + artifact pull are automatic.
+    """
+
+    def deco(f: Callable[..., Any]) -> Callable[..., Any]:
+        setattr(f, "_aq_step", True)
+        setattr(f, "_aq_place", place)
+        return f
+
+    if fn is not None:
+        return deco(fn)
+    return deco
 
 
 class Run:
@@ -83,8 +99,56 @@ class Run:
         return Aquin.define(cls.recipe_dict(), config_path=cfg, artifacts=art)
 
 
+def _step_place(fn: Callable[..., Any]) -> str | None:
+    raw = getattr(fn, "__func__", fn)
+    place = getattr(raw, "_aq_place", None)
+    return str(place) if place else None
+
+
+def _resolve_flow_file(cls: type, train: Path, run_root: Path) -> Path:
+    """Copy the .py defining the Flow into the run dir (for worker / remote import)."""
+    try:
+        src = Path(inspect.getfile(cls)).resolve()
+    except TypeError as e:
+        raise TypeError(
+            f"cannot locate source file for {cls.__name__} — define the Flow in a .py file "
+            f"(needed for @step(place=…))"
+        ) from e
+    if not src.is_file() or src.name.startswith("<"):
+        raise TypeError(
+            f"cannot locate source file for {cls.__name__} — define the Flow in a .py file "
+            f"(needed for @step(place=…))"
+        )
+    dest = run_root / "flow_src.py"
+    shutil.copy2(src, dest)
+    return dest
+
+
+def _read_next(run_root: Path, step_name: str) -> str | None:
+    nxt_path = run_root / "next.json"
+    if nxt_path.is_file():
+        try:
+            data = json.loads(nxt_path.read_text(encoding="utf-8"))
+            n = data.get("next")
+            return str(n) if n else None
+        except json.JSONDecodeError:
+            pass
+    meta = run_root / "steps" / f"{step_name}.json"
+    if meta.is_file():
+        try:
+            data = json.loads(meta.read_text(encoding="utf-8"))
+            n = data.get("next")
+            return str(n) if n else None
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
 class Flow:
     """Multi-step flow: ``self.x = …`` persists between steps under ``artifacts/flow/``.
+
+    Local and remote steps use the same artifact paths — fleet sync/pull is the
+    transfer glue (you don't write it).
 
         from aquin import Flow, step
 
@@ -92,11 +156,16 @@ class Flow:
             @step
             def start(self):
                 self.rows = [[1.0, 2.0]]
+                self.next(self.heavy)
+
+            @step(place="gpu")   # optional: run on an SSH place
+            def heavy(self):
+                self.rows = self.rows + [[3.0, 4.0]]
                 self.next(self.end)
 
             @step
             def end(self):
-                assert self.rows == [[1.0, 2.0]]
+                print(self.rows)
 
         Prep().run(".")
     """
@@ -109,6 +178,7 @@ class Flow:
             "train",
             "run_id",
             "step_name",
+            "place",
         }
     )
 
@@ -120,6 +190,8 @@ class Flow:
         object.__setattr__(self, "_aq_run_id", None)
         object.__setattr__(self, "_aq_run_root", None)
         object.__setattr__(self, "_aq_step_name", None)
+        object.__setattr__(self, "_aq_flow_file", None)
+        object.__setattr__(self, "_aq_default_place", None)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name.startswith("_aq_") or name.startswith("__"):
@@ -135,7 +207,6 @@ class Flow:
                 store.put(name, value)
 
     def __getattr__(self, name: str) -> Any:
-        # load from store if missing in __dict__ (resume / cross-process)
         if name.startswith("_"):
             raise AttributeError(name)
         store = object.__getattribute__(self, "_aq_store")
@@ -153,7 +224,6 @@ class Flow:
         if not callable(destination):
             raise TypeError("next() expects a step method, e.g. self.next(self.end)")
         fn = destination
-        # unwrap bound method
         raw = getattr(fn, "__func__", fn)
         if not getattr(raw, "_aq_step", False):
             raise TypeError(f"{getattr(fn, '__name__', fn)!r} is not a @step")
@@ -171,6 +241,11 @@ class Flow:
     def step_name(self) -> str | None:
         return object.__getattribute__(self, "_aq_step_name")
 
+    @property
+    def place(self) -> str | None:
+        """Place the *current* step is running on (if remote)."""
+        return None  # set only inside remote worker context via env if needed
+
     def artifacts(self) -> dict[str, Any]:
         """All persisted ``self.*`` values for this flow run."""
         store = object.__getattribute__(self, "_aq_store")
@@ -178,58 +253,182 @@ class Flow:
             return {}
         return store.load_all()
 
+    def _run_step_local(self, method: Callable[..., Any], store: ArtifactStore, run_root: Path, step_name: str) -> str | None:
+        object.__setattr__(self, "_aq_next", None)
+        for k, v in store.load_all().items():
+            object.__setattr__(self, k, v)
+        object.__setattr__(self, "_aq_persist", True)
+        try:
+            method()
+        finally:
+            object.__setattr__(self, "_aq_persist", False)
+        nxt = object.__getattribute__(self, "_aq_next")
+        next_name = getattr(nxt, "__name__", None) if nxt else None
+        write_step_meta(run_root, step_name, artifacts=store.keys(), next=next_name, place=None)
+        (run_root / "next.json").write_text(
+            json.dumps({"next": next_name}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return next_name
+
+    def _run_step_remote(
+        self,
+        *,
+        place_name: str,
+        step_name: str,
+        train: Path,
+        run_root: Path,
+        run_id: str,
+        flow_file: Path,
+    ) -> str | None:
+        qualname = type(self).__qualname__
+        try:
+            flow_rel = flow_file.resolve().relative_to(train.resolve())
+            flow_arg = str(flow_rel)
+        except ValueError:
+            flow_arg = str(flow_file)
+
+        cmd = [
+            "python3",
+            "-m",
+            "aquin.flow_worker",
+            "--train",
+            ".",
+            "--flow-file",
+            flow_arg,
+            "--class",
+            qualname,
+            "--step",
+            step_name,
+            "--run-id",
+            run_id,
+        ]
+
+        if place_name == "local":
+            # Same machine, worker subprocess — same artifact paths, no SSH
+            import os
+
+            env = os.environ.copy()
+            pkg = str(Path(__file__).resolve().parent.parent)
+            env["PYTHONPATH"] = pkg + os.pathsep + env.get("PYTHONPATH", "")
+            cmd[0] = sys.executable
+            r = subprocess.run(cmd, cwd=str(train), capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise RuntimeError(
+                    f"local flow worker failed ({r.returncode}):\n{r.stderr or r.stdout}"
+                )
+        else:
+            from aquin.fleet import Place
+
+            place = Place(place_name)
+            # push train (includes artifacts/flow) — transfer glue is automatic
+            place.sync(train)
+            job = place.run(cmd)
+            st = job.wait()
+            code = st.get("code")
+            status = str(st.get("status") or "")
+            if status not in ("", "exited", "done") or (code is not None and int(code) != 0):
+                raise RuntimeError(
+                    f"remote step {step_name!r} on {place_name!r} failed: {st}\n{job.logs()}"
+                )
+            aq_bin = shutil.which("aq") or "aq"
+            subprocess.run(
+                [aq_bin, "jobs", "pull", job.id, "--on", place_name],
+                cwd=str(train),
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        return _read_next(run_root, step_name)
+
     def run(
         self,
         train: str | Path = ".",
         *,
         run_id: str | None = None,
+        place: str | None = None,
     ) -> dict[str, Any]:
-        """Execute from ``start``, persisting artifacts between steps."""
+        """Execute from ``start``, persisting artifacts between steps.
+
+        ``place`` — default fleet place for steps that omit ``@step(place=…)``.
+        Use ``place=\"local\"`` on a step (or here) to run the worker subprocess
+        on this machine (same artifact paths, no SSH).
+        """
         root = Path(train).expanduser().resolve()
-        if not (root / "recipe.yaml").is_file():
-            # still allow flows outside a train folder — use cwd layout
-            pass
         name = type(self).__name__
         run_root, rid = flow_run_dir(root, name, run_id=run_id)
         store = ArtifactStore(run_root)
+
         object.__setattr__(self, "_aq_train", root)
         object.__setattr__(self, "_aq_run_id", rid)
         object.__setattr__(self, "_aq_run_root", run_root)
         object.__setattr__(self, "_aq_store", store)
+        object.__setattr__(self, "_aq_flow_file", None)
+        object.__setattr__(self, "_aq_default_place", place)
 
         start = getattr(self, "start", None)
         if start is None or not getattr(getattr(start, "__func__", start), "_aq_step", False):
             raise TypeError(f"{name} needs a @step start(self) method")
 
+        # materialize source only if any step (or default) needs a worker
+        needs_worker = bool(place)
+        for _, v in inspect.getmembers(type(self), predicate=inspect.isfunction):
+            if getattr(v, "_aq_step", False) and getattr(v, "_aq_place", None):
+                needs_worker = True
+                break
+        flow_file: Path | None = None
+        if needs_worker:
+            flow_file = _resolve_flow_file(type(self), root, run_root)
+            object.__setattr__(self, "_aq_flow_file", flow_file)
+            (run_root / "origin.json").write_text(
+                json.dumps(
+                    {
+                        "file": str(flow_file),
+                        "qualname": type(self).__qualname__,
+                        "module": type(self).__module__,
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
         current: Callable[..., Any] | None = start
         visited: list[str] = []
+        places_used: list[str | None] = []
         while current is not None:
             step_name = getattr(current, "__name__", "step")
             if step_name in visited:
                 raise RuntimeError(f"flow cycle at step {step_name!r}")
             visited.append(step_name)
             object.__setattr__(self, "_aq_step_name", step_name)
-            object.__setattr__(self, "_aq_next", None)
-            # hydrate prior artifacts into instance
-            for k, v in store.load_all().items():
-                object.__setattr__(self, k, v)
-            object.__setattr__(self, "_aq_persist", True)
-            try:
-                current()
-            finally:
-                object.__setattr__(self, "_aq_persist", False)
-            write_step_meta(
-                run_root,
-                step_name,
-                artifacts=store.keys(),
-                next=(
-                    getattr(object.__getattribute__(self, "_aq_next"), "__name__", None)
-                    if object.__getattribute__(self, "_aq_next")
-                    else None
-                ),
-            )
-            nxt = object.__getattribute__(self, "_aq_next")
-            current = nxt
+
+            step_place = _step_place(current) or place
+            places_used.append(step_place)
+
+            if step_place:
+                if flow_file is None:
+                    flow_file = _resolve_flow_file(type(self), root, run_root)
+                    object.__setattr__(self, "_aq_flow_file", flow_file)
+                next_name = self._run_step_remote(
+                    place_name=step_place,
+                    step_name=step_name,
+                    train=root,
+                    run_root=run_root,
+                    run_id=rid,
+                    flow_file=flow_file,
+                )
+            else:
+                next_name = self._run_step_local(current, store, run_root, step_name)
+
+            if next_name:
+                nxt_fn = getattr(self, next_name, None)
+                if nxt_fn is None or not getattr(getattr(nxt_fn, "__func__", nxt_fn), "_aq_step", False):
+                    raise RuntimeError(f"next step {next_name!r} missing or not a @step")
+                current = nxt_fn
+            else:
+                current = None
 
         summary = {
             "flow": name,
@@ -237,12 +436,10 @@ class Flow:
             "train": str(root),
             "path": str(run_root),
             "steps": visited,
+            "places": places_used,
             "artifacts": store.keys(),
         }
-        (run_root / "summary.json").write_text(
-            __import__("json").dumps(summary, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        (run_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         return summary
 
 
