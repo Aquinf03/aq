@@ -25,10 +25,10 @@ from aquin.flow_store import (
     is_step_done,
     latest_run_id,
     mark_step_done,
-    read_cursor,
+    read_steps,
     resume_entry,
     write_boundary_snapshot,
-    write_cursor,
+    write_steps,
     write_step_meta,
 )
 
@@ -180,7 +180,7 @@ class Flow:
                 print(self.rows)
 
         Prep().run(".")
-        Prep().run(".", resume=True)   # continue after crash from cursor
+        Prep().run(".", resume=True)   # continue after crash from steps.json
     """
 
     _AQ_INTERNAL = frozenset(
@@ -277,7 +277,7 @@ class Flow:
         place: str | None,
         status: str = "ok",
     ) -> None:
-        """Snapshot + done marker + cursor after a step boundary."""
+        """Snapshot + done marker + steps.json after a step boundary."""
         write_step_meta(
             run_root,
             step_name,
@@ -301,7 +301,7 @@ class Flow:
             place=place,
             status=status,
         )
-        write_cursor(
+        write_steps(
             run_root,
             status="ok" if next_name is None and status == "ok" else ("failed" if status != "ok" else "running"),
             step=step_name,
@@ -321,7 +321,7 @@ class Flow:
         object.__setattr__(self, "_aq_next", None)
         for k, v in store.load_all().items():
             object.__setattr__(self, k, v)
-        write_cursor(
+        write_steps(
             run_root,
             status="running",
             step=step_name,
@@ -333,7 +333,7 @@ class Flow:
             method()
         except Exception as e:
             object.__setattr__(self, "_aq_persist", False)
-            write_cursor(
+            write_steps(
                 run_root,
                 status="failed",
                 step=step_name,
@@ -400,7 +400,7 @@ class Flow:
 
         store = ArtifactStore(run_root)
         idx = len(done_steps(run_root))
-        write_cursor(
+        write_steps(
             run_root,
             status="running",
             step=step_name,
@@ -444,7 +444,7 @@ class Flow:
                     text=True,
                 )
         except Exception as e:
-            write_cursor(
+            write_steps(
                 run_root,
                 status="failed",
                 step=step_name,
@@ -489,7 +489,7 @@ class Flow:
         on this machine (same artifact paths, no SSH).
 
         ``resume`` — ``True`` resumes ``latest`` incomplete run; a string resumes
-        that ``run_id``. Skips ``done/`` steps and continues from ``cursor.json``.
+        that ``run_id``. Skips ``done/`` steps and continues from ``steps.json``.
         """
         root = Path(train).expanduser().resolve()
         name = type(self).__name__
@@ -514,7 +514,7 @@ class Flow:
             rid = rid_resume
             resume_from, skipped = resume_entry(run_root)
             if resume_from is None:
-                cur = read_cursor(run_root) or {}
+                cur = read_steps(run_root) or {}
                 return {
                     "flow": name,
                     "run_id": rid,
@@ -636,7 +636,7 @@ class Flow:
             "places": places_used,
             "artifacts": store.keys(),
             "resumed": bool(resume),
-            "status": (read_cursor(run_root) or {}).get("status") or "ok",
+            "status": (read_steps(run_root) or {}).get("status") or "ok",
         }
         (run_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         return summary

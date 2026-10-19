@@ -239,10 +239,10 @@ class Prep(Flow):
 Prep().run(".")
 # Prep().run(".", place="gpu")  # default place for every step
 # @step(place="local")          # worker subprocess on this machine (no SSH)
-Prep().run(".", resume=True)    # after a crash: skip done steps, continue from cursor
+Prep().run(".", resume=True)    # after a crash: skip done steps, continue from steps.json
 ```
 
-JSON when possible, pickle otherwise. Each step boundary writes `done/<step>`, `snapshots/NNNN-step.json`, and `cursor.json` (status / next) — observability + resume substrate.
+JSON when possible, pickle otherwise. Each step boundary writes `done/<step>`, `snapshots/NNNN-step.json`, and `steps.json` (status / next) — observability + resume substrate.
 
 ## Init a run
 

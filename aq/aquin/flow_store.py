@@ -127,7 +127,7 @@ def is_step_done(root: Path, step: str) -> bool:
     return (root / "done" / _safe_name(step)).is_file()
 
 
-def write_cursor(
+def write_steps(
     root: Path,
     *,
     status: str,
@@ -136,7 +136,7 @@ def write_cursor(
     done: list[str] | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
-    """Running cursor — where the flow is / what to resume."""
+    """Flow ``steps.json`` — which step finished, what’s next, resume status."""
     body: dict[str, Any] = {
         "status": status,
         "at": _now(),
@@ -146,19 +146,23 @@ def write_cursor(
     }
     if error:
         body["error"] = error
-    (root / "cursor.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    (root / "steps.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
     return body
 
 
-def read_cursor(root: Path) -> dict[str, Any] | None:
-    p = root / "cursor.json"
-    if not p.is_file():
-        return None
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
-    return data if isinstance(data, dict) else None
+def read_steps(root: Path) -> dict[str, Any] | None:
+    # prefer steps.json; accept earlier names
+    for name in ("steps.json", "checkpoint.json", "cursor.json"):
+        p = root / name
+        if not p.is_file():
+            continue
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            return data
+    return None
 
 
 def write_boundary_snapshot(
@@ -192,17 +196,17 @@ def write_boundary_snapshot(
 
 
 def resume_entry(root: Path) -> tuple[str | None, list[str]]:
-    """Return ``(next_step_to_run, already_done)`` from cursor / done markers."""
+    """Return ``(next_step_to_run, already_done)`` from ``steps.json`` / done markers."""
     done = done_steps(root)
-    cur = read_cursor(root)
-    if cur:
-        status = str(cur.get("status") or "")
-        if status == "ok" and not cur.get("next"):
+    st = read_steps(root)
+    if st:
+        status = str(st.get("status") or "")
+        if status == "ok" and not st.get("next"):
             return None, done  # finished
-        nxt = cur.get("next")
-        if status in ("failed", "running") and cur.get("step") and not is_step_done(root, str(cur["step"])):
+        nxt = st.get("next")
+        if status in ("failed", "running") and st.get("step") and not is_step_done(root, str(st["step"])):
             # crash mid-step → re-run that step
-            return str(cur["step"]), [d for d in done if d != cur["step"]]
+            return str(st["step"]), [d for d in done if d != st["step"]]
         if nxt:
             return str(nxt), done
     # fall back: if we have done steps, try next.json
