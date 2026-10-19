@@ -18,9 +18,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from aquin.client import Aquin
+from aquin.flow_code import read_flow_code, snapshot_flow_code
 from aquin.flow_store import (
     ArtifactStore,
     done_steps,
+    flow_base,
     flow_run_dir,
     is_step_done,
     latest_run_id,
@@ -192,6 +194,7 @@ class Flow:
             "run_id",
             "step_name",
             "place",
+            "code",
         }
     )
 
@@ -205,6 +208,7 @@ class Flow:
         object.__setattr__(self, "_aq_step_name", None)
         object.__setattr__(self, "_aq_flow_file", None)
         object.__setattr__(self, "_aq_default_place", None)
+        object.__setattr__(self, "_aq_code", None)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name.startswith("_aq_") or name.startswith("__"):
@@ -258,6 +262,20 @@ class Flow:
     def place(self) -> str | None:
         """Place the *current* step is running on (if remote)."""
         return None  # set only inside remote worker context via env if needed
+
+    @property
+    def code(self) -> dict[str, Any] | None:
+        """Code package for this run — ``tree.tgz`` of FlowSpec + aquin runtime.
+
+        Keys: ``sha256``, ``tree``, ``manifest``, ``n_files``, …
+        """
+        cached = object.__getattribute__(self, "_aq_code")
+        if cached is not None:
+            return cached
+        run_root = object.__getattribute__(self, "_aq_run_root")
+        if run_root is None:
+            return None
+        return read_flow_code(Path(run_root))
 
     def artifacts(self) -> dict[str, Any]:
         """All persisted ``self.*`` values for this flow run."""
@@ -523,9 +541,6 @@ class Flow:
                 rid_resume = str(resume)
             run_root = root / "artifacts" / "flow" / name / rid_resume
             if not run_root.is_dir():
-                # safe-name folder
-                from aquin.flow_store import flow_base
-
                 run_root = flow_base(root, name) / rid_resume
             if not run_root.is_dir():
                 raise FileNotFoundError(f"no flow run dir: {run_root}")
@@ -542,6 +557,7 @@ class Flow:
                     "skipped": skipped,
                     "places": [],
                     "artifacts": ArtifactStore(run_root).keys(),
+                    "code": read_flow_code(run_root),
                     "resumed": True,
                     "status": cur.get("status") or "ok",
                     "message": "already complete",
@@ -559,19 +575,20 @@ class Flow:
         object.__setattr__(self, "_aq_store", store)
         object.__setattr__(self, "_aq_flow_file", None)
         object.__setattr__(self, "_aq_default_place", place)
+        object.__setattr__(self, "_aq_code", None)
 
         start = getattr(self, "start", None)
         if start is None or not getattr(getattr(start, "__func__", start), "_aq_step", False):
             raise TypeError(f"{name} needs a @step start(self) method")
 
-        # materialize source only if any step (or default) needs a worker
+        # materialize source for code package (+ worker if needed)
         needs_worker = bool(place)
         for _, v in inspect.getmembers(type(self), predicate=inspect.isfunction):
             if getattr(v, "_aq_step", False) and getattr(v, "_aq_place", None):
                 needs_worker = True
                 break
         flow_file: Path | None = None
-        if needs_worker:
+        try:
             flow_file = _resolve_flow_file(type(self), root, run_root)
             object.__setattr__(self, "_aq_flow_file", flow_file)
             (run_root / "origin.json").write_text(
@@ -586,6 +603,16 @@ class Flow:
                 + "\n",
                 encoding="utf-8",
             )
+        except TypeError:
+            if needs_worker:
+                raise
+            flow_file = None
+
+        # freeze FlowSpec + aquin runtime before steps (esp. remote sync)
+        code_meta = snapshot_flow_code(
+            root, run_root, flow_file=flow_file, flow_name=name
+        )
+        object.__setattr__(self, "_aq_code", code_meta)
 
         if resume_from:
             current = getattr(self, resume_from, None)
@@ -653,6 +680,13 @@ class Flow:
             "skipped": skipped,
             "places": places_used,
             "artifacts": store.keys(),
+            "code": {
+                "sha256": code_meta.get("sha256") if code_meta else None,
+                "tree": code_meta.get("rel_tree") if code_meta else None,
+                "n_files": code_meta.get("n_files") if code_meta else None,
+            }
+            if code_meta
+            else read_flow_code(run_root),
             "resumed": bool(resume),
             "status": (read_steps(run_root) or {}).get("status") or "ok",
         }

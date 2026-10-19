@@ -100,6 +100,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - **Flow step freeze + resume** — each step writes `done/`, `snapshots/`, `steps.json`; `Flow().run(resume=True)` continues after a crash
 - **`aq find`** — locate flow / catalog / checkpoint / run artifacts by name (CLI, not a Python object tree)
 - **Flow CAS** — `self.x` blobs under `cas/` by `sha256:…` (dedupe); pointers in `artifacts/`; `aq artifacts verify` / `flow.verify()`
+- **Flow code package** — each run writes `code/tree.tgz` (FlowSpec + aquin); `flow.code` → sha / path / file list
 
 ---
 

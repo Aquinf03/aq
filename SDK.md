@@ -244,6 +244,14 @@ Prep().run(".", resume=True)    # after a crash: skip done steps, continue from 
 
 JSON when possible, pickle otherwise. Blobs live in `cas/` keyed by `sha256:…` (dedupe + integrity); names under `artifacts/` are pointers. Each step boundary writes `done/<step>`, `snapshots/`, and `steps.json`.
 
+Every run also freezes a **code package** — FlowSpec + aquin runtime — at `code/tree.tgz` (synced to remote places with the train folder):
+
+```python
+s = Prep().run(".")
+print(s["code"])          # sha256, tree, n_files
+print(Prep().code)        # same after run — path to tree.tgz + manifest
+```
+
 ```bash
 aq artifacts verify           # re-hash flow CAS; non-zero exit if tampered
 aq find rows --kind flow      # shows sha id when present
