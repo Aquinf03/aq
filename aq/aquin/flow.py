@@ -18,7 +18,19 @@ from pathlib import Path
 from typing import Any, Callable
 
 from aquin.client import Aquin
-from aquin.flow_store import ArtifactStore, flow_run_dir, write_step_meta
+from aquin.flow_store import (
+    ArtifactStore,
+    done_steps,
+    flow_run_dir,
+    is_step_done,
+    latest_run_id,
+    mark_step_done,
+    read_cursor,
+    resume_entry,
+    write_boundary_snapshot,
+    write_cursor,
+    write_step_meta,
+)
 
 
 def step(fn: Callable[..., Any] | None = None, *, place: str | None = None):
@@ -168,6 +180,7 @@ class Flow:
                 print(self.rows)
 
         Prep().run(".")
+        Prep().run(".", resume=True)   # continue after crash from cursor
     """
 
     _AQ_INTERNAL = frozenset(
@@ -253,21 +266,102 @@ class Flow:
             return {}
         return store.load_all()
 
-    def _run_step_local(self, method: Callable[..., Any], store: ArtifactStore, run_root: Path, step_name: str) -> str | None:
+    def _boundary(
+        self,
+        run_root: Path,
+        store: ArtifactStore,
+        *,
+        step_name: str,
+        next_name: str | None,
+        index: int,
+        place: str | None,
+        status: str = "ok",
+    ) -> None:
+        """Snapshot + done marker + cursor after a step boundary."""
+        write_step_meta(
+            run_root,
+            step_name,
+            artifacts=store.keys(),
+            next=next_name,
+            place=place,
+            status=status,
+        )
+        (run_root / "next.json").write_text(
+            json.dumps({"next": next_name}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        if status == "ok":
+            mark_step_done(run_root, step_name)
+        write_boundary_snapshot(
+            run_root,
+            step=step_name,
+            index=index,
+            next_step=next_name,
+            artifacts=store.keys(),
+            place=place,
+            status=status,
+        )
+        write_cursor(
+            run_root,
+            status="ok" if next_name is None and status == "ok" else ("failed" if status != "ok" else "running"),
+            step=step_name,
+            next_step=next_name,
+            done=done_steps(run_root),
+        )
+
+    def _run_step_local(
+        self,
+        method: Callable[..., Any],
+        store: ArtifactStore,
+        run_root: Path,
+        step_name: str,
+        *,
+        index: int,
+    ) -> str | None:
         object.__setattr__(self, "_aq_next", None)
         for k, v in store.load_all().items():
             object.__setattr__(self, k, v)
+        write_cursor(
+            run_root,
+            status="running",
+            step=step_name,
+            next_step=None,
+            done=done_steps(run_root),
+        )
         object.__setattr__(self, "_aq_persist", True)
         try:
             method()
+        except Exception as e:
+            object.__setattr__(self, "_aq_persist", False)
+            write_cursor(
+                run_root,
+                status="failed",
+                step=step_name,
+                next_step=step_name,
+                done=done_steps(run_root),
+                error=f"{type(e).__name__}: {e}",
+            )
+            write_boundary_snapshot(
+                run_root,
+                step=step_name,
+                index=index,
+                next_step=step_name,
+                artifacts=store.keys(),
+                place=None,
+                status="failed",
+            )
+            raise
         finally:
             object.__setattr__(self, "_aq_persist", False)
         nxt = object.__getattribute__(self, "_aq_next")
         next_name = getattr(nxt, "__name__", None) if nxt else None
-        write_step_meta(run_root, step_name, artifacts=store.keys(), next=next_name, place=None)
-        (run_root / "next.json").write_text(
-            json.dumps({"next": next_name}, indent=2) + "\n",
-            encoding="utf-8",
+        self._boundary(
+            run_root,
+            store,
+            step_name=step_name,
+            next_name=next_name,
+            index=index,
+            place=None,
         )
         return next_name
 
@@ -304,43 +398,81 @@ class Flow:
             run_id,
         ]
 
-        if place_name == "local":
-            # Same machine, worker subprocess — same artifact paths, no SSH
-            import os
+        store = ArtifactStore(run_root)
+        idx = len(done_steps(run_root))
+        write_cursor(
+            run_root,
+            status="running",
+            step=step_name,
+            next_step=None,
+            done=done_steps(run_root),
+        )
+        try:
+            if place_name == "local":
+                # Same machine, worker subprocess — same artifact paths, no SSH
+                import os
 
-            env = os.environ.copy()
-            pkg = str(Path(__file__).resolve().parent.parent)
-            env["PYTHONPATH"] = pkg + os.pathsep + env.get("PYTHONPATH", "")
-            cmd[0] = sys.executable
-            r = subprocess.run(cmd, cwd=str(train), capture_output=True, text=True, env=env)
-            if r.returncode != 0:
-                raise RuntimeError(
-                    f"local flow worker failed ({r.returncode}):\n{r.stderr or r.stdout}"
-                )
-        else:
-            from aquin.fleet import Place
+                env = os.environ.copy()
+                pkg = str(Path(__file__).resolve().parent.parent)
+                env["PYTHONPATH"] = pkg + os.pathsep + env.get("PYTHONPATH", "")
+                cmd[0] = sys.executable
+                r = subprocess.run(cmd, cwd=str(train), capture_output=True, text=True, env=env)
+                if r.returncode != 0:
+                    raise RuntimeError(
+                        f"local flow worker failed ({r.returncode}):\n{r.stderr or r.stdout}"
+                    )
+            else:
+                from aquin.fleet import Place
 
-            place = Place(place_name)
-            # push train (includes artifacts/flow) — transfer glue is automatic
-            place.sync(train)
-            job = place.run(cmd)
-            st = job.wait()
-            code = st.get("code")
-            status = str(st.get("status") or "")
-            if status not in ("", "exited", "done") or (code is not None and int(code) != 0):
-                raise RuntimeError(
-                    f"remote step {step_name!r} on {place_name!r} failed: {st}\n{job.logs()}"
+                place = Place(place_name)
+                # push train (includes artifacts/flow) — transfer glue is automatic
+                place.sync(train)
+                job = place.run(cmd)
+                st = job.wait()
+                code = st.get("code")
+                status = str(st.get("status") or "")
+                if status not in ("", "exited", "done") or (code is not None and int(code) != 0):
+                    raise RuntimeError(
+                        f"remote step {step_name!r} on {place_name!r} failed: {st}\n{job.logs()}"
+                    )
+                aq_bin = shutil.which("aq") or "aq"
+                subprocess.run(
+                    [aq_bin, "jobs", "pull", job.id, "--on", place_name],
+                    cwd=str(train),
+                    check=False,
+                    capture_output=True,
+                    text=True,
                 )
-            aq_bin = shutil.which("aq") or "aq"
-            subprocess.run(
-                [aq_bin, "jobs", "pull", job.id, "--on", place_name],
-                cwd=str(train),
-                check=False,
-                capture_output=True,
-                text=True,
+        except Exception as e:
+            write_cursor(
+                run_root,
+                status="failed",
+                step=step_name,
+                next_step=step_name,
+                done=done_steps(run_root),
+                error=f"{type(e).__name__}: {e}",
             )
+            write_boundary_snapshot(
+                run_root,
+                step=step_name,
+                index=idx,
+                next_step=step_name,
+                artifacts=store.keys(),
+                place=place_name,
+                status="failed",
+            )
+            raise
 
-        return _read_next(run_root, step_name)
+        next_name = _read_next(run_root, step_name)
+        self._boundary(
+            run_root,
+            store,
+            step_name=step_name,
+            next_name=next_name,
+            index=idx,
+            place=place_name,
+        )
+        return next_name
 
     def run(
         self,
@@ -348,16 +480,59 @@ class Flow:
         *,
         run_id: str | None = None,
         place: str | None = None,
+        resume: bool | str = False,
     ) -> dict[str, Any]:
         """Execute from ``start``, persisting artifacts between steps.
 
         ``place`` — default fleet place for steps that omit ``@step(place=…)``.
         Use ``place=\"local\"`` on a step (or here) to run the worker subprocess
         on this machine (same artifact paths, no SSH).
+
+        ``resume`` — ``True`` resumes ``latest`` incomplete run; a string resumes
+        that ``run_id``. Skips ``done/`` steps and continues from ``cursor.json``.
         """
         root = Path(train).expanduser().resolve()
         name = type(self).__name__
-        run_root, rid = flow_run_dir(root, name, run_id=run_id)
+
+        resume_from: str | None = None
+        skipped: list[str] = []
+        if resume:
+            if resume is True:
+                rid_resume = latest_run_id(root, name)
+                if not rid_resume:
+                    raise FileNotFoundError(f"no prior {name} run to resume under {root}")
+            else:
+                rid_resume = str(resume)
+            run_root = root / "artifacts" / "flow" / name / rid_resume
+            if not run_root.is_dir():
+                # safe-name folder
+                from aquin.flow_store import flow_base
+
+                run_root = flow_base(root, name) / rid_resume
+            if not run_root.is_dir():
+                raise FileNotFoundError(f"no flow run dir: {run_root}")
+            rid = rid_resume
+            resume_from, skipped = resume_entry(run_root)
+            if resume_from is None:
+                cur = read_cursor(run_root) or {}
+                return {
+                    "flow": name,
+                    "run_id": rid,
+                    "train": str(root),
+                    "path": str(run_root),
+                    "steps": [],
+                    "skipped": skipped,
+                    "places": [],
+                    "artifacts": ArtifactStore(run_root).keys(),
+                    "resumed": True,
+                    "status": cur.get("status") or "ok",
+                    "message": "already complete",
+                }
+            # refresh latest pointer
+            flow_run_dir(root, name, run_id=rid)
+        else:
+            run_root, rid = flow_run_dir(root, name, run_id=run_id)
+
         store = ArtifactStore(run_root)
 
         object.__setattr__(self, "_aq_train", root)
@@ -394,13 +569,30 @@ class Flow:
                 encoding="utf-8",
             )
 
-        current: Callable[..., Any] | None = start
+        if resume_from:
+            current = getattr(self, resume_from, None)
+            if current is None or not getattr(getattr(current, "__func__", current), "_aq_step", False):
+                raise RuntimeError(f"resume step {resume_from!r} missing or not a @step")
+        else:
+            current = start
+
         visited: list[str] = []
         places_used: list[str | None] = []
+        index = len(done_steps(run_root))
         while current is not None:
             step_name = getattr(current, "__name__", "step")
             if step_name in visited:
                 raise RuntimeError(f"flow cycle at step {step_name!r}")
+            # skip already-done steps (resume)
+            if is_step_done(run_root, step_name) and step_name != resume_from:
+                # follow recorded next
+                next_name = _read_next(run_root, step_name)
+                skipped.append(step_name)
+                if next_name:
+                    current = getattr(self, next_name, None)
+                    continue
+                break
+
             visited.append(step_name)
             object.__setattr__(self, "_aq_step_name", step_name)
 
@@ -420,7 +612,11 @@ class Flow:
                     flow_file=flow_file,
                 )
             else:
-                next_name = self._run_step_local(current, store, run_root, step_name)
+                next_name = self._run_step_local(
+                    current, store, run_root, step_name, index=index
+                )
+            index += 1
+            resume_from = None  # only force first resume step once
 
             if next_name:
                 nxt_fn = getattr(self, next_name, None)
@@ -436,8 +632,11 @@ class Flow:
             "train": str(root),
             "path": str(run_root),
             "steps": visited,
+            "skipped": skipped,
             "places": places_used,
             "artifacts": store.keys(),
+            "resumed": bool(resume),
+            "status": (read_cursor(run_root) or {}).get("status") or "ok",
         }
         (run_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         return summary

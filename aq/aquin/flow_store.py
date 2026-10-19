@@ -80,9 +80,13 @@ class ArtifactStore:
         return sorted(self.load_all().keys())
 
 
+def flow_base(train: Path, flow_name: str) -> Path:
+    return train / "artifacts" / "flow" / _safe_name(flow_name)
+
+
 def flow_run_dir(train: Path, flow_name: str, run_id: str | None = None) -> tuple[Path, str]:
     """``artifacts/flow/<FlowName>/<run_id>/`` (+ ``latest`` pointer)."""
-    base = train / "artifacts" / "flow" / _safe_name(flow_name)
+    base = flow_base(train, flow_name)
     base.mkdir(parents=True, exist_ok=True)
     rid = run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     root = base / rid
@@ -91,8 +95,127 @@ def flow_run_dir(train: Path, flow_name: str, run_id: str | None = None) -> tupl
     return root, rid
 
 
+def latest_run_id(train: Path, flow_name: str) -> str | None:
+    p = flow_base(train, flow_name) / "latest"
+    if not p.is_file():
+        return None
+    rid = p.read_text(encoding="utf-8").strip()
+    return rid or None
+
+
 def write_step_meta(root: Path, step: str, **extra: Any) -> None:
     d = root / "steps"
     d.mkdir(parents=True, exist_ok=True)
     body = {"step": step, "at": _now(), **extra}
     (d / f"{_safe_name(step)}.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+
+
+def mark_step_done(root: Path, step: str) -> None:
+    d = root / "done"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / _safe_name(step)).write_text(_now() + "\n", encoding="utf-8")
+
+
+def done_steps(root: Path) -> list[str]:
+    d = root / "done"
+    if not d.is_dir():
+        return []
+    return sorted(p.name for p in d.iterdir() if p.is_file())
+
+
+def is_step_done(root: Path, step: str) -> bool:
+    return (root / "done" / _safe_name(step)).is_file()
+
+
+def write_cursor(
+    root: Path,
+    *,
+    status: str,
+    step: str | None = None,
+    next_step: str | None = None,
+    done: list[str] | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
+    """Running cursor — where the flow is / what to resume."""
+    body: dict[str, Any] = {
+        "status": status,
+        "at": _now(),
+        "step": step,
+        "next": next_step,
+        "done": done if done is not None else done_steps(root),
+    }
+    if error:
+        body["error"] = error
+    (root / "cursor.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    return body
+
+
+def read_cursor(root: Path) -> dict[str, Any] | None:
+    p = root / "cursor.json"
+    if not p.is_file():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def write_boundary_snapshot(
+    root: Path,
+    *,
+    step: str,
+    index: int,
+    next_step: str | None,
+    artifacts: list[str],
+    place: str | None = None,
+    status: str = "ok",
+) -> Path:
+    """Freeze observability state at a step boundary (after the step finishes)."""
+    snap_dir = root / "snapshots"
+    snap_dir.mkdir(parents=True, exist_ok=True)
+    body = {
+        "index": index,
+        "step": step,
+        "next": next_step,
+        "status": status,
+        "at": _now(),
+        "place": place,
+        "artifacts": list(artifacts),
+        "done": done_steps(root),
+    }
+    path = snap_dir / f"{index:04d}-{_safe_name(step)}.json"
+    path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    # also keep a rolling latest snapshot pointer
+    (snap_dir / "latest.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def resume_entry(root: Path) -> tuple[str | None, list[str]]:
+    """Return ``(next_step_to_run, already_done)`` from cursor / done markers."""
+    done = done_steps(root)
+    cur = read_cursor(root)
+    if cur:
+        status = str(cur.get("status") or "")
+        if status == "ok" and not cur.get("next"):
+            return None, done  # finished
+        nxt = cur.get("next")
+        if status in ("failed", "running") and cur.get("step") and not is_step_done(root, str(cur["step"])):
+            # crash mid-step → re-run that step
+            return str(cur["step"]), [d for d in done if d != cur["step"]]
+        if nxt:
+            return str(nxt), done
+    # fall back: if we have done steps, try next.json
+    nxt_path = root / "next.json"
+    if nxt_path.is_file():
+        try:
+            data = json.loads(nxt_path.read_text(encoding="utf-8"))
+            n = data.get("next")
+            if n:
+                return str(n), done
+        except json.JSONDecodeError:
+            pass
+    if done:
+        # no next recorded — treat as complete
+        return None, done
+    return "start", []
