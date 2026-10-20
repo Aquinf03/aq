@@ -97,7 +97,8 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - **Promote + webhooks** — `aq artifacts promote [prod] [ref]` fires `artifacts.webhooks` (create/alias/promote) for CI/CD / Slack / deploy; events in `catalog/events.jsonl`
 - **Flow `self.x`** — `@step` flows persist assignments under `artifacts/flow/`; next step reads them with no manual save/load
 - **Flow local ↔ remote** — `@step(place=\"gpu\")` runs on a fleet place; `aq sync` / `jobs pull` are automatic (same artifact paths)
-- **Flow step freeze + resume** — each step writes `done/`, `snapshots/`, `steps.json`; `Flow().run(resume=True)` continues after a crash
+- **Flow step freeze + resume** — each step writes `done/`, `snapshots/`, `steps.json`; `Flow().run(resume=True)` clones into a new run and continues
+- **`origin_pathspec`** — resume stamps lineage on the new run + cloned artifacts (`Prep/<run_id>/<step>`); `flow.origin_pathspec` / `summary["origin_pathspec"]`; `clone=False` for in-place
 - **`aq find`** — locate flow / catalog / checkpoint / run artifacts by name (CLI, not a Python object tree)
 - **Flow CAS** — `self.x` blobs under `cas/` by `sha256:…` (dedupe); pointers in `artifacts/`; `aq artifacts verify` / `flow.verify()`
 - **Flow code package** — each run writes `code/tree.tgz` (FlowSpec + aquin); `flow.code` → sha / path / file list

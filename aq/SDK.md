@@ -239,10 +239,19 @@ class Prep(Flow):
 Prep().run(".")
 # Prep().run(".", place="gpu")  # default place for every step
 # @step(place="local")          # worker subprocess on this machine (no SSH)
-Prep().run(".", resume=True)    # after a crash: skip done steps, continue from steps.json
+Prep().run(".", resume=True)    # clone prior run → new run_id; skip done/; continue
+# Prep().run(".", resume=True, clone=False)  # in-place continue (no new run)
 ```
 
 JSON when possible, pickle otherwise. Blobs live in `cas/` keyed by `sha256:…` (dedupe + integrity); names under `artifacts/` are pointers. Each step boundary writes `done/<step>`, `snapshots/`, and `steps.json`.
+
+Resume clones by default and stamps **`origin_pathspec`** on the new run + each copied artifact (`FlowName/<source_run>/<step>` or `#artifact`):
+
+```python
+s = Prep().run(".", resume=True)
+print(s["origin_pathspec"])   # e.g. Prep/2026…/heavy
+print(Prep().origin_pathspec) # same after run
+```
 
 Every run also freezes a **code package** — FlowSpec + aquin runtime — at `code/tree.tgz` (synced to remote places with the train folder):
 

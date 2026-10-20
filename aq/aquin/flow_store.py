@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import pickle
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -238,9 +239,23 @@ def flow_run_dir(train: Path, flow_name: str, run_id: str | None = None) -> tupl
     """``artifacts/flow/<FlowName>/<run_id>/`` (+ ``latest`` pointer)."""
     base = flow_base(train, flow_name)
     base.mkdir(parents=True, exist_ok=True)
-    rid = run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    root = base / rid
-    root.mkdir(parents=True, exist_ok=True)
+    if run_id:
+        rid = run_id
+        root = base / rid
+        root.mkdir(parents=True, exist_ok=True)
+    else:
+        # second precision + suffix if same-second collide (resume clone)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        rid = stamp
+        root = base / rid
+        n = 1
+        while root.exists():
+            rid = f"{stamp}_{n}"
+            root = base / rid
+            n += 1
+            if n > 999:
+                raise RuntimeError(f"could not allocate unique run_id under {base}")
+        root.mkdir(parents=True, exist_ok=True)
     (base / "latest").write_text(rid + "\n", encoding="utf-8")
     return root, rid
 
@@ -372,3 +387,162 @@ def resume_entry(root: Path) -> tuple[str | None, list[str]]:
     if done:
         return None, done
     return "start", []
+
+
+def pathspec(flow: str, run_id: str, step: str | None = None, *, artifact: str | None = None) -> str:
+    """Stable address: ``FlowName/run_id`` or ``FlowName/run_id/step`` (+ optional ``#artifact``)."""
+    base = f"{_safe_name(flow)}/{run_id}"
+    if step:
+        base = f"{base}/{_safe_name(step)}"
+    if artifact:
+        base = f"{base}#{_safe_name(artifact)}"
+    return base
+
+
+def write_origin(
+    root: Path,
+    *,
+    origin_pathspec: str,
+    source_run: str,
+    resume_step: str | None,
+    cloned: bool,
+) -> dict[str, Any]:
+    """Record where this run (or its objects) were cloned/resumed from."""
+    body = {
+        "origin_pathspec": origin_pathspec,
+        "source_run": source_run,
+        "resume_step": resume_step,
+        "cloned": cloned,
+        "at": _now(),
+    }
+    (root / "origin_pathspec.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    return body
+
+
+def read_origin(root: Path) -> dict[str, Any] | None:
+    p = root / "origin_pathspec.json"
+    if not p.is_file():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def clone_run_for_resume(
+    src: Path,
+    dest: Path,
+    *,
+    flow: str,
+    source_run_id: str,
+    resume_step: str | None,
+) -> dict[str, Any]:
+    """Copy successful step state into a new run dir; stamp ``origin_pathspec`` on objects.
+
+    Copies ``done/``, ``artifacts/`` pointers + referenced ``cas/`` blobs, and step
+    meta for completed steps. New run continues from ``resume_step``.
+    """
+    if src.resolve() == dest.resolve():
+        raise ValueError(f"clone_run_for_resume: src and dest are the same ({src})")
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "artifacts").mkdir(parents=True, exist_ok=True)
+    (dest / "cas").mkdir(parents=True, exist_ok=True)
+    (dest / "done").mkdir(parents=True, exist_ok=True)
+    (dest / "steps").mkdir(parents=True, exist_ok=True)
+
+    origin_run = pathspec(flow, source_run_id, resume_step)
+    write_origin(
+        dest,
+        origin_pathspec=origin_run,
+        source_run=source_run_id,
+        resume_step=resume_step,
+        cloned=True,
+    )
+
+    # done markers
+    src_done = src / "done"
+    if src_done.is_dir():
+        for p in src_done.iterdir():
+            if p.is_file():
+                shutil.copy2(p, dest / "done" / p.name)
+
+    # step meta for done steps only
+    src_steps = src / "steps"
+    if src_steps.is_dir():
+        for p in src_steps.glob("*.json"):
+            if (dest / "done" / p.stem).is_file() or p.stem in done_steps(src):
+                shutil.copy2(p, dest / "steps" / p.name)
+
+    # artifacts + cas
+    src_store = ArtifactStore(src)
+    dest_store = ArtifactStore(dest)
+    cloned_arts: list[str] = []
+    for name in src_store.keys():
+        aid = src_store.id_of(name)
+        fmt = "json"
+        ptr_src = src_store.dir / f"{_safe_name(name)}.json"
+        body: dict[str, Any] = {}
+        if ptr_src.is_file():
+            try:
+                raw = json.loads(ptr_src.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    body = dict(raw)
+                    fmt = str(body.get("format") or "json")
+            except json.JSONDecodeError:
+                body = {}
+        if aid:
+            # copy cas blob
+            sp = src_store._cas_path(aid)
+            if sp.is_file():
+                dp = dest_store._cas_path(aid)
+                dp.parent.mkdir(parents=True, exist_ok=True)
+                if not dp.is_file():
+                    shutil.copy2(sp, dp)
+            art_origin = pathspec(flow, source_run_id, artifact=name)
+            body = {
+                **body,
+                "aq_cas": aid,
+                "format": fmt,
+                "origin_pathspec": art_origin,
+                "at": _now(),
+            }
+            (dest_store.dir / f"{_safe_name(name)}.json").write_text(
+                json.dumps(body, indent=2) + "\n", encoding="utf-8"
+            )
+            dest_store._update_index(name, aid, fmt)
+            # stamp origin on index entry
+            idx_path = dest / "cas_index.json"
+            idx = json.loads(idx_path.read_text(encoding="utf-8")) if idx_path.is_file() else {}
+            if isinstance(idx, dict) and name in idx and isinstance(idx[name], dict):
+                idx[name]["origin_pathspec"] = art_origin
+                idx_path.write_text(json.dumps(idx, indent=2) + "\n", encoding="utf-8")
+            cloned_arts.append(name)
+        else:
+            # legacy raw file
+            for suf in (".json", ".pkl"):
+                sp = src_store.dir / f"{_safe_name(name)}{suf}"
+                if sp.is_file():
+                    shutil.copy2(sp, dest_store.dir / sp.name)
+                    cloned_arts.append(name)
+                    break
+
+    # cursor for resume
+    write_steps(
+        dest,
+        status="running",
+        step=None,
+        next_step=resume_step,
+        done=done_steps(dest),
+    )
+    (dest / "next.json").write_text(
+        json.dumps({"next": resume_step}, indent=2) + "\n", encoding="utf-8"
+    )
+
+    return {
+        "origin_pathspec": origin_run,
+        "source_run": source_run_id,
+        "resume_step": resume_step,
+        "cloned_artifacts": cloned_arts,
+        "done": done_steps(dest),
+    }

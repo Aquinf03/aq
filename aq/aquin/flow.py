@@ -21,15 +21,19 @@ from aquin.client import Aquin
 from aquin.flow_code import read_flow_code, snapshot_flow_code
 from aquin.flow_store import (
     ArtifactStore,
+    clone_run_for_resume,
     done_steps,
     flow_base,
     flow_run_dir,
     is_step_done,
     latest_run_id,
     mark_step_done,
+    pathspec,
+    read_origin,
     read_steps,
     resume_entry,
     write_boundary_snapshot,
+    write_origin,
     write_steps,
     write_step_meta,
 )
@@ -182,7 +186,7 @@ class Flow:
                 print(self.rows)
 
         Prep().run(".")
-        Prep().run(".", resume=True)   # continue after crash from steps.json
+        Prep().run(".", resume=True)   # clone prior run; origin_pathspec stamped
     """
 
     _AQ_INTERNAL = frozenset(
@@ -195,6 +199,7 @@ class Flow:
             "step_name",
             "place",
             "code",
+            "origin_pathspec",
         }
     )
 
@@ -209,6 +214,7 @@ class Flow:
         object.__setattr__(self, "_aq_flow_file", None)
         object.__setattr__(self, "_aq_default_place", None)
         object.__setattr__(self, "_aq_code", None)
+        object.__setattr__(self, "_aq_origin", None)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name.startswith("_aq_") or name.startswith("__"):
@@ -276,6 +282,20 @@ class Flow:
         if run_root is None:
             return None
         return read_flow_code(Path(run_root))
+
+    @property
+    def origin_pathspec(self) -> str | None:
+        """Where this run was cloned/resumed from, e.g. ``Prep/2026…/mid``."""
+        cached = object.__getattribute__(self, "_aq_origin")
+        if isinstance(cached, dict) and cached.get("origin_pathspec"):
+            return str(cached["origin_pathspec"])
+        run_root = object.__getattribute__(self, "_aq_run_root")
+        if run_root is None:
+            return None
+        origin = read_origin(Path(run_root))
+        if origin and origin.get("origin_pathspec"):
+            return str(origin["origin_pathspec"])
+        return None
 
     def artifacts(self) -> dict[str, Any]:
         """All persisted ``self.*`` values for this flow run."""
@@ -517,6 +537,7 @@ class Flow:
         run_id: str | None = None,
         place: str | None = None,
         resume: bool | str = False,
+        clone: bool = True,
     ) -> dict[str, Any]:
         """Execute from ``start``, persisting artifacts between steps.
 
@@ -525,45 +546,67 @@ class Flow:
         on this machine (same artifact paths, no SSH).
 
         ``resume`` — ``True`` resumes ``latest`` incomplete run; a string resumes
-        that ``run_id``. Skips ``done/`` steps and continues from ``steps.json``.
+        that ``run_id``. By default ``clone=True``: successful steps are copied into
+        a **new** run with ``origin_pathspec`` lineage. ``clone=False`` continues
+        in-place.
         """
         root = Path(train).expanduser().resolve()
         name = type(self).__name__
 
         resume_from: str | None = None
         skipped: list[str] = []
+        origin_meta: dict[str, Any] | None = None
         if resume:
             if resume is True:
-                rid_resume = latest_run_id(root, name)
-                if not rid_resume:
+                rid_src = latest_run_id(root, name)
+                if not rid_src:
                     raise FileNotFoundError(f"no prior {name} run to resume under {root}")
             else:
-                rid_resume = str(resume)
-            run_root = root / "artifacts" / "flow" / name / rid_resume
-            if not run_root.is_dir():
-                run_root = flow_base(root, name) / rid_resume
-            if not run_root.is_dir():
-                raise FileNotFoundError(f"no flow run dir: {run_root}")
-            rid = rid_resume
-            resume_from, skipped = resume_entry(run_root)
+                rid_src = str(resume)
+            src_root = root / "artifacts" / "flow" / name / rid_src
+            if not src_root.is_dir():
+                src_root = flow_base(root, name) / rid_src
+            if not src_root.is_dir():
+                raise FileNotFoundError(f"no flow run dir: {src_root}")
+            resume_from, skipped = resume_entry(src_root)
             if resume_from is None:
-                cur = read_steps(run_root) or {}
+                cur = read_steps(src_root) or {}
                 return {
                     "flow": name,
-                    "run_id": rid,
+                    "run_id": rid_src,
                     "train": str(root),
-                    "path": str(run_root),
+                    "path": str(src_root),
                     "steps": [],
                     "skipped": skipped,
                     "places": [],
-                    "artifacts": ArtifactStore(run_root).keys(),
-                    "code": read_flow_code(run_root),
+                    "artifacts": ArtifactStore(src_root).keys(),
+                    "code": read_flow_code(src_root),
+                    "origin_pathspec": (read_origin(src_root) or {}).get("origin_pathspec"),
                     "resumed": True,
                     "status": cur.get("status") or "ok",
                     "message": "already complete",
                 }
-            # refresh latest pointer
-            flow_run_dir(root, name, run_id=rid)
+            if clone:
+                run_root, rid = flow_run_dir(root, name, run_id=run_id)
+                origin_meta = clone_run_for_resume(
+                    src_root,
+                    run_root,
+                    flow=name,
+                    source_run_id=rid_src,
+                    resume_step=resume_from,
+                )
+                skipped = list(origin_meta.get("done") or skipped)
+            else:
+                rid = rid_src
+                run_root = src_root
+                flow_run_dir(root, name, run_id=rid)
+                origin_meta = write_origin(
+                    run_root,
+                    origin_pathspec=pathspec(name, rid_src, resume_from),
+                    source_run=rid_src,
+                    resume_step=resume_from,
+                    cloned=False,
+                )
         else:
             run_root, rid = flow_run_dir(root, name, run_id=run_id)
 
@@ -576,6 +619,7 @@ class Flow:
         object.__setattr__(self, "_aq_flow_file", None)
         object.__setattr__(self, "_aq_default_place", place)
         object.__setattr__(self, "_aq_code", None)
+        object.__setattr__(self, "_aq_origin", origin_meta)
 
         start = getattr(self, "start", None)
         if start is None or not getattr(getattr(start, "__func__", start), "_aq_step", False):
@@ -671,6 +715,7 @@ class Flow:
             else:
                 current = None
 
+        origin_out = origin_meta or read_origin(run_root)
         summary = {
             "flow": name,
             "run_id": rid,
@@ -687,6 +732,7 @@ class Flow:
             }
             if code_meta
             else read_flow_code(run_root),
+            "origin_pathspec": (origin_out or {}).get("origin_pathspec") if origin_out else None,
             "resumed": bool(resume),
             "status": (read_steps(run_root) or {}).get("status") or "ok",
         }
