@@ -22,21 +22,25 @@ from aquin.client import Aquin
 from aquin.flow_code import read_flow_code, snapshot_flow_code
 from aquin.flow_store import (
     ArtifactStore,
+    FlowArtifacts,
     LayeredStore,
+    attempt_root,
     clone_run_for_resume,
     done_steps,
     flow_base,
     flow_run_dir,
     is_step_done,
     latest_run_id,
-    attempt_root,
     make_attempt_store,
     mark_step_done,
+    open_flow_artifacts,
+    parse_flow_ref,
     pathspec,
     promote_attempt,
     read_origin,
     read_steps,
     read_visible_attempt,
+    record_import,
     resume_entry,
     write_attempt_meta,
     write_boundary_snapshot,
@@ -385,6 +389,100 @@ class Flow:
         if not ar.is_dir():
             return {}
         return ArtifactStore(ar, cas=root / "cas").load_all()
+
+    def from_flow(
+        self,
+        flow: str,
+        *,
+        run: str | None = None,
+        successful: bool = True,
+        train: str | Path | None = None,
+    ) -> FlowArtifacts:
+        """Open another flow run's artifacts (read-only).
+
+        ``flow`` — ``Prep``, ``Prep/<run_id>``, or pass ``run=``.
+        Defaults to the latest **successful** run under this train folder.
+        """
+        root = train or object.__getattribute__(self, "_aq_train")
+        if root is None:
+            raise RuntimeError("no train folder — pass train= or call inside run()")
+        return open_flow_artifacts(root, flow, run=run, successful=successful)
+
+    def input(
+        self,
+        flow: str,
+        name: str | None = None,
+        *,
+        run: str | None = None,
+        successful: bool = True,
+    ) -> Any:
+        """Read one artifact from another flow (no write into this run).
+
+        ``self.input("Prep", "rows")`` or ``self.input("Prep/<run>#rows")``.
+        """
+        flow_ref, embedded_run, embedded_art = parse_flow_ref(flow)
+        art = name or embedded_art
+        if not art:
+            raise TypeError("input() needs an artifact name or Flow/run#artifact ref")
+        src = self.from_flow(
+            flow_ref if not embedded_run else f"{flow_ref}/{embedded_run}",
+            run=run or embedded_run,
+            successful=successful,
+        )
+        return src.get(art)
+
+    def import_from(
+        self,
+        flow: str,
+        *names: str,
+        run: str | None = None,
+        rename: dict[str, str] | None = None,
+        successful: bool = True,
+    ) -> dict[str, Any]:
+        """Copy artifacts from another flow into **this** run with ``origin_pathspec``.
+
+        Examples::
+
+            self.import_from("Prep", "rows")              # → self.rows
+            self.import_from("Prep")                      # all artifacts
+            self.import_from("Prep", rename={"features": "rows"})  # local ← source
+        """
+        store = object.__getattribute__(self, "_aq_store")
+        run_root = object.__getattribute__(self, "_aq_run_root")
+        if store is None or run_root is None:
+            raise RuntimeError("import_from() needs an active flow run — call inside a @step")
+
+        src = self.from_flow(flow, run=run, successful=successful)
+        # map: dest_name -> source_name
+        mapping: dict[str, str] = {}
+        if rename:
+            mapping.update(rename)
+        if names:
+            for n in names:
+                mapping.setdefault(n, n)
+        if not mapping:
+            for n in src.keys():
+                mapping[n] = n
+
+        out: dict[str, Any] = {}
+        for dest_name, src_name in mapping.items():
+            val = src.get(src_name)
+            origin = src.origin_of(src_name)
+            store.put(dest_name, val, origin_pathspec=origin)
+            object.__setattr__(self, dest_name, val)
+            record_import(
+                Path(run_root),
+                {
+                    "source_flow": src.flow,
+                    "source_run": src.run_id,
+                    "source_artifact": src_name,
+                    "dest_artifact": dest_name,
+                    "origin_pathspec": origin,
+                    "step": object.__getattribute__(self, "_aq_step_name"),
+                },
+            )
+            out[dest_name] = val
+        return out
 
     def _boundary(
         self,

@@ -249,6 +249,26 @@ JSON when possible, pickle otherwise. Blobs live in `cas/` keyed by `sha256:…`
 
 With `@retry`, each try writes under `attempts/<step>/<n>/`; **only the successful attempt** is promoted into the run’s visible `artifacts/`. Failed attempts stay for forensics (`flow.attempt_artifacts("heavy", 0)`).
 
+**Cross-flow reuse** — consume another flow’s outputs without re-running it:
+
+```python
+class Train(Flow):
+    @step
+    def start(self):
+        self.import_from("Prep", "rows")          # → self.rows, origin stamped
+        # self.import_from("Prep")                # all artifacts
+        # self.import_from("Prep", rename={"x": "rows"})
+        # prep = self.from_flow("Prep")           # read-only handle
+        # y = self.input("Prep", "rows")          # read without copying in
+        self.next(self.end)
+
+    @step
+    def end(self):
+        print(self.rows)
+```
+
+Also: `open_flow_artifacts(".", "Prep")` outside a run. Imports append `imports.jsonl` and stamp each pointer’s `origin_pathspec` (`Prep/<run>#rows`).
+
 Resume clones by default and stamps **`origin_pathspec`** on the new run + each copied artifact (`FlowName/<source_run>/<step>` or `#artifact`):
 
 ```python

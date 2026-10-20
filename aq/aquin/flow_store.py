@@ -69,7 +69,7 @@ class ArtifactStore:
             raise FileNotFoundError(f"missing cas blob {aid}")
         return path.read_bytes()
 
-    def put(self, name: str, value: Any) -> Path:
+    def put(self, name: str, value: Any, *, origin_pathspec: str | None = None) -> Path:
         """Store ``value`` by content hash; name points at the sha."""
         key = _safe_name(name)
         fmt = "json"
@@ -80,7 +80,9 @@ class ArtifactStore:
             data = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
 
         aid = self._write_cas(data)
-        pointer = {"aq_cas": aid, "format": fmt, "at": _now()}
+        pointer: dict[str, Any] = {"aq_cas": aid, "format": fmt, "at": _now()}
+        if origin_pathspec:
+            pointer["origin_pathspec"] = origin_pathspec
         # clear legacy raw siblings
         for suffix in (".json", ".pkl"):
             legacy = self.dir / f"{key}{suffix}"
@@ -99,10 +101,17 @@ class ArtifactStore:
         if pkl_path.is_file():
             pkl_path.unlink()
         ptr_path.write_text(json.dumps(pointer, indent=2) + "\n", encoding="utf-8")
-        self._update_index(key, aid, fmt)
+        self._update_index(key, aid, fmt, origin_pathspec=origin_pathspec)
         return ptr_path
 
-    def _update_index(self, name: str, aid: str, fmt: str) -> None:
+    def _update_index(
+        self,
+        name: str,
+        aid: str,
+        fmt: str,
+        *,
+        origin_pathspec: str | None = None,
+    ) -> None:
         idx_path = self.root / "cas_index.json"
         idx: dict[str, Any] = {}
         if idx_path.is_file():
@@ -112,7 +121,10 @@ class ArtifactStore:
                     idx = raw
             except json.JSONDecodeError:
                 idx = {}
-        idx[name] = {"id": aid, "format": fmt, "at": _now()}
+        ent: dict[str, Any] = {"id": aid, "format": fmt, "at": _now()}
+        if origin_pathspec:
+            ent["origin_pathspec"] = origin_pathspec
+        idx[name] = ent
         idx_path.write_text(json.dumps(idx, indent=2) + "\n", encoding="utf-8")
 
     def id_of(self, name: str) -> str | None:
@@ -267,6 +279,139 @@ def latest_run_id(train: Path, flow_name: str) -> str | None:
         return None
     rid = p.read_text(encoding="utf-8").strip()
     return rid or None
+
+
+def list_flow_run_ids(train: Path, flow_name: str) -> list[str]:
+    """Run ids under ``artifacts/flow/<Flow>/`` (newest name-sort last)."""
+    base = flow_base(train, flow_name)
+    if not base.is_dir():
+        return []
+    out: list[str] = []
+    for p in base.iterdir():
+        if p.is_dir() and p.name != "latest":
+            out.append(p.name)
+    return sorted(out)
+
+
+def _run_status(run_root: Path) -> str | None:
+    st = read_steps(run_root)
+    if not st:
+        return None
+    return str(st.get("status") or "") or None
+
+
+def latest_successful_run_id(train: Path, flow_name: str) -> str | None:
+    """Prefer ``latest`` if that run is ``ok``; else newest successful run."""
+    base = flow_base(train, flow_name)
+    rid = latest_run_id(train, flow_name)
+    if rid:
+        root = base / rid
+        if root.is_dir() and _run_status(root) == "ok":
+            return rid
+    for cand in reversed(list_flow_run_ids(train, flow_name)):
+        if _run_status(base / cand) == "ok":
+            return cand
+    return rid  # fall back to latest pointer even if incomplete
+
+
+def parse_flow_ref(ref: str) -> tuple[str, str | None, str | None]:
+    """Parse ``Flow``, ``Flow/run_id``, or ``Flow/run_id#artifact`` → (flow, run, artifact)."""
+    artifact: str | None = None
+    body = ref.strip()
+    if "#" in body:
+        body, _, art = body.partition("#")
+        artifact = art or None
+    parts = [p for p in body.split("/") if p]
+    if not parts:
+        raise ValueError(f"empty flow ref: {ref!r}")
+    flow = parts[0]
+    run = parts[1] if len(parts) > 1 else None
+    return flow, run, artifact
+
+
+def resolve_flow_run(
+    train: Path,
+    flow: str,
+    run: str | None = None,
+    *,
+    successful: bool = True,
+) -> tuple[Path, str, str]:
+    """Resolve ``(run_root, run_id, flow_name)`` for a flow under ``train``.
+
+    ``flow`` may be ``Prep``, ``Prep/<run_id>``, or ``Prep/<run_id>#artifact``.
+    """
+    flow_name, embedded_run, _ = parse_flow_ref(flow)
+    rid = run or embedded_run
+    if rid is None:
+        rid = (
+            latest_successful_run_id(train, flow_name)
+            if successful
+            else latest_run_id(train, flow_name)
+        )
+    if not rid:
+        raise FileNotFoundError(f"no runs for flow {flow_name!r} under {train}")
+    root = flow_base(train, flow_name) / rid
+    if not root.is_dir():
+        raise FileNotFoundError(f"no flow run dir: {root}")
+    return root, rid, flow_name
+
+
+def open_flow_artifacts(
+    train: str | Path,
+    flow: str,
+    *,
+    run: str | None = None,
+    successful: bool = True,
+) -> "FlowArtifacts":
+    """Open another flow run's artifacts (read-only)."""
+    root_train = Path(train).expanduser().resolve()
+    run_root, rid, flow_name = resolve_flow_run(
+        root_train, flow, run=run, successful=successful
+    )
+    return FlowArtifacts(run_root, flow=flow_name, run_id=rid)
+
+
+def record_import(run_root: Path, entry: dict[str, Any]) -> None:
+    """Append one cross-flow import to ``imports.jsonl``."""
+    path = run_root / "imports.jsonl"
+    line = json.dumps({**entry, "at": _now()}, ensure_ascii=False)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+class FlowArtifacts:
+    """Read-only view of another flow run's artifacts."""
+
+    def __init__(self, root: Path, *, flow: str, run_id: str):
+        self.root = root
+        self.flow = flow
+        self.run_id = run_id
+        self._store = ArtifactStore(root)
+
+    @property
+    def pathspec(self) -> str:
+        return pathspec(self.flow, self.run_id)
+
+    def keys(self) -> list[str]:
+        return self._store.keys()
+
+    def get(self, name: str) -> Any:
+        return self._store.get(name)
+
+    def __getitem__(self, name: str) -> Any:
+        return self.get(name)
+
+    def __contains__(self, name: str) -> bool:
+        return name in self._store.keys()
+
+    def load(self) -> dict[str, Any]:
+        return self._store.load_all()
+
+    def ids(self) -> dict[str, str]:
+        return self._store.ids()
+
+    def origin_of(self, name: str) -> str:
+        return pathspec(self.flow, self.run_id, artifact=name)
 
 
 def write_step_meta(root: Path, step: str, **extra: Any) -> None:
@@ -574,8 +719,8 @@ class LayeredStore:
         self.main = main
         self.attempt = attempt
 
-    def put(self, name: str, value: Any) -> Path:
-        return self.attempt.put(name, value)
+    def put(self, name: str, value: Any, *, origin_pathspec: str | None = None) -> Path:
+        return self.attempt.put(name, value, origin_pathspec=origin_pathspec)
 
     def get(self, name: str) -> Any:
         try:

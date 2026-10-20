@@ -32,6 +32,7 @@ from aquin.autolog import (
 )
 from aquin.client import Aquin
 from aquin.flow import Flow, Run, retry, step
+from aquin.flow_store import FlowArtifacts, open_flow_artifacts
 from aquin.handle import RunHandle, open_run
 from aquin.catalog import (
     alias,
@@ -53,6 +54,7 @@ except ImportError:  # thin checkouts without fleet
 __all__ = [
     "Aquin",
     "Flow",
+    "FlowArtifacts",
     "Job",
     "Model",
     "Place",
@@ -87,6 +89,7 @@ __all__ = [
     "log_param",
     "log_params",
     "log_system",
+    "open_flow_artifacts",
     "open_run",
     "promote",
     "rebuild_catalog",

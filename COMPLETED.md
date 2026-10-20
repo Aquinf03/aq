@@ -100,6 +100,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - **Flow step freeze + resume** — each step writes `done/`, `snapshots/`, `steps.json`; `Flow().run(resume=True)` clones into a new run and continues
 - **`origin_pathspec`** — resume stamps lineage on the new run + cloned artifacts (`Prep/<run_id>/<step>`); `flow.origin_pathspec` / `summary["origin_pathspec"]`; `clone=False` for in-place
 - **`@retry`** — `times` + `minutes_between_retries`; each attempt under `attempts/<step>/<n>/`; **only the successful attempt** is promoted to visible `artifacts/` (`times=0` = no retry)
+- **Cross-flow reuse** — `self.import_from("Prep", "rows")` / `self.input(...)` / `open_flow_artifacts(...)`; stamps `origin_pathspec` + `imports.jsonl`
 - **`aq find`** — locate flow / catalog / checkpoint / run artifacts by name (CLI, not a Python object tree)
 - **Flow CAS** — `self.x` blobs under `cas/` by `sha256:…` (dedupe); pointers in `artifacts/`; `aq artifacts verify` / `flow.verify()`
 - **Flow code package** — each run writes `code/tree.tgz` (FlowSpec + aquin); `flow.code` → sha / path / file list
