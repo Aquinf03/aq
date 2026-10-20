@@ -14,6 +14,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -21,17 +22,23 @@ from aquin.client import Aquin
 from aquin.flow_code import read_flow_code, snapshot_flow_code
 from aquin.flow_store import (
     ArtifactStore,
+    LayeredStore,
     clone_run_for_resume,
     done_steps,
     flow_base,
     flow_run_dir,
     is_step_done,
     latest_run_id,
+    attempt_root,
+    make_attempt_store,
     mark_step_done,
     pathspec,
+    promote_attempt,
     read_origin,
     read_steps,
+    read_visible_attempt,
     resume_entry,
+    write_attempt_meta,
     write_boundary_snapshot,
     write_origin,
     write_steps,
@@ -54,6 +61,39 @@ def step(fn: Callable[..., Any] | None = None, *, place: str | None = None):
     if fn is not None:
         return deco(fn)
     return deco
+
+
+def retry(
+    fn: Callable[..., Any] | None = None,
+    *,
+    times: int = 3,
+    minutes_between_retries: float = 0,
+):
+    """Retry a ``@step`` on failure. Only the **last successful attempt** is visible.
+
+    Failed attempts stay under ``attempts/<step>/<n>/`` for forensics; the run's
+    ``artifacts/`` only gets outputs from the attempt that succeeded.
+
+    ``times`` — retries after the first try (``times=0`` → single attempt, no retry).
+    ``minutes_between_retries`` — sleep between attempts.
+    """
+
+    def deco(f: Callable[..., Any]) -> Callable[..., Any]:
+        setattr(f, "_aq_retry_times", int(times))
+        setattr(f, "_aq_retry_minutes", float(minutes_between_retries))
+        return f
+
+    if fn is not None:
+        return deco(fn)
+    return deco
+
+
+def _step_retry(fn: Callable[..., Any]) -> tuple[int | None, float]:
+    """Return ``(times, minutes)`` if ``@retry`` was applied; else ``(None, 0)``."""
+    raw = getattr(fn, "__func__", fn)
+    if not hasattr(raw, "_aq_retry_times"):
+        return None, 0.0
+    return int(getattr(raw, "_aq_retry_times")), float(getattr(raw, "_aq_retry_minutes", 0) or 0)
 
 
 class Run:
@@ -321,6 +361,31 @@ class Flow:
             store = ArtifactStore(run_root)
         return store.verify()
 
+    def _drop_user_attrs(self) -> None:
+        for name in list(vars(self).keys()):
+            if name.startswith("_"):
+                continue
+            object.__delattr__(self, name)
+
+    def _load_store_attrs(self, store: ArtifactStore) -> None:
+        self._drop_user_attrs()
+        for k, v in store.load_all().items():
+            object.__setattr__(self, k, v)
+
+    def attempt_artifacts(self, step: str, attempt: int | None = None) -> dict[str, Any]:
+        """Load artifacts from a retry attempt (forensics). Default: visible attempt."""
+        run_root = object.__getattribute__(self, "_aq_run_root")
+        if run_root is None:
+            raise RuntimeError("no flow run loaded — call run() first")
+        root = Path(run_root)
+        n = attempt if attempt is not None else read_visible_attempt(root, step)
+        if n is None:
+            return {}
+        ar = attempt_root(root, step, n)
+        if not ar.is_dir():
+            return {}
+        return ArtifactStore(ar, cas=root / "cas").load_all()
+
     def _boundary(
         self,
         run_root: Path,
@@ -331,8 +396,13 @@ class Flow:
         index: int,
         place: str | None,
         status: str = "ok",
+        attempt: int | None = None,
     ) -> None:
         """Snapshot + done marker + steps.json after a step boundary."""
+        extra: dict[str, Any] = {}
+        if attempt is not None:
+            extra["attempt"] = attempt
+            extra["visible_attempt"] = attempt
         write_step_meta(
             run_root,
             step_name,
@@ -340,6 +410,7 @@ class Flow:
             next=next_name,
             place=place,
             status=status,
+            **extra,
         )
         (run_root / "next.json").write_text(
             json.dumps({"next": next_name}, indent=2) + "\n",
@@ -356,6 +427,7 @@ class Flow:
             place=place,
             status=status,
             artifact_ids=store.ids(),
+            **extra,
         )
         write_steps(
             run_root,
@@ -374,9 +446,7 @@ class Flow:
         *,
         index: int,
     ) -> str | None:
-        object.__setattr__(self, "_aq_next", None)
-        for k, v in store.load_all().items():
-            object.__setattr__(self, k, v)
+        retry_times, retry_minutes = _step_retry(method)
         write_steps(
             run_root,
             status="running",
@@ -384,42 +454,126 @@ class Flow:
             next_step=None,
             done=done_steps(run_root),
         )
-        object.__setattr__(self, "_aq_persist", True)
-        try:
-            method()
-        except Exception as e:
-            object.__setattr__(self, "_aq_persist", False)
-            write_steps(
+
+        if retry_times is None:
+            # no @retry — write straight to visible artifacts/
+            object.__setattr__(self, "_aq_next", None)
+            self._load_store_attrs(store)
+            object.__setattr__(self, "_aq_store", store)
+            object.__setattr__(self, "_aq_persist", True)
+            try:
+                method()
+            except Exception as e:
+                object.__setattr__(self, "_aq_persist", False)
+                write_steps(
+                    run_root,
+                    status="failed",
+                    step=step_name,
+                    next_step=step_name,
+                    done=done_steps(run_root),
+                    error=f"{type(e).__name__}: {e}",
+                )
+                write_boundary_snapshot(
+                    run_root,
+                    step=step_name,
+                    index=index,
+                    next_step=step_name,
+                    artifacts=store.keys(),
+                    place=None,
+                    status="failed",
+                )
+                raise
+            finally:
+                object.__setattr__(self, "_aq_persist", False)
+            nxt = object.__getattribute__(self, "_aq_next")
+            next_name = getattr(nxt, "__name__", None) if nxt else None
+            self._boundary(
                 run_root,
-                status="failed",
-                step=step_name,
-                next_step=step_name,
-                done=done_steps(run_root),
-                error=f"{type(e).__name__}: {e}",
-            )
-            write_boundary_snapshot(
-                run_root,
-                step=step_name,
+                store,
+                step_name=step_name,
+                next_name=next_name,
                 index=index,
-                next_step=step_name,
-                artifacts=store.keys(),
                 place=None,
-                status="failed",
             )
-            raise
-        finally:
-            object.__setattr__(self, "_aq_persist", False)
-        nxt = object.__getattribute__(self, "_aq_next")
-        next_name = getattr(nxt, "__name__", None) if nxt else None
-        self._boundary(
-            run_root,
-            store,
-            step_name=step_name,
-            next_name=next_name,
-            index=index,
-            place=None,
-        )
-        return next_name
+            return next_name
+
+        max_attempts = 1 + max(0, retry_times)
+        last_err: BaseException | None = None
+        for attempt in range(max_attempts):
+            attempt_store = make_attempt_store(run_root, step_name, attempt)
+            layered = LayeredStore(store, attempt_store)
+            object.__setattr__(self, "_aq_next", None)
+            object.__setattr__(self, "_aq_store", layered)
+            object.__setattr__(self, "_aq_attempt", attempt)
+            self._load_store_attrs(store)
+            object.__setattr__(self, "_aq_persist", True)
+            try:
+                method()
+            except Exception as e:
+                object.__setattr__(self, "_aq_persist", False)
+                last_err = e
+                write_attempt_meta(
+                    run_root,
+                    step_name,
+                    attempt,
+                    status="failed",
+                    error=f"{type(e).__name__}: {e}",
+                    artifacts=attempt_store.keys(),
+                    visible=False,
+                )
+                if attempt + 1 >= max_attempts:
+                    object.__setattr__(self, "_aq_store", store)
+                    write_steps(
+                        run_root,
+                        status="failed",
+                        step=step_name,
+                        next_step=step_name,
+                        done=done_steps(run_root),
+                        error=f"{type(e).__name__}: {e}",
+                    )
+                    write_boundary_snapshot(
+                        run_root,
+                        step=step_name,
+                        index=index,
+                        next_step=step_name,
+                        artifacts=store.keys(),
+                        place=None,
+                        status="failed",
+                        attempt=attempt,
+                    )
+                    raise
+                if retry_minutes > 0:
+                    time.sleep(retry_minutes * 60)
+                continue
+            finally:
+                object.__setattr__(self, "_aq_persist", False)
+
+            # success — promote attempt → visible results only
+            promote_attempt(store, attempt_store)
+            write_attempt_meta(
+                run_root,
+                step_name,
+                attempt,
+                status="ok",
+                artifacts=attempt_store.keys(),
+                visible=True,
+            )
+            object.__setattr__(self, "_aq_store", store)
+            nxt = object.__getattribute__(self, "_aq_next")
+            next_name = getattr(nxt, "__name__", None) if nxt else None
+            self._boundary(
+                run_root,
+                store,
+                step_name=step_name,
+                next_name=next_name,
+                index=index,
+                place=None,
+                attempt=attempt,
+            )
+            return next_name
+
+        assert last_err is not None
+        raise last_err
 
     def _run_step_remote(
         self,
@@ -431,28 +585,17 @@ class Flow:
         run_id: str,
         flow_file: Path,
     ) -> str | None:
+        method = getattr(self, step_name)
+        retry_times, retry_minutes = _step_retry(method)
+        max_attempts = 1 if retry_times is None else (1 + max(0, retry_times))
+        use_attempts = retry_times is not None
+
         qualname = type(self).__qualname__
         try:
             flow_rel = flow_file.resolve().relative_to(train.resolve())
             flow_arg = str(flow_rel)
         except ValueError:
             flow_arg = str(flow_file)
-
-        cmd = [
-            "python3",
-            "-m",
-            "aquin.flow_worker",
-            "--train",
-            ".",
-            "--flow-file",
-            flow_arg,
-            "--class",
-            qualname,
-            "--step",
-            step_name,
-            "--run-id",
-            run_id,
-        ]
 
         store = ArtifactStore(run_root)
         idx = len(done_steps(run_root))
@@ -463,72 +606,129 @@ class Flow:
             next_step=None,
             done=done_steps(run_root),
         )
-        try:
-            if place_name == "local":
-                # Same machine, worker subprocess — same artifact paths, no SSH
-                import os
 
-                env = os.environ.copy()
-                pkg = str(Path(__file__).resolve().parent.parent)
-                env["PYTHONPATH"] = pkg + os.pathsep + env.get("PYTHONPATH", "")
-                cmd[0] = sys.executable
-                r = subprocess.run(cmd, cwd=str(train), capture_output=True, text=True, env=env)
-                if r.returncode != 0:
-                    raise RuntimeError(
-                        f"local flow worker failed ({r.returncode}):\n{r.stderr or r.stdout}"
-                    )
-            else:
-                from aquin.fleet import Place
+        last_err: BaseException | None = None
+        for attempt in range(max_attempts):
+            cmd = [
+                "python3",
+                "-m",
+                "aquin.flow_worker",
+                "--train",
+                ".",
+                "--flow-file",
+                flow_arg,
+                "--class",
+                qualname,
+                "--step",
+                step_name,
+                "--run-id",
+                run_id,
+            ]
+            if use_attempts:
+                cmd.extend(["--attempt", str(attempt)])
+                make_attempt_store(run_root, step_name, attempt)  # fresh dir before sync
 
-                place = Place(place_name)
-                # push train (includes artifacts/flow) — transfer glue is automatic
-                place.sync(train)
-                job = place.run(cmd)
-                st = job.wait()
-                code = st.get("code")
-                status = str(st.get("status") or "")
-                if status not in ("", "exited", "done") or (code is not None and int(code) != 0):
-                    raise RuntimeError(
-                        f"remote step {step_name!r} on {place_name!r} failed: {st}\n{job.logs()}"
+            try:
+                if place_name == "local":
+                    import os
+
+                    env = os.environ.copy()
+                    pkg = str(Path(__file__).resolve().parent.parent)
+                    env["PYTHONPATH"] = pkg + os.pathsep + env.get("PYTHONPATH", "")
+                    cmd[0] = sys.executable
+                    r = subprocess.run(cmd, cwd=str(train), capture_output=True, text=True, env=env)
+                    if r.returncode != 0:
+                        raise RuntimeError(
+                            f"local flow worker failed ({r.returncode}):\n{r.stderr or r.stdout}"
+                        )
+                else:
+                    from aquin.fleet import Place
+
+                    place = Place(place_name)
+                    place.sync(train)
+                    job = place.run(cmd)
+                    st = job.wait()
+                    code = st.get("code")
+                    status = str(st.get("status") or "")
+                    if status not in ("", "exited", "done") or (code is not None and int(code) != 0):
+                        raise RuntimeError(
+                            f"remote step {step_name!r} on {place_name!r} failed: {st}\n{job.logs()}"
+                        )
+                    aq_bin = shutil.which("aq") or "aq"
+                    subprocess.run(
+                        [aq_bin, "jobs", "pull", job.id, "--on", place_name],
+                        cwd=str(train),
+                        check=False,
+                        capture_output=True,
+                        text=True,
                     )
-                aq_bin = shutil.which("aq") or "aq"
-                subprocess.run(
-                    [aq_bin, "jobs", "pull", job.id, "--on", place_name],
-                    cwd=str(train),
-                    check=False,
-                    capture_output=True,
-                    text=True,
+            except Exception as e:
+                last_err = e
+                if use_attempts:
+                    ar = attempt_root(run_root, step_name, attempt)
+                    arts = (
+                        ArtifactStore(ar, cas=run_root / "cas").keys() if ar.is_dir() else []
+                    )
+                    write_attempt_meta(
+                        run_root,
+                        step_name,
+                        attempt,
+                        status="failed",
+                        error=f"{type(e).__name__}: {e}",
+                        artifacts=arts,
+                        visible=False,
+                    )
+                if attempt + 1 >= max_attempts:
+                    write_steps(
+                        run_root,
+                        status="failed",
+                        step=step_name,
+                        next_step=step_name,
+                        done=done_steps(run_root),
+                        error=f"{type(e).__name__}: {e}",
+                    )
+                    write_boundary_snapshot(
+                        run_root,
+                        step=step_name,
+                        index=idx,
+                        next_step=step_name,
+                        artifacts=store.keys(),
+                        place=place_name,
+                        status="failed",
+                        attempt=attempt if use_attempts else None,
+                    )
+                    raise
+                if retry_minutes > 0:
+                    time.sleep(retry_minutes * 60)
+                continue
+
+            # success
+            if use_attempts:
+                ar = attempt_root(run_root, step_name, attempt)
+                attempt_store = ArtifactStore(ar, cas=run_root / "cas")
+                promote_attempt(store, attempt_store)
+                write_attempt_meta(
+                    run_root,
+                    step_name,
+                    attempt,
+                    status="ok",
+                    artifacts=attempt_store.keys(),
+                    visible=True,
                 )
-        except Exception as e:
-            write_steps(
+            next_name = _read_next(run_root, step_name)
+            self._boundary(
                 run_root,
-                status="failed",
-                step=step_name,
-                next_step=step_name,
-                done=done_steps(run_root),
-                error=f"{type(e).__name__}: {e}",
-            )
-            write_boundary_snapshot(
-                run_root,
-                step=step_name,
+                store,
+                step_name=step_name,
+                next_name=next_name,
                 index=idx,
-                next_step=step_name,
-                artifacts=store.keys(),
                 place=place_name,
-                status="failed",
+                attempt=attempt if use_attempts else None,
             )
-            raise
+            return next_name
 
-        next_name = _read_next(run_root, step_name)
-        self._boundary(
-            run_root,
-            store,
-            step_name=step_name,
-            next_name=next_name,
-            index=idx,
-            place=place_name,
-        )
-        return next_name
+        assert last_err is not None
+        raise last_err
 
     def run(
         self,

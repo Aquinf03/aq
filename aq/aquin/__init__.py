@@ -31,7 +31,7 @@ from aquin.autolog import (
     table,
 )
 from aquin.client import Aquin
-from aquin.flow import Flow, Run, step
+from aquin.flow import Flow, Run, retry, step
 from aquin.handle import RunHandle, open_run
 from aquin.catalog import (
     alias,
@@ -90,6 +90,7 @@ __all__ = [
     "open_run",
     "promote",
     "rebuild_catalog",
+    "retry",
     "set_notes",
     "set_tags",
     "start_system",

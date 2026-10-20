@@ -219,7 +219,7 @@ State lives under `artifacts/flow/<FlowName>/<run_id>/artifacts/`.
 Laptop and remote steps use the **same paths** — `@step(place=\"…\")` syncs the train folder, runs the step on that SSH place, and pulls artifacts back (fleet is the transfer glue).
 
 ```python
-from aquin import Flow, step
+from aquin import Flow, step, retry
 
 class Prep(Flow):
     @step
@@ -227,6 +227,7 @@ class Prep(Flow):
         self.rows = [[1.0, 2.0]]
         self.next(self.heavy)
 
+    @retry(times=3)               # failed attempts stay under attempts/; only success is visible
     @step(place="gpu")            # fleet place from `aq add ssh`
     def heavy(self):
         self.rows = self.rows + [[3.0, 4.0]]
@@ -241,9 +242,12 @@ Prep().run(".")
 # @step(place="local")          # worker subprocess on this machine (no SSH)
 Prep().run(".", resume=True)    # clone prior run → new run_id; skip done/; continue
 # Prep().run(".", resume=True, clone=False)  # in-place continue (no new run)
+# @retry(times=0)               # no retries (escape for non-idempotent steps)
 ```
 
 JSON when possible, pickle otherwise. Blobs live in `cas/` keyed by `sha256:…` (dedupe + integrity); names under `artifacts/` are pointers. Each step boundary writes `done/<step>`, `snapshots/`, and `steps.json`.
+
+With `@retry`, each try writes under `attempts/<step>/<n>/`; **only the successful attempt** is promoted into the run’s visible `artifacts/`. Failed attempts stay for forensics (`flow.attempt_artifacts("heavy", 0)`).
 
 Resume clones by default and stamps **`origin_pathspec`** on the new run + each copied artifact (`FlowName/<source_run>/<step>` or `#artifact`):
 

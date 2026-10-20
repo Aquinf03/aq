@@ -1,7 +1,7 @@
 """Run one Flow step (used locally or on a fleet place).
 
     python -m aquin.flow_worker --train . --flow-file path.py --class Prep \\
-        --step heavy --run-id 2026…
+        --step heavy --run-id 2026… [--attempt N]
 """
 
 from __future__ import annotations
@@ -36,9 +36,15 @@ def run_step(
     qualname: str,
     step_name: str,
     run_id: str,
+    attempt: int | None = None,
 ) -> dict[str, Any]:
     from aquin.flow import Flow
-    from aquin.flow_store import ArtifactStore, write_step_meta
+    from aquin.flow_store import (
+        ArtifactStore,
+        LayeredStore,
+        make_attempt_store,
+        write_step_meta,
+    )
 
     cls = _load_class(flow_file, qualname)
     if not issubclass(cls, Flow):
@@ -48,12 +54,19 @@ def run_step(
     run_root = train / "artifacts" / "flow" / name / run_id
     if not run_root.is_dir():
         raise SystemExit(f"missing flow run dir: {run_root}")
-    store = ArtifactStore(run_root)
+    main = ArtifactStore(run_root)
+    if attempt is not None:
+        attempt_store = make_attempt_store(run_root, step_name, attempt)
+        store: ArtifactStore | LayeredStore = LayeredStore(main, attempt_store)
+    else:
+        attempt_store = None
+        store = main
     object.__setattr__(flow, "_aq_train", train.resolve())
     object.__setattr__(flow, "_aq_run_id", run_id)
     object.__setattr__(flow, "_aq_run_root", run_root)
     object.__setattr__(flow, "_aq_store", store)
     object.__setattr__(flow, "_aq_step_name", step_name)
+    object.__setattr__(flow, "_aq_attempt", attempt)
     object.__setattr__(flow, "_aq_next", None)
 
     method = getattr(flow, step_name, None)
@@ -63,7 +76,7 @@ def run_step(
     if not getattr(raw, "_aq_step", False):
         raise SystemExit(f"{step_name!r} is not a @step")
 
-    for k, v in store.load_all().items():
+    for k, v in main.load_all().items():
         object.__setattr__(flow, k, v)
     object.__setattr__(flow, "_aq_persist", True)
     try:
@@ -73,12 +86,16 @@ def run_step(
 
     nxt = object.__getattribute__(flow, "_aq_next")
     next_name = getattr(nxt, "__name__", None) if nxt else None
+    # next.json at run root so controller can read it; attempt outputs stay in attempt dir
+    # until the controller promotes the successful attempt.
+    art_keys = attempt_store.keys() if attempt_store is not None else main.keys()
     write_step_meta(
         run_root,
         step_name,
-        artifacts=store.keys(),
+        artifacts=art_keys,
         next=next_name,
         place="worker",
+        attempt=attempt,
     )
     (run_root / "next.json").write_text(
         json.dumps({"next": next_name}, indent=2) + "\n",
@@ -87,7 +104,8 @@ def run_step(
     out = {
         "step": step_name,
         "next": next_name,
-        "artifacts": store.keys(),
+        "artifacts": art_keys,
+        "attempt": attempt,
         "path": str(run_root),
     }
     print(json.dumps(out))
@@ -101,6 +119,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--class", dest="qualname", required=True)
     p.add_argument("--step", required=True)
     p.add_argument("--run-id", required=True)
+    p.add_argument("--attempt", type=int, default=None)
     args = p.parse_args(argv)
     run_step(
         train=Path(args.train).expanduser().resolve(),
@@ -108,6 +127,7 @@ def main(argv: list[str] | None = None) -> None:
         qualname=args.qualname,
         step_name=args.step,
         run_id=args.run_id,
+        attempt=args.attempt,
     )
 
 

@@ -38,10 +38,11 @@ def _hex(aid: str) -> str:
 class ArtifactStore:
     """Named artifacts backed by a content-addressed ``cas/`` store."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, cas: Path | None = None):
         self.root = root
         self.dir = root / "artifacts"
-        self.cas = root / "cas"
+        # shared CAS for attempt dirs under the same run
+        self.cas = cas if cas is not None else (root / "cas")
         self.dir.mkdir(parents=True, exist_ok=True)
         self.cas.mkdir(parents=True, exist_ok=True)
 
@@ -340,6 +341,7 @@ def write_boundary_snapshot(
     place: str | None = None,
     status: str = "ok",
     artifact_ids: dict[str, str] | None = None,
+    **extra: Any,
 ) -> Path:
     """Freeze observability state at a step boundary (after the step finishes)."""
     snap_dir = root / "snapshots"
@@ -356,6 +358,9 @@ def write_boundary_snapshot(
     }
     if artifact_ids:
         body["artifact_ids"] = artifact_ids
+    for k, v in extra.items():
+        if v is not None:
+            body[k] = v
     path = snap_dir / f"{index:04d}-{_safe_name(step)}.json"
     path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
     (snap_dir / "latest.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
@@ -546,3 +551,109 @@ def clone_run_for_resume(
         "cloned_artifacts": cloned_arts,
         "done": done_steps(dest),
     }
+
+
+def attempt_root(run_root: Path, step: str, attempt: int) -> Path:
+    """``attempts/<step>/<n>/`` — one dir per retry attempt."""
+    return run_root / "attempts" / _safe_name(step) / str(int(attempt))
+
+
+def make_attempt_store(run_root: Path, step: str, attempt: int) -> ArtifactStore:
+    """Attempt-scoped pointer dir; CAS shared with the run."""
+    root = attempt_root(run_root, step, attempt)
+    if root.exists():
+        shutil.rmtree(root)
+    root.mkdir(parents=True, exist_ok=True)
+    return ArtifactStore(root, cas=run_root / "cas")
+
+
+class LayeredStore:
+    """Writes go to the attempt store; reads prefer attempt then main (visible)."""
+
+    def __init__(self, main: ArtifactStore, attempt: ArtifactStore):
+        self.main = main
+        self.attempt = attempt
+
+    def put(self, name: str, value: Any) -> Path:
+        return self.attempt.put(name, value)
+
+    def get(self, name: str) -> Any:
+        try:
+            return self.attempt.get(name)
+        except KeyError:
+            return self.main.get(name)
+
+    def keys(self) -> list[str]:
+        return sorted(set(self.main.keys()) | set(self.attempt.keys()))
+
+    def load_all(self) -> dict[str, Any]:
+        out = self.main.load_all()
+        out.update(self.attempt.load_all())
+        return out
+
+    def ids(self) -> dict[str, str]:
+        out = self.main.ids()
+        out.update(self.attempt.ids())
+        return out
+
+    def id_of(self, name: str) -> str | None:
+        return self.attempt.id_of(name) or self.main.id_of(name)
+
+    def verify(self) -> dict[str, Any]:
+        return self.main.verify()
+
+
+def promote_attempt(main: ArtifactStore, attempt: ArtifactStore) -> list[str]:
+    """Copy attempt outputs into the run's visible ``artifacts/`` (CAS dedupes)."""
+    promoted: list[str] = []
+    for name in attempt.keys():
+        main.put(name, attempt.get(name))
+        promoted.append(name)
+    return promoted
+
+
+def write_attempt_meta(
+    run_root: Path,
+    step: str,
+    attempt: int,
+    *,
+    status: str,
+    error: str | None = None,
+    artifacts: list[str] | None = None,
+    visible: bool = False,
+) -> dict[str, Any]:
+    """Record one retry attempt under ``attempts/<step>/<n>/meta.json``."""
+    root = attempt_root(run_root, step, attempt)
+    root.mkdir(parents=True, exist_ok=True)
+    body: dict[str, Any] = {
+        "step": step,
+        "attempt": attempt,
+        "status": status,
+        "visible": visible,
+        "at": _now(),
+        "artifacts": list(artifacts or []),
+    }
+    if error:
+        body["error"] = error
+    (root / "meta.json").write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+    if visible:
+        vis = run_root / "attempts" / _safe_name(step) / "visible.json"
+        vis.parent.mkdir(parents=True, exist_ok=True)
+        vis.write_text(
+            json.dumps({"attempt": attempt, "at": _now()}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return body
+
+
+def read_visible_attempt(run_root: Path, step: str) -> int | None:
+    p = run_root / "attempts" / _safe_name(step) / "visible.json"
+    if not p.is_file():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    if isinstance(data, dict) and data.get("attempt") is not None:
+        return int(data["attempt"])
+    return None
