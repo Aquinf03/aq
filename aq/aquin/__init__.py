@@ -34,6 +34,7 @@ from aquin.client import Aquin
 from aquin.flow import Flow, Run, retry, step
 from aquin.flow_store import FlowArtifacts, open_flow_artifacts
 from aquin.handle import RunHandle, open_run
+from aquin.runs import RunView, Runs, StepView, TryView, runs
 from aquin.catalog import (
     alias,
     aliases,
@@ -61,6 +62,10 @@ __all__ = [
     "Queue",
     "Run",
     "RunHandle",
+    "RunView",
+    "Runs",
+    "StepView",
+    "TryView",
     "add_tags",
     "alias",
     "aliases",
@@ -94,6 +99,7 @@ __all__ = [
     "promote",
     "rebuild_catalog",
     "retry",
+    "runs",
     "set_notes",
     "set_tags",
     "start_system",

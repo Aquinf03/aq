@@ -21,6 +21,7 @@ Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#t
 - [Model evaluation](#model-evaluation-metrics--plots)
 - [Load + predict](#load--predict)
 - [Flow steps (self.x persists)](#flow-steps-selfx-persists)
+- [Inspect runs (runs → step → try → art)](#inspect-runs-runs--step--try--art)
 - [Init a run](#init-a-run)
 - [YAML / SDK authoring](#option-a--edit-yaml-open-with-sdk--cli)
 - [Autolog](#autolog-framework-integrations)
@@ -268,6 +269,26 @@ class Train(Flow):
 ```
 
 Also: `open_flow_artifacts(".", "Prep")` outside a run. Imports append `imports.jsonl` and stamp each pointer’s `origin_pathspec` (`Prep/<run>#rows`).
+
+### Inspect runs (`runs` → step → try → art)
+
+Read what already ran — folders only, no Metaflow object religion:
+
+```python
+from aquin import runs
+
+r = runs("Prep").latest          # or .latest_ok / runs("Prep")["2026…"]
+print(r.status, r.pathspec)
+print(r.art("rows"))             # visible artifact value
+print(r.arts)                    # all visible self.x
+
+for step in r:
+    print(step.name, step.done, step.pathspec)
+
+# retry forensics (when @retry was used)
+t0 = r.step("heavy").try_(0)
+print(t0.status, t0.arts)        # failed attempt blobs stay here
+```
 
 Resume clones by default and stamps **`origin_pathspec`** on the new run + each copied artifact (`FlowName/<source_run>/<step>` or `#artifact`):
 
