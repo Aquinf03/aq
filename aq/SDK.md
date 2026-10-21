@@ -289,6 +289,12 @@ for step in r:
 # retry forensics (when @retry was used)
 t0 = r.step("heavy").try_(0)
 print(t0.status, t0.arts)        # failed attempt blobs stay here
+
+# labels (user mutable; sys:… protected)
+Prep().run(".", tags=["env=prod", "model=v3"])
+r.add_tags("fleet=gpu")
+r.replace_tags("env=staging")    # user tags only
+runs("Prep", tags=["env=staging"])  # AND filter
 ```
 
 ### Pathspecs (`at` / `aq at`)

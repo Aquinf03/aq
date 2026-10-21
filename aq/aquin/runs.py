@@ -13,6 +13,8 @@ from typing import Any, Iterator
 from aquin.flow_store import (
     ArtifactStore,
     _safe_name,
+    add_run_tags,
+    all_run_tags,
     attempt_root,
     done_steps,
     flow_base,
@@ -21,22 +23,32 @@ from aquin.flow_store import (
     list_flow_run_ids,
     parse_pathspec,
     pathspec,
+    read_run_tags,
     read_steps,
     read_visible_attempt,
+    remove_run_tags,
+    replace_run_tags,
+    tags_match,
 )
 
 
-def runs(flow: str, *, train: str | Path = ".") -> "Runs":
+def runs(
+    flow: str,
+    *,
+    train: str | Path = ".",
+    tags: str | list[str] | tuple[str, ...] | None = None,
+) -> "Runs":
     """Handle for a workflow's executions under the train folder.
 
     ::
 
         runs("Prep").latest.art("rows")
+        runs("Prep", tags=["env=prod"])          # AND filter
         runs("Prep").latest_ok.step("heavy").try_(0).arts
         for run in runs("Prep"):
             print(run.id, run.status)
     """
-    return Runs(flow, train=train)
+    return Runs(flow, train=train, tags=tags)
 
 
 def at(
@@ -116,6 +128,7 @@ def describe_at(spec: str, *, train: str | Path = ".", successful: bool = True) 
             "status": obj.status,
             "steps": obj.steps(),
             "arts": list(obj.arts.keys()),
+            "tags": obj.tags,
         }
     if isinstance(obj, StepView):
         return {
@@ -168,16 +181,27 @@ def describe_at(spec: str, *, train: str | Path = ".", successful: bool = True) 
 class Runs:
     """``artifacts/flow/<Flow>/`` — iterable collection of run views."""
 
-    def __init__(self, flow: str, *, train: str | Path = "."):
+    def __init__(
+        self,
+        flow: str,
+        *,
+        train: str | Path = ".",
+        tags: str | list[str] | tuple[str, ...] | None = None,
+    ):
         self.flow = flow.strip().split("/")[0]
         self.train = Path(train).expanduser().resolve()
+        self._tags = tags
 
     @property
     def base(self) -> Path:
         return flow_base(self.train, self.flow)
 
     def ids(self) -> list[str]:
-        return list_flow_run_ids(self.train, self.flow)
+        out: list[str] = []
+        for rid in list_flow_run_ids(self.train, self.flow):
+            if tags_match(self.base / rid, self._tags):
+                out.append(rid)
+        return out
 
     def __iter__(self) -> Iterator["RunView"]:
         for rid in self.ids():
@@ -190,29 +214,50 @@ class Runs:
         root = self.base / run_id
         if not root.is_dir():
             raise KeyError(f"no run {run_id!r} for {self.flow} under {self.train}")
-        return RunView(self.train, self.flow, run_id)
+        view = RunView(self.train, self.flow, run_id)
+        if self._tags is not None and not view.has_tags(self._tags):
+            raise KeyError(f"run {run_id!r} does not match tags {self._tags!r}")
+        return view
 
     def __contains__(self, run_id: object) -> bool:
-        return isinstance(run_id, str) and (self.base / run_id).is_dir()
+        if not isinstance(run_id, str) or not (self.base / run_id).is_dir():
+            return False
+        return tags_match(self.base / run_id, self._tags)
 
     @property
     def latest(self) -> "RunView":
-        """Run pointed at by ``latest`` (may be incomplete)."""
-        rid = latest_run_id(self.train, self.flow)
-        if not rid:
-            raise FileNotFoundError(f"no runs for {self.flow!r} under {self.train}")
-        return self[rid]
+        """Newest matching run by id sort (or ``latest`` pointer if no tag filter)."""
+        if self._tags is None:
+            rid = latest_run_id(self.train, self.flow)
+            if not rid:
+                raise FileNotFoundError(f"no runs for {self.flow!r} under {self.train}")
+            return RunView(self.train, self.flow, rid)
+        ids = self.ids()
+        if not ids:
+            raise FileNotFoundError(
+                f"no runs for {self.flow!r} matching tags {self._tags!r} under {self.train}"
+            )
+        return RunView(self.train, self.flow, ids[-1])
 
     @property
     def latest_ok(self) -> "RunView":
-        """Newest successful run (``steps.json`` status ``ok``)."""
-        rid = latest_successful_run_id(self.train, self.flow)
-        if not rid:
-            raise FileNotFoundError(f"no successful runs for {self.flow!r} under {self.train}")
-        return self[rid]
+        """Newest successful run (optional tag filter)."""
+        if self._tags is None:
+            rid = latest_successful_run_id(self.train, self.flow)
+            if not rid:
+                raise FileNotFoundError(f"no successful runs for {self.flow!r} under {self.train}")
+            return RunView(self.train, self.flow, rid)
+        for rid in reversed(self.ids()):
+            view = RunView(self.train, self.flow, rid)
+            if view.status == "ok":
+                return view
+        raise FileNotFoundError(
+            f"no successful runs for {self.flow!r} matching tags {self._tags!r} under {self.train}"
+        )
 
     def __repr__(self) -> str:
-        return f"runs({self.flow!r}, train={str(self.train)!r})"
+        extra = f", tags={self._tags!r}" if self._tags is not None else ""
+        return f"runs({self.flow!r}, train={str(self.train)!r}{extra})"
 
 
 class RunView:
@@ -227,6 +272,36 @@ class RunView:
     @property
     def pathspec(self) -> str:
         return pathspec(self.flow, self.id)
+
+    @property
+    def tags(self) -> list[str]:
+        return all_run_tags(self.root)
+
+    @property
+    def user_tags(self) -> list[str]:
+        return read_run_tags(self.root)["user"]
+
+    @property
+    def system_tags(self) -> list[str]:
+        return read_run_tags(self.root)["system"]
+
+    def has_tags(self, required: str | list[str] | tuple[str, ...] | None) -> bool:
+        return tags_match(self.root, required)
+
+    def add_tags(self, *tags: str) -> list[str]:
+        """Add user tags (``sys:…`` rejected)."""
+        add_run_tags(self.root, *tags, system=False)
+        return self.tags
+
+    def remove_tags(self, *tags: str) -> list[str]:
+        """Remove user tags; system tags are protected."""
+        remove_run_tags(self.root, *tags)
+        return self.tags
+
+    def replace_tags(self, *tags: str) -> list[str]:
+        """Replace all user tags; system tags kept."""
+        replace_run_tags(self.root, *tags)
+        return self.tags
 
     @property
     def status(self) -> str | None:

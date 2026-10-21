@@ -103,6 +103,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - **Cross-flow reuse** — `self.import_from("Prep", "rows")` / `self.input(...)` / `open_flow_artifacts(...)`; stamps `origin_pathspec` + `imports.jsonl`
 - **`runs` → step → try → art** — archaeology handles over flow folders (`runs("Prep").latest.art("rows")`); `.latest` / `.latest_ok`; iterate runs/steps; `.try_(n)` for retry forensics
 - **Pathspecs everywhere** — `at("Prep/<run>/heavy#rows")` / `aq at` resolve to run / step / try / value (same address as `origin_pathspec`)
+- **Flow-run tags** — `Flow().run(tags=[…])` / `run.add_tags` / `replace_tags` / `remove_tags`; `sys:…` protected; `runs("Prep", tags=["env=prod"])` AND-filter
 - **`aq find`** — locate flow / catalog / checkpoint / run artifacts by name (CLI, not a Python object tree)
 - **Flow CAS** — `self.x` blobs under `cas/` by `sha256:…` (dedupe); pointers in `artifacts/`; `aq artifacts verify` / `flow.verify()`
 - **Flow code package** — each run writes `code/tree.tgz` (FlowSpec + aquin); `flow.code` → sha / path / file list

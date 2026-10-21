@@ -621,6 +621,117 @@ def read_origin(root: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+# --- flow-run tags (user mutable / system protected) ---
+
+_SYSTEM_TAG_PREFIX = "sys:"
+
+
+def _norm_tag(tag: str) -> str:
+    t = str(tag).strip()
+    if not t:
+        raise ValueError("empty tag")
+    return t
+
+
+def _is_system_tag(tag: str) -> bool:
+    return _norm_tag(tag).startswith(_SYSTEM_TAG_PREFIX)
+
+
+def read_run_tags(root: Path) -> dict[str, list[str]]:
+    """``{"user": [...], "system": [...]}`` from ``tags.json``."""
+    p = root / "tags.json"
+    empty: dict[str, list[str]] = {"user": [], "system": []}
+    if not p.is_file():
+        return empty
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return empty
+    if not isinstance(data, dict):
+        return empty
+    user = [str(x) for x in (data.get("user") or []) if str(x).strip()]
+    system = [str(x) for x in (data.get("system") or []) if str(x).strip()]
+    return {"user": sorted(set(user)), "system": sorted(set(system))}
+
+
+def all_run_tags(root: Path) -> list[str]:
+    t = read_run_tags(root)
+    return sorted(set(t["user"]) | set(t["system"]))
+
+
+def write_run_tags(root: Path, *, user: list[str] | None = None, system: list[str] | None = None) -> dict[str, list[str]]:
+    cur = read_run_tags(root)
+    if user is not None:
+        cur["user"] = sorted({_norm_tag(t) for t in user if not _is_system_tag(t)})
+    if system is not None:
+        cur["system"] = sorted({_norm_tag(t) for t in system if _is_system_tag(t)})
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "tags.json").write_text(json.dumps(cur, indent=2) + "\n", encoding="utf-8")
+    return cur
+
+
+def add_run_tags(root: Path, *tags: str, system: bool = False) -> dict[str, list[str]]:
+    """Add tags. ``system=True`` writes ``sys:…`` tags (protected)."""
+    cur = read_run_tags(root)
+    for raw in tags:
+        t = _norm_tag(raw)
+        if system:
+            if not _is_system_tag(t):
+                t = _SYSTEM_TAG_PREFIX + t
+            cur["system"] = sorted(set(cur["system"]) | {t})
+        else:
+            if _is_system_tag(t):
+                raise ValueError(f"cannot add system tag via user API: {t} (use system=True)")
+            cur["user"] = sorted(set(cur["user"]) | {t})
+    return write_run_tags(root, user=cur["user"], system=cur["system"])
+
+
+def remove_run_tags(root: Path, *tags: str) -> dict[str, list[str]]:
+    """Remove **user** tags only. System tags are protected."""
+    cur = read_run_tags(root)
+    drop = {_norm_tag(t) for t in tags}
+    sys_hit = [t for t in drop if _is_system_tag(t) or t in cur["system"]]
+    if sys_hit:
+        raise ValueError(f"cannot remove system tags: {sorted(sys_hit)}")
+    cur["user"] = sorted(set(cur["user"]) - drop)
+    return write_run_tags(root, user=cur["user"], system=cur["system"])
+
+
+def replace_run_tags(root: Path, *tags: str) -> dict[str, list[str]]:
+    """Replace all **user** tags (system tags untouched)."""
+    user = [_norm_tag(t) for t in tags]
+    if any(_is_system_tag(t) for t in user):
+        raise ValueError("replace_run_tags only accepts user tags (not sys:…)")
+    cur = read_run_tags(root)
+    return write_run_tags(root, user=user, system=cur["system"])
+
+
+def set_system_tag(root: Path, key: str, value: str) -> dict[str, list[str]]:
+    """Set ``sys:<key>=<value>``, replacing any prior ``sys:<key>=…``."""
+    key = str(key).strip()
+    if not key:
+        raise ValueError("empty system tag key")
+    prefix = f"{_SYSTEM_TAG_PREFIX}{key}="
+    cur = read_run_tags(root)
+    system = [t for t in cur["system"] if not t.startswith(prefix)]
+    system.append(f"{prefix}{value}")
+    return write_run_tags(root, user=cur["user"], system=system)
+
+
+def tags_match(root: Path, required: str | list[str] | tuple[str, ...] | None) -> bool:
+    """True if run has **all** required tags (AND). ``None`` / empty → True."""
+    if required is None:
+        return True
+    if isinstance(required, str):
+        need = [required] if required.strip() else []
+    else:
+        need = [str(t) for t in required if str(t).strip()]
+    if not need:
+        return True
+    have = set(all_run_tags(root))
+    return all(_norm_tag(t) in have for t in need)
+
+
 def clone_run_for_resume(
     src: Path,
     dest: Path,
@@ -650,6 +761,11 @@ def clone_run_for_resume(
         resume_step=resume_step,
         cloned=True,
     )
+    # carry user tags; refresh system
+    src_tags = read_run_tags(src)
+    write_run_tags(dest, user=src_tags["user"], system=[])
+    set_system_tag(dest, "flow", _safe_name(flow))
+    set_system_tag(dest, "cloned_from", source_run_id)
 
     # done markers
     src_done = src / "done"

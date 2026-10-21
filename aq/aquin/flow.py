@@ -33,6 +33,8 @@ from aquin.flow_store import (
     latest_run_id,
     make_attempt_store,
     mark_step_done,
+    add_run_tags,
+    all_run_tags,
     open_flow_artifacts,
     parse_flow_ref,
     pathspec,
@@ -42,6 +44,7 @@ from aquin.flow_store import (
     read_visible_attempt,
     record_import,
     resume_entry,
+    set_system_tag,
     write_attempt_meta,
     write_boundary_snapshot,
     write_origin,
@@ -836,6 +839,7 @@ class Flow:
         place: str | None = None,
         resume: bool | str = False,
         clone: bool = True,
+        tags: str | list[str] | tuple[str, ...] | None = None,
     ) -> dict[str, Any]:
         """Execute from ``start``, persisting artifacts between steps.
 
@@ -847,6 +851,9 @@ class Flow:
         that ``run_id``. By default ``clone=True``: successful steps are copied into
         a **new** run with ``origin_pathspec`` lineage. ``clone=False`` continues
         in-place.
+
+        ``tags`` — user labels on this run (``env=prod``); filter later with
+        ``runs("Prep", tags=[…])``. System tags (``sys:…``) are stamped automatically.
         """
         root = Path(train).expanduser().resolve()
         name = type(self).__name__
@@ -909,6 +916,12 @@ class Flow:
             run_root, rid = flow_run_dir(root, name, run_id=run_id)
 
         store = ArtifactStore(run_root)
+        set_system_tag(run_root, "flow", name)
+        set_system_tag(run_root, "status", "running")
+        if tags:
+            tag_list = [tags] if isinstance(tags, str) else list(tags)
+            if tag_list:
+                add_run_tags(run_root, *tag_list, system=False)
 
         object.__setattr__(self, "_aq_train", root)
         object.__setattr__(self, "_aq_run_id", rid)
@@ -966,54 +979,61 @@ class Flow:
         visited: list[str] = []
         places_used: list[str | None] = []
         index = len(done_steps(run_root))
-        while current is not None:
-            step_name = getattr(current, "__name__", "step")
-            if step_name in visited:
-                raise RuntimeError(f"flow cycle at step {step_name!r}")
-            # skip already-done steps (resume)
-            if is_step_done(run_root, step_name) and step_name != resume_from:
-                # follow recorded next
-                next_name = _read_next(run_root, step_name)
-                skipped.append(step_name)
+        try:
+            while current is not None:
+                step_name = getattr(current, "__name__", "step")
+                if step_name in visited:
+                    raise RuntimeError(f"flow cycle at step {step_name!r}")
+                # skip already-done steps (resume)
+                if is_step_done(run_root, step_name) and step_name != resume_from:
+                    # follow recorded next
+                    next_name = _read_next(run_root, step_name)
+                    skipped.append(step_name)
+                    if next_name:
+                        current = getattr(self, next_name, None)
+                        continue
+                    break
+
+                visited.append(step_name)
+                object.__setattr__(self, "_aq_step_name", step_name)
+
+                step_place = _step_place(current) or place
+                places_used.append(step_place)
+
+                if step_place:
+                    if flow_file is None:
+                        flow_file = _resolve_flow_file(type(self), root, run_root)
+                        object.__setattr__(self, "_aq_flow_file", flow_file)
+                    next_name = self._run_step_remote(
+                        place_name=step_place,
+                        step_name=step_name,
+                        train=root,
+                        run_root=run_root,
+                        run_id=rid,
+                        flow_file=flow_file,
+                    )
+                else:
+                    next_name = self._run_step_local(
+                        current, store, run_root, step_name, index=index
+                    )
+                index += 1
+                resume_from = None  # only force first resume step once
+
                 if next_name:
-                    current = getattr(self, next_name, None)
-                    continue
-                break
-
-            visited.append(step_name)
-            object.__setattr__(self, "_aq_step_name", step_name)
-
-            step_place = _step_place(current) or place
-            places_used.append(step_place)
-
-            if step_place:
-                if flow_file is None:
-                    flow_file = _resolve_flow_file(type(self), root, run_root)
-                    object.__setattr__(self, "_aq_flow_file", flow_file)
-                next_name = self._run_step_remote(
-                    place_name=step_place,
-                    step_name=step_name,
-                    train=root,
-                    run_root=run_root,
-                    run_id=rid,
-                    flow_file=flow_file,
-                )
-            else:
-                next_name = self._run_step_local(
-                    current, store, run_root, step_name, index=index
-                )
-            index += 1
-            resume_from = None  # only force first resume step once
-
-            if next_name:
-                nxt_fn = getattr(self, next_name, None)
-                if nxt_fn is None or not getattr(getattr(nxt_fn, "__func__", nxt_fn), "_aq_step", False):
-                    raise RuntimeError(f"next step {next_name!r} missing or not a @step")
-                current = nxt_fn
-            else:
-                current = None
+                    nxt_fn = getattr(self, next_name, None)
+                    if nxt_fn is None or not getattr(getattr(nxt_fn, "__func__", nxt_fn), "_aq_step", False):
+                        raise RuntimeError(f"next step {next_name!r} missing or not a @step")
+                    current = nxt_fn
+                else:
+                    current = None
+        except Exception:
+            set_system_tag(run_root, "status", "failed")
+            raise
 
         origin_out = origin_meta or read_origin(run_root)
+        final_status = (read_steps(run_root) or {}).get("status") or "ok"
+        set_system_tag(run_root, "status", str(final_status))
+
         summary = {
             "flow": name,
             "run_id": rid,
@@ -1032,7 +1052,8 @@ class Flow:
             else read_flow_code(run_root),
             "origin_pathspec": (origin_out or {}).get("origin_pathspec") if origin_out else None,
             "resumed": bool(resume),
-            "status": (read_steps(run_root) or {}).get("status") or "ok",
+            "status": final_status,
+            "tags": all_run_tags(run_root),
         }
         (run_root / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         return summary
