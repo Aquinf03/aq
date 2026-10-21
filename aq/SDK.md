@@ -213,6 +213,22 @@ or `aq_model_id` (`sha256:…`). `train=` is the run root (defaults to cwd / nea
 
 LLM / serve-style methods: `model.generate(prompt, …)` when the method implements it.
 
+### Local API (`aq serve --api`)
+
+One-shot stay: `aq serve "prompt"`. For a temp port you can hit however you like:
+
+```bash
+aq serve --api                  # http://127.0.0.1:8765
+aq serve --api --port 9000 --ckpt last
+curl -s http://127.0.0.1:8765/health
+curl -s -X POST http://127.0.0.1:8765/predict \
+  -H 'content-type: application/json' \
+  -d '{"x": [[1.0, 2.0, 3.0]]}'
+# POST /generate  {"prompt": "…"}   for LLM / generate methods
+```
+
+Ctrl-C stops the server.
+
 ## Flow steps (`self.x` persists)
 
 Multi-step scripts: assign on `self` and the next `@step` sees it — no manual save/load.

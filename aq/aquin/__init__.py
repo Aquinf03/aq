@@ -47,6 +47,7 @@ from aquin.catalog import (
 from aquin.lineage import lineage
 from aquin.model import Model, load
 from aquin.scaffold import init_run
+from aquin.serve_api import serve as serve_api
 
 try:
     from aquin.fleet import Job, Place, Queue
@@ -104,6 +105,7 @@ __all__ = [
     "rebuild_catalog",
     "retry",
     "runs",
+    "serve_api",
     "set_notes",
     "set_tags",
     "start_system",

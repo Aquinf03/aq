@@ -291,7 +291,7 @@ export async function kernelStep(step: string, argv: string[]): Promise<string> 
       train = assertTrain(".")
     } else {
       throw new Error(
-        "usage: aq serve [dir] [prompt] [--image path] [--ckpt name] [--max-tokens n] [--temperature t]",
+        "usage: aq serve [dir] [prompt] [--image …] [--ckpt …]  OR  aq serve [dir] --api [--port N]",
       )
     }
   } else if (rest.length > 1) {

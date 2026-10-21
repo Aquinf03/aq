@@ -55,5 +55,10 @@ export async function checkpoint(argv: string[]): Promise<void> {
 }
 
 export async function serve(argv: string[]): Promise<void> {
+  const { wantsServeApi, serveApi } = await import("./serve_api.js")
+  if (wantsServeApi(argv)) {
+    await serveApi(argv)
+    return
+  }
   await kernelStep("serve", argv)
 }

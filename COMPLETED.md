@@ -11,7 +11,7 @@ The experiment is a **directory**: `recipe.yaml` (path map) + `artifacts/` (runt
 | **Tracking** | Autolog, TUI / `aq track`, metrics, run records, classical eval suite |
 | **Artifacts** | Catalog, aliases, promote/webhooks, lineage, logged models |
 | **Compute** | SSH places → jobs → pools |
-| **Serve** | `aq serve` on a checkpoint; SDK `load` + `predict` |
+| **Serve** | one-shot `aq serve` + durable `aq serve --api` (local REST); SDK `load` + `predict` |
 | **Methods** | Tabular, transformers, LLM/LoRA/QLoRA, vision, VLM |
 
 ---
@@ -125,7 +125,8 @@ Laptop is the control plane; jobs run on **your** machines over SSH.
 
 ## Serve & inference
 
-- `aq serve` on a checkpoint (method-native path)
+- `aq serve` one-shot on a checkpoint (method-native path)
+- **`aq serve --api`** — durable local REST (`/predict`, `/generate`, `/health`) until Ctrl-C; `--port` / `--host` / `--ckpt`
 - **SDK load + predict** — `from aquin import load` → `model.predict(x)` (last / path / step / sha256; joblib when present)
 
 ---

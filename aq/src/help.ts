@@ -30,6 +30,7 @@ export function help(): string {
     "                          recipe eval.extra: [cost] → scorers.py:cost on the same board",
     "  aq checkpoint [dir] [--keep name]  list or copy last to name",
     "  aq serve [dir] [prompt] [--image path] [--ckpt name] [--max-tokens n] [--temperature t]",
+    "  aq serve [dir] --api [--port N] [--host addr] [--ckpt name]  durable local REST (Ctrl-C stop)",
     "  aq diff [dir] [<a> <b>]     compare run records (files, not screenshots)",
     "  aq plot [dir] [metrics|jobs|runs|samples|table|eval|all]  charts / table TUI / eval suite",
     "  aq status [dir]            last run, eval, metrics",
