@@ -28,7 +28,7 @@ The experiment is a **directory**: `recipe.yaml` (path map) + `artifacts/` (runt
 ### CLI (`aq`)
 
 - `aq help` · `aq init` / `aq fork`
-- `aq login` / `logout` / `switch` ([aquin.app/aq](https://aquin.app/aq))
+- `aq login` / `logout` / `switch` ([aquin.app/axi](https://aquin.app/axi))
 - `aq update` / `aq version`
 - `aq train` · `aq eval` · `aq status` · `aq diff` · `aq track` · `aq plot`
 

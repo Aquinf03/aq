@@ -10,7 +10,7 @@ export function help(): string {
     "  aq help                 this text",
     "  aq version              framework version (-v / --version; version --verbose for paths)",
     "  aq update               install the latest release (same as curl install.sh | bash)",
-    "  aq login                open aquin.app/aq/?view=desktop&client=cli, then paste the code",
+    "  aq login                open aquin.app/axi/?view=desktop&client=cli, then paste the code",
     "  aq login --token <aq-…>  paste an existing CLI token",
     "  aq login --check        who is signed in",
     "  aq logout [email]       drop the active (or that) account",

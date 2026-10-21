@@ -1,4 +1,4 @@
-/** Aquin account login: aquin.app/aq/ desktop handoff → aq- token in ~/.aquin/config.json. */
+/** Aquin account login: aquin.app/axi/ desktop handoff → aq- token in ~/.aquin/config.json. */
 
 import { spawn } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -25,7 +25,7 @@ type AuthCfg = {
   active_account: string
 }
 
-/** Auth app host. Prod: https://aquin.app (portal at /aq/). Local: AQUIN_AUTH_URL=http://localhost:3000 */
+/** Auth app host. Prod: https://aquin.app (portal at /axi/). Local: AQUIN_AUTH_URL=http://localhost:3000 */
 function authBase(): string {
   return (process.env.AQUIN_AUTH_URL || DEFAULT_AUTH_URL).replace(/\/$/, "")
 }
@@ -254,7 +254,7 @@ export async function loginCmd(argv: string[]): Promise<void> {
         "       aq logout [email]",
         "       aq switch [email]",
         "",
-        "Opens aquin.app/aq/?view=desktop&client=cli, then paste",
+        "Opens aquin.app/axi/?view=desktop&client=cli, then paste",
         "aquin://auth?code=… (or the bare code). Token is stored in ~/.aquin/config.json.",
         "Override host with AQUIN_AUTH_URL (e.g. http://localhost:3000).",
       ].join("\n"),
@@ -304,8 +304,8 @@ export async function loginCmd(argv: string[]): Promise<void> {
   }
 
   const base = authBase()
-  const url = `${base}/aq/?view=desktop&client=cli`
-  console.log("sign in at aquin.app/aq/")
+  const url = `${base}/axi/?view=desktop&client=cli`
+  console.log("sign in at aquin.app/axi/")
   console.log("  " + url)
   try {
     openBrowser(url)
