@@ -295,6 +295,16 @@ Prep().run(".", tags=["env=prod", "model=v3"])
 r.add_tags("fleet=gpu")
 r.replace_tags("env=staging")    # user tags only
 runs("Prep", tags=["env=staging"])  # AND filter
+
+# console capture (no SSH)
+print(r.step("heavy").stdout)
+for line in r.step("heavy").loglines:
+    print(line["at"], line["stream"], line["line"])
+```
+
+```bash
+aq logs Prep/latest_ok/heavy
+aq logs 'Prep/2026…/heavy/try_0' --stderr
 ```
 
 ### Pathspecs (`at` / `aq at`)

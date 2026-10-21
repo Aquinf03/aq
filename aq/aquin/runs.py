@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterator
 
+from aquin.flow_log import read_loglines, read_stderr, read_stdout
 from aquin.flow_store import (
     ArtifactStore,
     _safe_name,
@@ -140,6 +141,7 @@ def describe_at(spec: str, *, train: str | Path = ".", successful: bool = True) 
             "done": obj.done,
             "tries": obj.tries(),
             "meta": obj.meta,
+            "n_loglines": len(obj.loglines),
         }
     if isinstance(obj, TryView):
         return {
@@ -153,6 +155,7 @@ def describe_at(spec: str, *, train: str | Path = ".", successful: bool = True) 
             "visible": obj.visible,
             "arts": list(obj.arts.keys()),
             "meta": obj.meta,
+            "n_loglines": len(obj.loglines),
         }
     # artifact value
     out: dict[str, Any] = {
@@ -404,6 +407,19 @@ class StepView:
             n = vis
         return TryView(self, int(n))
 
+    @property
+    def loglines(self) -> list[dict[str, Any]]:
+        """Timestamped stdout/stderr lines for this step (visible transcript)."""
+        return read_loglines(self.run.root, self.name)
+
+    @property
+    def stdout(self) -> str:
+        return read_stdout(self.run.root, self.name)
+
+    @property
+    def stderr(self) -> str:
+        return read_stderr(self.run.root, self.name)
+
     def __repr__(self) -> str:
         return f"StepView({self.pathspec!r}, done={self.done})"
 
@@ -451,6 +467,18 @@ class TryView:
         if not self.root.is_dir():
             return {}
         return ArtifactStore(self.root, cas=self.step.run.root / "cas").load_all()
+
+    @property
+    def loglines(self) -> list[dict[str, Any]]:
+        return read_loglines(self.step.run.root, self.step.name, attempt=self.n)
+
+    @property
+    def stdout(self) -> str:
+        return read_stdout(self.step.run.root, self.step.name, attempt=self.n)
+
+    @property
+    def stderr(self) -> str:
+        return read_stderr(self.step.run.root, self.step.name, attempt=self.n)
 
     def __repr__(self) -> str:
         return f"TryView({self.pathspec!r}, status={self.status!r})"

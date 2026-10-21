@@ -20,6 +20,7 @@ from typing import Any, Callable
 
 from aquin.client import Aquin
 from aquin.flow_code import read_flow_code, snapshot_flow_code
+from aquin.flow_log import append_raw_log, capture_step_logs, promote_attempt_logs
 from aquin.flow_store import (
     ArtifactStore,
     FlowArtifacts,
@@ -563,7 +564,8 @@ class Flow:
             object.__setattr__(self, "_aq_store", store)
             object.__setattr__(self, "_aq_persist", True)
             try:
-                method()
+                with capture_step_logs(run_root, step_name):
+                    method()
             except Exception as e:
                 object.__setattr__(self, "_aq_persist", False)
                 write_steps(
@@ -609,7 +611,8 @@ class Flow:
             self._load_store_attrs(store)
             object.__setattr__(self, "_aq_persist", True)
             try:
-                method()
+                with capture_step_logs(run_root, step_name, attempt=attempt):
+                    method()
             except Exception as e:
                 object.__setattr__(self, "_aq_persist", False)
                 last_err = e
@@ -651,6 +654,7 @@ class Flow:
 
             # success — promote attempt → visible results only
             promote_attempt(store, attempt_store)
+            promote_attempt_logs(run_root, step_name, attempt)
             write_attempt_meta(
                 run_root,
                 step_name,
@@ -739,6 +743,15 @@ class Flow:
                     cmd[0] = sys.executable
                     r = subprocess.run(cmd, cwd=str(train), capture_output=True, text=True, env=env)
                     if r.returncode != 0:
+                        att = attempt if use_attempts else None
+                        if r.stderr:
+                            append_raw_log(
+                                run_root, step_name, stream="stderr", text=r.stderr, attempt=att
+                            )
+                        if r.stdout:
+                            append_raw_log(
+                                run_root, step_name, stream="stdout", text=r.stdout, attempt=att
+                            )
                         raise RuntimeError(
                             f"local flow worker failed ({r.returncode}):\n{r.stderr or r.stdout}"
                         )
@@ -752,8 +765,16 @@ class Flow:
                     code = st.get("code")
                     status = str(st.get("status") or "")
                     if status not in ("", "exited", "done") or (code is not None and int(code) != 0):
+                        att = attempt if use_attempts else None
+                        try:
+                            jl = job.logs()
+                        except Exception:
+                            jl = str(st)
+                        append_raw_log(
+                            run_root, step_name, stream="stderr", text=str(jl), attempt=att
+                        )
                         raise RuntimeError(
-                            f"remote step {step_name!r} on {place_name!r} failed: {st}\n{job.logs()}"
+                            f"remote step {step_name!r} on {place_name!r} failed: {st}\n{jl}"
                         )
                     aq_bin = shutil.which("aq") or "aq"
                     subprocess.run(
@@ -808,6 +829,7 @@ class Flow:
                 ar = attempt_root(run_root, step_name, attempt)
                 attempt_store = ArtifactStore(ar, cas=run_root / "cas")
                 promote_attempt(store, attempt_store)
+                promote_attempt_logs(run_root, step_name, attempt)
                 write_attempt_meta(
                     run_root,
                     step_name,

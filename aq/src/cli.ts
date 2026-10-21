@@ -12,6 +12,7 @@ import { lineageCmd } from "./handle/lineage.js"
 import { artifactsCmd } from "./handle/artifacts.js"
 import { findCmd } from "./handle/find.js"
 import { atCmd } from "./handle/at.js"
+import { logsCmd } from "./handle/logs.js"
 import { track } from "./handle/track.js"
 import { addCmd, placesCmd } from "./fleet/add.js"
 import { goCmd, launchCmd, shutdownCmd, syncCmd } from "./fleet/launch.js"
@@ -121,6 +122,11 @@ async function main(): Promise<void> {
 
   if (cmd === "at") {
     await atCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "logs") {
+    await logsCmd(argv.slice(1))
     return
   }
 

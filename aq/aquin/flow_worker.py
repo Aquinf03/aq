@@ -79,8 +79,12 @@ def run_step(
     for k, v in main.load_all().items():
         object.__setattr__(flow, k, v)
     object.__setattr__(flow, "_aq_persist", True)
+    from aquin.flow_log import capture_step_logs
+
     try:
-        method()
+        # echo=False so the controller only sees the final JSON on stdout
+        with capture_step_logs(run_root, step_name, attempt=attempt, echo=False):
+            method()
     finally:
         object.__setattr__(flow, "_aq_persist", False)
 
