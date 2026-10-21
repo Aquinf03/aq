@@ -34,7 +34,8 @@ from aquin.client import Aquin
 from aquin.flow import Flow, Run, retry, step
 from aquin.flow_store import FlowArtifacts, open_flow_artifacts
 from aquin.handle import RunHandle, open_run
-from aquin.runs import RunView, Runs, StepView, TryView, runs
+from aquin.runs import RunView, Runs, StepView, TryView, at, describe_at, runs
+from aquin.flow_store import parse_pathspec
 from aquin.catalog import (
     alias,
     aliases,
@@ -71,8 +72,10 @@ __all__ = [
     "aliases",
     "artifact",
     "artifacts",
+    "at",
     "autolog",
     "clear_tags",
+    "describe_at",
     "disable_autolog",
     "disable_grads",
     "enable_grads",
@@ -96,6 +99,7 @@ __all__ = [
     "log_system",
     "open_flow_artifacts",
     "open_run",
+    "parse_pathspec",
     "promote",
     "rebuild_catalog",
     "retry",

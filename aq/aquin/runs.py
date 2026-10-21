@@ -19,6 +19,7 @@ from aquin.flow_store import (
     latest_run_id,
     latest_successful_run_id,
     list_flow_run_ids,
+    parse_pathspec,
     pathspec,
     read_steps,
     read_visible_attempt,
@@ -36,6 +37,132 @@ def runs(flow: str, *, train: str | Path = ".") -> "Runs":
             print(run.id, run.status)
     """
     return Runs(flow, train=train)
+
+
+def at(
+    spec: str,
+    *,
+    train: str | Path = ".",
+    successful: bool = True,
+) -> Any:
+    """Resolve a pathspec to ``Runs`` / ``RunView`` / ``StepView`` / ``TryView`` / art value.
+
+    ::
+
+        at("Prep")                         # → Runs
+        at("Prep/latest_ok")               # → RunView
+        at("Prep/2026…/heavy")             # → StepView
+        at("Prep/2026…/heavy/try_0")       # → TryView
+        at("Prep/2026…#rows")              # → artifact value
+        at("Prep/2026…/heavy/try_0#x")     # → attempt artifact value
+    """
+    parts = parse_pathspec(spec)
+    rs = runs(parts["flow"], train=train)
+    run_tok = parts["run"]
+    if (
+        run_tok is None
+        and parts["step"] is None
+        and parts["try_n"] is None
+        and parts["artifact"] is None
+    ):
+        return rs
+
+    run_view = _resolve_run(rs, run_tok, successful=successful)
+
+    if parts["step"] is None and parts["try_n"] is None:
+        if parts["artifact"]:
+            return run_view.art(parts["artifact"])
+        return run_view
+
+    step_view = run_view.step(str(parts["step"]))
+    if parts["try_n"] is not None:
+        try_view = step_view.try_(int(parts["try_n"]))
+        if parts["artifact"]:
+            return try_view.art(parts["artifact"])
+        return try_view
+
+    if parts["artifact"]:
+        # step#art → visible run artifact (step is address context)
+        return run_view.art(parts["artifact"])
+    return step_view
+
+
+def _resolve_run(rs: "Runs", run_tok: str | None, *, successful: bool) -> "RunView":
+    if run_tok is None or run_tok == "latest":
+        return rs.latest_ok if successful else rs.latest
+    if run_tok == "latest_ok":
+        return rs.latest_ok
+    return rs[run_tok]
+
+
+def describe_at(spec: str, *, train: str | Path = ".", successful: bool = True) -> dict[str, Any]:
+    """JSON-friendly resolve for CLI — kind + pathspec + optional value."""
+    parts = parse_pathspec(spec)
+    obj = at(spec, train=train, successful=successful)
+    if isinstance(obj, Runs):
+        return {
+            "kind": "runs",
+            "pathspec": parts["flow"],
+            "flow": parts["flow"],
+            "ids": obj.ids(),
+            "n": len(obj),
+        }
+    if isinstance(obj, RunView):
+        return {
+            "kind": "run",
+            "pathspec": obj.pathspec,
+            "flow": obj.flow,
+            "run": obj.id,
+            "status": obj.status,
+            "steps": obj.steps(),
+            "arts": list(obj.arts.keys()),
+        }
+    if isinstance(obj, StepView):
+        return {
+            "kind": "step",
+            "pathspec": obj.pathspec,
+            "flow": obj.run.flow,
+            "run": obj.run.id,
+            "step": obj.name,
+            "done": obj.done,
+            "tries": obj.tries(),
+            "meta": obj.meta,
+        }
+    if isinstance(obj, TryView):
+        return {
+            "kind": "try",
+            "pathspec": obj.pathspec,
+            "flow": obj.step.run.flow,
+            "run": obj.step.run.id,
+            "step": obj.step.name,
+            "try": obj.n,
+            "status": obj.status,
+            "visible": obj.visible,
+            "arts": list(obj.arts.keys()),
+            "meta": obj.meta,
+        }
+    # artifact value
+    out: dict[str, Any] = {
+        "kind": "art",
+        "pathspec": parts["raw"],
+        "flow": parts["flow"],
+        "run": parts["run"],
+        "step": parts["step"],
+        "try": parts["try_n"],
+        "artifact": parts["artifact"],
+        "value": obj,
+    }
+    # fill run id if latest was resolved
+    if parts["artifact"] and (parts["run"] is None or parts["run"] in ("latest", "latest_ok")):
+        run_view = _resolve_run(runs(parts["flow"], train=train), parts["run"], successful=successful)
+        out["run"] = run_view.id
+        out["pathspec"] = pathspec(run_view.flow, run_view.id, artifact=parts["artifact"])
+        out["id"] = run_view.art_id(str(parts["artifact"]))
+    elif parts["artifact"] and parts["run"] and parts["try_n"] is None:
+        run_view = runs(parts["flow"], train=train)[parts["run"]]
+        out["id"] = run_view.art_id(str(parts["artifact"]))
+        out["pathspec"] = pathspec(run_view.flow, run_view.id, artifact=parts["artifact"])
+    return out
 
 
 class Runs:

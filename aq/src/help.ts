@@ -36,6 +36,7 @@ export function help(): string {
     "  aq lineage [dir] [ref]     model → run → data (who trained these weights)",
     "  aq artifacts [dir] …       catalog / aliases / promote (CI/CD handoff)",
     "  aq find [dir] [query]      locate flow/catalog/checkpoint/run artifacts",
+    "  aq at [dir] <pathspec>     resolve Prep/<run>/step#art (run / step / try / value)",
     "  aq track [dir]             browse runs / --follow live metrics",
     "  aq track [dir] <run_id> [-f]  show run · optional live tail filtered by run_id",
     "  aq add ssh [name]         register an SSH place (prompts)",

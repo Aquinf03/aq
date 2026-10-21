@@ -22,6 +22,7 @@ Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#t
 - [Load + predict](#load--predict)
 - [Flow steps (self.x persists)](#flow-steps-selfx-persists)
 - [Inspect runs (runs → step → try → art)](#inspect-runs-runs--step--try--art)
+- [Pathspecs (`at` / `aq at`)](#pathspecs-at--aq-at)
 - [Init a run](#init-a-run)
 - [YAML / SDK authoring](#option-a--edit-yaml-open-with-sdk--cli)
 - [Autolog](#autolog-framework-integrations)
@@ -288,6 +289,26 @@ for step in r:
 # retry forensics (when @retry was used)
 t0 = r.step("heavy").try_(0)
 print(t0.status, t0.arts)        # failed attempt blobs stay here
+```
+
+### Pathspecs (`at` / `aq at`)
+
+One string addresses anything in the tree (same shape as `origin_pathspec`):
+
+```python
+from aquin import at
+
+at("Prep")                      # → Runs
+at("Prep/latest_ok")            # → RunView
+at(f"{r.pathspec}/heavy")       # → StepView
+at(f"{r.pathspec}#rows")        # → artifact value
+at(f"{r.pathspec}/heavy/try_0") # → TryView
+```
+
+```bash
+aq at Prep/latest_ok
+aq at 'Prep/2026…#rows'
+aq at 'Prep/2026…/heavy/try_0' --json
 ```
 
 Resume clones by default and stamps **`origin_pathspec`** on the new run + each copied artifact (`FlowName/<source_run>/<step>` or `#artifact`):

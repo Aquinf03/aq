@@ -316,17 +316,58 @@ def latest_successful_run_id(train: Path, flow_name: str) -> str | None:
 
 def parse_flow_ref(ref: str) -> tuple[str, str | None, str | None]:
     """Parse ``Flow``, ``Flow/run_id``, or ``Flow/run_id#artifact`` → (flow, run, artifact)."""
+    p = parse_pathspec(ref)
+    return p["flow"], p["run"], p["artifact"]
+
+
+def parse_pathspec(ref: str) -> dict[str, Any]:
+    """Parse a universal flow address into parts.
+
+    Forms::
+
+        Prep
+        Prep/<run_id>
+        Prep/latest | Prep/latest_ok
+        Prep/<run>/heavy
+        Prep/<run>/heavy/try_0
+        Prep/<run>#rows
+        Prep/<run>/heavy#rows
+        Prep/<run>/heavy/try_0#partial
+    """
     artifact: str | None = None
     body = ref.strip()
+    if not body:
+        raise ValueError("empty pathspec")
     if "#" in body:
         body, _, art = body.partition("#")
         artifact = art or None
     parts = [p for p in body.split("/") if p]
     if not parts:
-        raise ValueError(f"empty flow ref: {ref!r}")
+        raise ValueError(f"empty pathspec: {ref!r}")
     flow = parts[0]
     run = parts[1] if len(parts) > 1 else None
-    return flow, run, artifact
+    step: str | None = None
+    try_n: int | None = None
+    if len(parts) > 2:
+        step = parts[2]
+    if len(parts) > 3:
+        tok = parts[3]
+        if tok.startswith("try_") and tok[4:].isdigit():
+            try_n = int(tok[4:])
+        else:
+            raise ValueError(f"expected try_N after step in pathspec, got {tok!r}")
+    if len(parts) > 4:
+        raise ValueError(f"pathspec too long: {ref!r}")
+    if try_n is not None and step is None:
+        raise ValueError(f"try_N requires a step in pathspec: {ref!r}")
+    return {
+        "flow": flow,
+        "run": run,
+        "step": step,
+        "try_n": try_n,
+        "artifact": artifact,
+        "raw": ref.strip(),
+    }
 
 
 def resolve_flow_run(
