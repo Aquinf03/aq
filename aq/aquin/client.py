@@ -419,8 +419,8 @@ class Aquin:
 
         return _lineage(ref, train=self.root)
 
-    def artifacts(self, *, kind: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
-        """List content-addressed catalog entries."""
+    def catalog(self, *, kind: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+        """List content-addressed catalog entries (``artifacts/`` path stays ``.artifacts``)."""
         from aquin.catalog import artifacts as _artifacts
 
         return _artifacts(kind=kind, limit=limit, train=self.root)

@@ -1,57 +1,59 @@
 #!/usr/bin/env bash
-# Build a framework tarball and upload to Cloudflare R2 (releases bucket).
-# Requires: wrangler logged in, bucket created (see scripts/helpers/cloudflare/releases-worker/README.md).
+# Build a framework tarball and publish to GitHub Releases (Aquinf03/aq).
+# Requires: gh authenticated (`gh auth login`), push access to the repo.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-VERSION="${1:-latest}"
-BUCKET="${AQUIN_R2_BUCKET:-releases}"
+VERSION="${1:?usage: release.sh <version>  e.g. 0.0.4}"
+REPO="${AQUIN_GH_REPO:-Aquinf03/aq}"
+TAG="v${VERSION}"
 
 release_object_name() {
   echo "aq-${1}v.tar.gz"
 }
 
-command -v wrangler >/dev/null || {
-  echo "wrangler CLI required: npm i -g wrangler && wrangler login" >&2
+command -v gh >/dev/null || {
+  echo "gh CLI required: https://cli.github.com/ — then gh auth login" >&2
   exit 1
 }
 
 TMP="$(mktemp -d)"
-ARCHIVE="$TMP/$(release_object_name "$VERSION")"
+VERSIONED="$TMP/$(release_object_name "$VERSION")"
+LATEST="$TMP/$(release_object_name latest)"
+INSTALL_COPY="$TMP/install.sh"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "Building aq (TypeScript) ..."
 (cd "$ROOT/aq" && npm run build)
 
 echo "Packing tarball ..."
-tar czf "$ARCHIVE" -C "$ROOT" \
+tar czf "$VERSIONED" -C "$ROOT" \
   --exclude='aq/node_modules' \
   --exclude='aq/kernel/.venv' \
   --exclude='aq/**/__pycache__' \
   --exclude='aq/artifacts' \
   --exclude='.git' \
   aq install.sh README.md
+cp "$VERSIONED" "$LATEST"
+cp "$ROOT/install.sh" "$INSTALL_COPY"
 
-REMOTE="$(release_object_name "$VERSION")"
-echo "Uploading r2://${BUCKET}/${REMOTE} (remote) ..."
-wrangler r2 object put "${BUCKET}/${REMOTE}" --file="$ARCHIVE" --content-type application/gzip --remote
-
-echo "Uploading install script ..."
-wrangler r2 object put "${BUCKET}/framework/install.sh" \
-  --file="$ROOT/install.sh" \
-  --content-type "text/x-shellscript; charset=utf-8" \
-  --remote
-
-if [ "$VERSION" != "latest" ]; then
-  LATEST="$(release_object_name latest)"
-  echo "Updating ${LATEST} alias ..."
-  wrangler r2 object put "${BUCKET}/${LATEST}" --file="$ARCHIVE" --content-type application/gzip --remote
+NOTES="aq ${VERSION}"
+if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+  echo "Updating existing release ${TAG} ..."
+  gh release upload "$TAG" "$VERSIONED" "$LATEST" "$INSTALL_COPY" \
+    --repo "$REPO" --clobber
+else
+  echo "Creating release ${TAG} ..."
+  gh release create "$TAG" "$VERSIONED" "$LATEST" "$INSTALL_COPY" \
+    --repo "$REPO" \
+    --title "aq ${VERSION}" \
+    --notes "$NOTES" \
+    --latest
 fi
 
 echo ""
 echo "Published:"
-echo "  R2:  ${BUCKET}/${REMOTE}"
-echo "  URL: https://aquin.app/releases/${REMOTE}"
-if [ "$VERSION" != "latest" ]; then
-  echo "  URL: https://aquin.app/releases/$(release_object_name latest)"
-fi
+echo "  https://github.com/${REPO}/releases/tag/${TAG}"
+echo "  https://github.com/${REPO}/releases/latest/download/install.sh"
+echo "  https://github.com/${REPO}/releases/latest/download/$(release_object_name latest)"
+echo "  https://github.com/${REPO}/releases/download/${TAG}/$(release_object_name "$VERSION")"

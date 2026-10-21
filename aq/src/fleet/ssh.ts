@@ -312,7 +312,7 @@ export async function setupAqOnRemote(place: SshPlace): Promise<void> {
     [
       ...sshBaseArgs(place),
       target,
-      "curl -fsSL https://aquin.app/aq/download/install.sh | bash",
+      "curl -fsSL https://github.com/Aquinf03/aq/releases/latest/download/install.sh | bash",
     ],
     { stdio: "inherit" },
   )

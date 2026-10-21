@@ -17,7 +17,7 @@ Good first contributions: docs clarifications under `docs/documentation/`, tight
 ## Published build install
 
 ```bash
-curl -fsSL https://aquin.app/aq/download/install.sh | bash
+curl -fsSL https://github.com/Aquinf03/aq/releases/latest/download/install.sh | bash
 ```
 
 Needs **Node ≥ 18**, **npm**, and **Python >= 3.10**. Then `aq help`.

@@ -7,16 +7,11 @@ workers_dev = true
 binding = "RELEASES"
 bucket_name = "releases"
 
-# Public CDN host (CF-proxied). Create DNS first (see README), then deploy.
-# Apex/www stay on Vercel; aquin.app/releases is rewritten there → this host.
+# axi only — aq installs from GitHub Releases (Aquinf03/aq).
 [[routes]]
 pattern = "releases.aquin.app/releases/*"
 zone_name = "aquin.app"
 
 [[routes]]
-pattern = "releases.aquin.app/framework/install.sh"
-zone_name = "aquin.app"
-
-[[routes]]
-pattern = "releases.aquin.app/aq/download/install.sh"
+pattern = "releases.aquin.app/axi/download/install.sh"
 zone_name = "aquin.app"

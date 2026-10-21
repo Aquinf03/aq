@@ -110,7 +110,7 @@ Changes that touch the train contract or the TS ↔ Python bridge are reviewed m
 | Kernel entry / engine | `aq/kernel/run.py`, `aq/kernel/engine/` |
 | Protocol (recipe, metrics, methods) | `aq/kernel/protocol/` |
 | Training methods | `aq/kernel/methods/` |
-| Install / release | `install.sh`, `scripts/helpers/release.sh` · repo https://github.com/aquinf03/aq |
+| Install / release | `install.sh`, `scripts/helpers/release.sh` → GitHub Releases · https://github.com/Aquinf03/aq |
 
 For these areas, please:
 

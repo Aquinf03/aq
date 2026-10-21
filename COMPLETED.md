@@ -92,7 +92,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - Data revision on runs
 - Run records: `artifacts/runs/<id>.json` · `aq diff` · `aq status` · `aq track`
 - **Lineage** — `aq lineage` / `aquin.lineage()` / `model.lineage()`: model → run → data (who trained these weights)
-- **Catalog** — `artifacts/catalog/` content-addressed entries (model/data/code/run) with parent links; `aq artifacts` / `aquin.artifacts()`
+- **Catalog** — `artifacts/catalog/` content-addressed entries (model/data/code/run) with parent links; `aq artifacts` / `Aquin.catalog()`
 - **Aliases** — `latest` / `best` / custom pointers (`aq artifacts alias`, `load("prod")`)
 - **Promote + webhooks** — `aq artifacts promote [prod] [ref]` fires `artifacts.webhooks` (create/alias/promote) for CI/CD / Slack / deploy; events in `catalog/events.jsonl`
 - **Flow `self.x`** — `@step` flows persist assignments under `artifacts/flow/`; next step reads them with no manual save/load
@@ -161,7 +161,7 @@ Laptop is the control plane; jobs run on **your** machines over SSH.
 ## Try it
 
 ```bash
-curl -fsSL https://aquin.app/aq/download/install.sh | bash
+curl -fsSL https://github.com/Aquinf03/aq/releases/latest/download/install.sh | bash
 aq init demo && cd demo
 # edit recipe.yaml → data.path
 aq train && aq eval && aq status
