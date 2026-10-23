@@ -18,12 +18,14 @@ type Hit = {
 function help(): void {
   console.log("aq find")
   console.log("")
-  console.log("  aq find [dir] [query] [--kind flow|catalog|checkpoint|run|all] [--json]")
+  console.log("  aq find [dir] [query] [--kind flow|catalog|checkpoint|run|similar|all] [--json]")
   console.log("  locate artifacts by name — flow self.x, catalog ids, checkpoints, runs")
+  console.log("  --kind similar → vector neighbors of a media path (same as aq similar)")
   console.log("")
   console.log("  aq find rows")
   console.log("  aq find Prep --kind flow")
   console.log("  aq find sha256:a59f")
+  console.log("  aq find data/images/circle/00.png --kind similar --k 5")
 }
 
 function match(q: string, ...parts: Array<string | undefined | null>): boolean {
@@ -185,11 +187,17 @@ export async function findCmd(argv: string[]): Promise<void> {
   }
   const json = argv.includes("--json")
   let kind = "all"
+  let kNeighbors = 10
   const args = argv.filter((a) => a !== "--json")
   const kindIdx = args.indexOf("--kind")
   if (kindIdx >= 0) {
     kind = args[kindIdx + 1] || "all"
     args.splice(kindIdx, 2)
+  }
+  const kIdx = args.indexOf("--k")
+  if (kIdx >= 0) {
+    kNeighbors = Number(args[kIdx + 1] || 10)
+    args.splice(kIdx, 2)
   }
 
   let train = "."
@@ -201,6 +209,15 @@ export async function findCmd(argv: string[]): Promise<void> {
     query = args.join(" ") || "*"
   }
   train = assertTrain(train)
+
+  if (kind === "similar") {
+    if (!query || query === "*") {
+      throw new Error("aq find --kind similar needs a media path\n  aq find data/images/x.png --kind similar")
+    }
+    const { similarSearch } = await import("./similar.js")
+    await similarSearch(train, query, { k: kNeighbors })
+    return
+  }
 
   const hits = findArtifacts(train, query, kind)
   if (json) {

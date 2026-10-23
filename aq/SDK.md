@@ -588,9 +588,10 @@ similar:
 ```
 
 ```bash
-aq data similar build
-aq data similar search data/images/circle/00.png --k 5
-aq data similar dedupe --threshold 0.92
+aq similar data/images/circle/00.png --k 5   # find-shaped
+aq find data/images/circle/00.png --kind similar --k 5
+aq similar build
+aq similar dedupe --threshold 0.92
 aq data view apply dedupe
 ```
 

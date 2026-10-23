@@ -11,6 +11,7 @@ import { status } from "./handle/status.js"
 import { lineageCmd } from "./handle/lineage.js"
 import { artifactsCmd } from "./handle/artifacts.js"
 import { findCmd } from "./handle/find.js"
+import { similarCmd } from "./handle/similar.js"
 import { atCmd } from "./handle/at.js"
 import { logsCmd } from "./handle/logs.js"
 import { track } from "./handle/track.js"
@@ -117,6 +118,11 @@ async function main(): Promise<void> {
 
   if (cmd === "find") {
     await findCmd(argv.slice(1))
+    return
+  }
+
+  if (cmd === "similar") {
+    await similarCmd(argv.slice(1))
     return
   }
 

@@ -40,6 +40,8 @@ export function help(): string {
     "  aq lineage [dir] [ref]     model → task → run → data (dataset ↔ task ↔ model)",
     "  aq artifacts [dir] …       catalog / aliases / promote (CI/CD handoff)",
     "  aq find [dir] [query]      locate flow/catalog/checkpoint/run artifacts",
+    "  aq find <path> --kind similar [--k N]  vector neighbors of a media path",
+    "  aq similar [dir] <path> [--k N]  same search (find-shaped); also build|dedupe",
     "  aq at [dir] <pathspec>     resolve Prep/<run>/step#art (run / step / try / value)",
     "  aq logs [dir] <pathspec>   step stdout/stderr with timestamps (no SSH)",
     "  aq track [dir]             browse runs / --follow live metrics",

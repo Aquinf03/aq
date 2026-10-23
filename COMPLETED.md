@@ -94,7 +94,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 - **Lineage** — `aq lineage` / `aquin.lineage()` / `model.lineage()`: **dataset ↔ task ↔ model** (model → task → run → data)
 - **Dataset versions** — `aq data list|show` / `list_datasets()` / `Aquin.datasets()`; catalog `kind=data` + `kind=task`
 - **Hyper-Datasets** — `data/views/<name>.yaml` (filter/query/oversample/debias) over media + optional annotations; `aq data view list|show|apply` / `list_views()` / `apply_view()`; materializes `selection.jsonl` (paths only); `data.view` stamps composite hash on revisions
-- **Vector similarity** — thumbnail/byte embeddings under `data/embeddings/`; view `similar: {mode: dedupe|hard|search}`; `aq data similar build|search|dedupe` / `similar_search()` / `similar_dedupe()`
+- **Vector similarity** — thumbnail/byte embeddings under `data/embeddings/`; view `similar: {mode: dedupe|hard|search}`; `aq similar <path>` / `aq find --kind similar` / `similar build|dedupe` / `similar_search()`
 - **Catalog** — `artifacts/catalog/` content-addressed entries (model/data/task/code/run) with parent links; `aq artifacts` / `Aquin.catalog()`
 - **Aliases** — `latest` / `best` / custom pointers (`aq artifacts alias`, `load("prod")`)
 - **Promote + webhooks** — `aq artifacts promote [prod] [ref]` fires `artifacts.webhooks` (create/alias/promote) for CI/CD / Slack / deploy; events in `catalog/events.jsonl`
