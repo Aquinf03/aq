@@ -431,6 +431,19 @@ class Aquin:
 
         return _show(ref, train=self.root)
 
+    def views(self) -> list[dict[str, Any]]:
+        """List hyper-dataset views under ``data/views/``."""
+        from aquin.dataset import list_views as _list
+
+        return _list(train=self.root)
+
+    def view(self, name: str, *, apply: bool = False) -> dict[str, Any]:
+        """Show or materialize a hyper-dataset view (selection.jsonl, no lake copy)."""
+        from aquin.dataset import apply_view as _apply
+        from aquin.dataset import show_view as _show
+
+        return _apply(name, train=self.root) if apply else _show(name, train=self.root)
+
     def catalog(self, *, kind: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
         """List content-addressed catalog entries (``artifacts/`` path stays ``.artifacts``)."""
         from aquin.catalog import artifacts as _artifacts

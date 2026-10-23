@@ -529,6 +529,42 @@ aq.datasets()               # same list
 aq.dataset("last")
 ```
 
+## Hyper-Datasets (media views)
+
+Folder-native views over unstructured media (+ optional annotations) — filter /
+query / oversample / de-bias **without copying the lake**. Specs live under
+`data/views/<name>.yaml`; apply writes `selection.jsonl` (path rows only).
+
+```yaml
+# data/views/balanced.yaml
+media: data/images          # default: recipe data.path
+# annotations: data/annotations/labels.jsonl
+filter:
+  label: [circle, square]
+# query: "label != other"
+debias:
+  by: label
+  strategy: equal           # downsample to minority
+# oversample:
+#   by: label
+#   target: max
+seed: 0
+```
+
+```bash
+aq data view list
+aq data view apply balanced
+aq data hash --view balanced   # or recipe: data.view: balanced
+```
+
+```python
+from aquin import list_views, apply_view, hash_data
+
+list_views()
+apply_view("balanced")       # → meta + selection.jsonl
+hash_data(view="balanced")   # revision stamps composite view hash
+```
+
 ## Artifact catalog (aliases + promote)
 
 Content-addressed catalog under `artifacts/catalog/` (model / data / task / code / run nodes + parent links).

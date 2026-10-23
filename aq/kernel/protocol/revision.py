@@ -261,10 +261,51 @@ def build_revision(
     *,
     snapshot: bool = False,
     write: bool = True,
+    view: str | None = None,
 ) -> dict[str, Any]:
-    """Hash + inspect recipe data.path → tip + immutable ``data/revisions/<hex>.json``."""
+    """Hash + inspect recipe data.path → tip + immutable ``data/revisions/<hex>.json``.
+
+    When ``data.view`` (or ``view=``) is set, materialize the hyper-dataset view and
+    stamp the composite view hash (media + annotations + selection) instead of the
+    raw media tree alone.
+    """
     recipe = load_recipe(train)
     data_cfg = recipe.get("data") if isinstance(recipe.get("data"), dict) else {}
+    view_name = view or (str(data_cfg.get("view")).strip() if data_cfg.get("view") else None)
+
+    if view_name:
+        from protocol.hyperdata import materialize_view
+
+        meta = materialize_view(train, view_name, recipe=recipe)
+        body: dict[str, Any] = {
+            "path": meta.get("selection") or meta.get("media"),
+            "hash": meta["hash"],
+            "bytes": None,
+            "files": meta.get("n"),
+            "snapshot": None,
+            "at": meta.get("at") or datetime.now(timezone.utc).isoformat(),
+            "kind": "hyperview",
+            "view": meta.get("name"),
+            "media": meta.get("media"),
+            "media_hash": meta.get("media_hash"),
+            "annotations": meta.get("annotations"),
+            "annotations_hash": meta.get("annotations_hash"),
+            "selection": meta.get("selection"),
+            "n": meta.get("n"),
+            "labels": meta.get("labels"),
+        }
+        name = data_cfg.get("name")
+        if name is not None and str(name).strip():
+            body["name"] = str(name).strip()
+        elif meta.get("name"):
+            body["name"] = str(meta["name"])
+        if write:
+            body = ensure_manifest(train, body)
+            dest = revision_path(train)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+        return body
+
     rel = str((data_cfg or {}).get("path") or "")
     if not rel:
         raise SystemExit("recipe.yaml has no data.path")
@@ -279,7 +320,7 @@ def build_revision(
         snap_rel = f"data/revisions/{digest}"
         snapshot_copy(src, train / snap_rel)
 
-    body: dict[str, Any] = {
+    body = {
         "path": rel,
         "hash": hid,
         "bytes": nbytes,
@@ -307,34 +348,43 @@ def build_revision(
 
 
 def data_identity(train: Path, rec: dict | None = None, *, refresh: bool = False) -> dict[str, Any] | None:
-    """Rich data block for run records. Uses revision.json when path matches."""
+    """Rich data block for run records. Uses revision.json when path/view matches."""
     if rec is None:
         try:
             rec = load_recipe(train)
         except Exception:
             rec = {}
     data_cfg = (rec.get("data") or {}) if isinstance(rec, dict) else {}
+    view_name = str(data_cfg.get("view")).strip() if isinstance(data_cfg, dict) and data_cfg.get("view") else None
     rel = data_cfg.get("path") if isinstance(data_cfg, dict) else None
-    if not rel:
+    if not rel and not view_name:
         return None
-    src = (train / str(rel)).resolve()
-    if not src.exists():
-        return None
+    if rel:
+        src = (train / str(rel)).resolve()
+        if not src.exists() and not view_name:
+            return None
 
     existing = load_revision(train)
     if (
         not refresh
         and existing
-        and existing.get("path") == str(rel)
         and existing.get("hash")
+        and (
+            (view_name and existing.get("view") == view_name)
+            or (not view_name and existing.get("path") == str(rel) and not existing.get("view"))
+        )
     ):
         return ensure_manifest(train, existing)
     try:
-        return build_revision(train, snapshot=False, write=True)
+        return build_revision(train, snapshot=False, write=True, view=view_name)
     except SystemExit:
-        # Fall back to hash-only if recipe load issues mid-run
+        if not rel:
+            return None
+        src = (train / str(rel)).resolve()
+        if not src.exists():
+            return None
         digest, nbytes, nfiles = hash_tree(src)
-        body: dict[str, Any] = {
+        body = {
             "path": str(rel),
             "hash": "sha256:" + digest,
             "bytes": nbytes,
@@ -354,6 +404,9 @@ def format_revision_lines(body: dict[str, Any]) -> list[str]:
         ("hash", body.get("hash")),
         ("path", body.get("path")),
         ("kind", body.get("kind")),
+        ("view", body.get("view")),
+        ("media", body.get("media")),
+        ("selection", body.get("selection")),
         ("format", body.get("format")),
         ("bytes", body.get("bytes")),
         ("files", body.get("files")),
@@ -361,6 +414,7 @@ def format_revision_lines(body: dict[str, Any]) -> list[str]:
         ("n_columns", body.get("n_columns")),
         ("target", body.get("target")),
         ("n_classes", body.get("n_classes")),
+        ("labels", json.dumps(body["labels"], sort_keys=True) if isinstance(body.get("labels"), dict) else None),
         ("revision", body.get("revision")),
         ("snapshot", body.get("snapshot")),
         ("tokenizer", body.get("tokenizer")),
@@ -410,8 +464,8 @@ def format_manifest_list(rows: list[dict[str, Any]]) -> list[str]:
     ]
 
 
-def hash_train(train: Path, snapshot: bool = False) -> list[str]:
-    body = build_revision(train, snapshot=snapshot, write=True)
+def hash_train(train: Path, snapshot: bool = False, view: str | None = None) -> list[str]:
+    body = build_revision(train, snapshot=snapshot, write=True, view=view)
     return format_revision_lines(body)
 
 

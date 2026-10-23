@@ -1,0 +1,6 @@
+# Hyper-dataset view: balance circle/square without copying images
+media: data/images
+debias:
+  by: label
+  strategy: equal
+seed: 0

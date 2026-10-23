@@ -33,9 +33,10 @@ def hash_data(
     train: str | Path | None = None,
     *,
     snapshot: bool = False,
+    view: str | None = None,
 ) -> dict[str, Any]:
-    """Hash recipe ``data.path`` → tip + immutable revision manifest."""
-    return _proto().build_revision(_find_train(train), snapshot=snapshot, write=True)
+    """Hash recipe ``data.path`` (or hyper-dataset ``view``) → tip + revision manifest."""
+    return _proto().build_revision(_find_train(train), snapshot=snapshot, write=True, view=view)
 
 
 def list_datasets(train: str | Path | None = None) -> list[dict[str, Any]]:
@@ -53,3 +54,26 @@ def show_dataset(
     if body is None:
         raise FileNotFoundError(f"no data revision for {ref!r}")
     return body
+
+
+def _hyper():
+    kernel = find_kernel()
+    _ensure_kernel_path(kernel)
+    from protocol import hyperdata as hd
+
+    return hd
+
+
+def list_views(train: str | Path | None = None) -> list[dict[str, Any]]:
+    """List ``data/views/*.yaml`` hyper-dataset views."""
+    return _hyper().list_views(_find_train(train))
+
+
+def show_view(name: str, *, train: str | Path | None = None) -> dict[str, Any]:
+    """Show a view (materialized meta or resolved stats)."""
+    return _hyper().show_view(_find_train(train), name)
+
+
+def apply_view(name: str, *, train: str | Path | None = None) -> dict[str, Any]:
+    """Materialize ``data/views/<name>/selection.jsonl`` (paths only — no lake copy)."""
+    return _hyper().materialize_view(_find_train(train), name)

@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from protocol.revision import hash_train, list_train, show_train
+from protocol import hyperdata as aq_hyper
 from protocol.paths import art_dir
 from engine.step import do_checkpoint, do_eval, do_serve, do_train
 from plot import do_plot
@@ -37,6 +38,7 @@ REQ_KEYS = {
     "capture_system",
     "capture_grads",
     "ref",
+    "view",
 }
 
 
@@ -47,11 +49,24 @@ def dispatch(train: Path, req: dict) -> list[str]:
         return do_plot(train, req)
     req = {k: req[k] for k in REQ_KEYS if k in req}
     if op == "hash":
-        return hash_train(train, bool(req.get("snapshot")))
+        view = req.get("view")
+        return hash_train(train, bool(req.get("snapshot")), view=str(view) if view else None)
     if op == "data_list":
         return list_train(train)
     if op == "data_show":
         return show_train(train, str(req.get("ref") or "last"))
+    if op == "data_view_list":
+        return aq_hyper.list_train(train)
+    if op == "data_view_show":
+        name = str(req.get("view") or req.get("ref") or "")
+        if not name:
+            raise SystemExit("usage: aq data view show <name>")
+        return aq_hyper.show_train(train, name)
+    if op == "data_view_apply":
+        name = str(req.get("view") or req.get("ref") or "")
+        if not name:
+            raise SystemExit("usage: aq data view apply <name>")
+        return aq_hyper.apply_train(train, name)
     if op == "train":
         return do_train(train, req)
     if op == "eval":

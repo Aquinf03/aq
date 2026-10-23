@@ -1,0 +1,22 @@
+{
+  "path": "data/views/balanced/selection.jsonl",
+  "hash": "sha256:665bb1d254c08638d77fd4243d9474b846a95d61ac7d7c941d2046e1e03c444e",
+  "bytes": null,
+  "files": 48,
+  "snapshot": null,
+  "at": "2026-10-23T17:49:04.888814+00:00",
+  "kind": "hyperview",
+  "view": "balanced",
+  "media": "data/images",
+  "media_hash": "sha256:30d7b3f17b73bf5df16d7b0f87be008faea928614cb8d84e88d29279ebee4961",
+  "annotations": null,
+  "annotations_hash": null,
+  "selection": "data/views/balanced/selection.jsonl",
+  "n": 48,
+  "labels": {
+    "circle": 24,
+    "square": 24
+  },
+  "name": "balanced",
+  "revision": "data/revisions/665bb1d254c08638d77fd4243d9474b846a95d61ac7d7c941d2046e1e03c444e.json"
+}

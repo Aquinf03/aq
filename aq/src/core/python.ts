@@ -47,6 +47,8 @@ export type KernelReq = {
   snapshot?: boolean
   /** aq data show — tip / hash / revision path */
   ref?: string
+  /** aq data hash --view / data view * */
+  view?: string
   ckpt?: string
   keep?: string
   probe?: string
