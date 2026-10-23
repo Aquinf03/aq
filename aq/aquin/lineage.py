@@ -1,4 +1,4 @@
-"""Model → run → data lineage."""
+"""Dataset ↔ task ↔ model lineage."""
 
 from __future__ import annotations
 
@@ -26,9 +26,10 @@ def lineage(
     *,
     train: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Who trained these weights: model id → run record → data revision.
+    """Who trained these weights: model → task → run → data revision.
 
     ``ref``: ``last``, checkpoint path/step, ``aq_model_id`` (``sha256:…``), or run id.
+    Returns ``model`` / ``task`` / ``run`` / ``data`` (dataset version + optional name).
     """
     kernel = find_kernel()
     _ensure_kernel_path(kernel)

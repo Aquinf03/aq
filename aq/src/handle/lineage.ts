@@ -1,4 +1,4 @@
-/** aq lineage — model → run → data (who trained these weights). */
+/** aq lineage — dataset ↔ task ↔ model (who trained these weights). */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
@@ -15,13 +15,23 @@ type Run = {
   metrics?: { metric?: string; score?: number } | null
   artifacts?: Record<string, string>
   model?: { id?: string; checkpoint?: string; data_hash?: string }
+  task?: {
+    family?: string
+    method?: string
+    recipe_hash?: string
+    name?: string
+    op?: string
+  }
+  recipe?: { family?: string; method?: string; data?: { name?: string } }
   data?: {
+    name?: string
     path?: string
     hash?: string
     n?: number
     columns?: string[]
     target?: string
     kind?: string
+    revision?: string
     at?: string
   }
 }
@@ -36,6 +46,13 @@ type Lineage = {
     data_hash: string | null
     kind: string | null
   }
+  task: {
+    family?: string | null
+    method?: string | null
+    recipe_hash?: string | null
+    name?: string | null
+    op?: string | null
+  } | null
   run: {
     id?: string
     at?: string
@@ -45,12 +62,14 @@ type Lineage = {
     metrics?: Run["metrics"]
   } | null
   data: {
+    name?: string
     path?: string
     hash?: string | null
     n?: number
     columns?: string[]
     target?: string
     kind?: string
+    revision?: string
     at?: string
   } | null
 }
@@ -266,28 +285,66 @@ export function resolveLineage(train: string, ref = "last"): Lineage {
   let data: Lineage["data"] = null
   if (run?.data) {
     data = {
+      name: run.data.name,
       path: run.data.path,
       hash: run.data.hash || dh,
       n: run.data.n,
       columns: run.data.columns,
       target: run.data.target,
       kind: run.data.kind,
+      revision: run.data.revision,
       at: run.data.at,
     }
   } else {
     const rev = loadJson<NonNullable<Lineage["data"]>>(path.join(train, "data", "revision.json"))
     if (rev) {
       data = {
+        name: rev.name,
         path: rev.path,
         hash: rev.hash || dh,
         n: rev.n,
         columns: rev.columns,
         target: rev.target,
         kind: rev.kind,
+        revision: rev.revision,
         at: rev.at,
       }
     } else if (dh) {
       data = { hash: dh }
+    }
+  }
+
+  let task: Lineage["task"] = null
+  if (run) {
+    const t = run.task
+    const recipe = run.recipe
+    const dataName =
+      t?.name ||
+      (recipe?.data && typeof recipe.data === "object" ? recipe.data.name : undefined)
+    if (t || recipe?.family || recipe?.method || run.recipe_hash) {
+      task = {
+        family: t?.family ?? recipe?.family ?? null,
+        method: t?.method ?? recipe?.method ?? null,
+        recipe_hash: t?.recipe_hash ?? run.recipe_hash ?? null,
+        name: dataName ?? null,
+        op: t?.op ?? null,
+      }
+    }
+  }
+
+  if (data && !data.revision) {
+    const hid = data.hash || dh
+    if (hid && hid.startsWith("sha256:")) {
+      const digest = hid.slice(7)
+      const man = path.join(train, "data", "revisions", `${digest}.json`)
+      if (existsSync(man)) data.revision = `data/revisions/${digest}.json`
+      else {
+        const tip = loadJson<NonNullable<Lineage["data"]>>(path.join(train, "data", "revision.json"))
+        if (tip?.hash === hid) {
+          if (tip.revision) data.revision = tip.revision
+          if (!data.name && tip.name) data.name = tip.name
+        }
+      }
     }
   }
 
@@ -296,6 +353,7 @@ export function resolveLineage(train: string, ref = "last"): Lineage {
     ref: raw,
     checkpoint: ckptRel,
     model,
+    task,
     run: run
       ? {
           id: run.id,
@@ -321,6 +379,18 @@ function printLineage(lin: Lineage): void {
     ],
   )
 
+  console.log("task")
+  if (lin.task) {
+    const rows: unknown[][] = [
+      ["family", lin.task.family ?? "—"],
+      ["method", lin.task.method ?? "—"],
+    ]
+    if (lin.task.name) rows.push(["dataset", lin.task.name])
+    if (lin.task.op) rows.push(["op", lin.task.op])
+    if (lin.task.recipe_hash) rows.push(["recipe", short(lin.task.recipe_hash)])
+    printTable(["key", "value"], rows)
+  } else console.log("  (none)")
+
   console.log("run")
   if (lin.run) {
     const rows: unknown[][] = [
@@ -340,8 +410,10 @@ function printLineage(lin: Lineage): void {
   console.log("data")
   if (lin.data) {
     const rows: unknown[][] = []
+    if (lin.data.name) rows.push(["name", lin.data.name])
     if (lin.data.path) rows.push(["path", lin.data.path])
     if (lin.data.hash) rows.push(["hash", short(lin.data.hash, 16)])
+    if (lin.data.revision) rows.push(["revision", lin.data.revision])
     if (lin.data.n != null) rows.push(["n", lin.data.n])
     if (lin.data.target) rows.push(["target", lin.data.target])
     if (lin.data.columns?.length) rows.push(["columns", lin.data.columns.join(", ")])
@@ -357,7 +429,7 @@ export async function lineageCmd(argv: string[]): Promise<void> {
     console.log("")
     console.log("  aq lineage [dir] [ref] [--json]")
     console.log("  ref = last | checkpoint path/step | sha256:… | run id")
-    console.log("  shows model → run → data (who trained these weights)")
+    console.log("  shows model → task → run → data (dataset ↔ task ↔ model)")
     return
   }
 

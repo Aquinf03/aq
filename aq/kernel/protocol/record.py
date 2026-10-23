@@ -94,8 +94,25 @@ def write_summary(d: Path, body: dict) -> None:
             lines.append("model_checkpoint: " + str(model.get("checkpoint")))
     elif arts.get("logged_model"):
         lines.append("model: " + str(arts.get("logged_model")))
+    task = body.get("task") or {}
+    if isinstance(task, dict):
+        if task.get("family") or task.get("method"):
+            lines.append(
+                "task: "
+                + str(task.get("family") or "")
+                + "/"
+                + str(task.get("method") or "")
+            )
+        if task.get("name"):
+            lines.append("dataset: " + str(task.get("name")))
+        if task.get("op"):
+            lines.append("task_op: " + str(task.get("op")))
     data = body.get("data") or {}
     if isinstance(data, dict):
+        if data.get("name"):
+            lines.append("data_name: " + str(data.get("name")))
+        if data.get("revision"):
+            lines.append("data_revision: " + str(data.get("revision")))
         if data.get("n") is not None:
             lines.append("data_n: " + str(data.get("n")))
         if data.get("n_columns") is not None:
@@ -158,6 +175,16 @@ def write_run(train: Path, extra: dict) -> str:
         if env_meta.get("manifest"):
             arts.setdefault("env_manifest", env_meta.get("manifest"))
     data_meta = data_identity(train, rec, refresh=False)
+    data_cfg = rec.get("data") if isinstance(rec.get("data"), dict) else {}
+    task_block: dict = {
+        "family": rec.get("family"),
+        "method": rec.get("method"),
+        "recipe_hash": rh,
+    }
+    if isinstance(data_cfg, dict) and data_cfg.get("name"):
+        task_block["name"] = str(data_cfg["name"]).strip()
+    if extra.get("op"):
+        task_block["op"] = str(extra["op"])
     body = {
         "id": rid,
         "at": datetime.now(timezone.utc).isoformat(),
@@ -169,6 +196,7 @@ def write_run(train: Path, extra: dict) -> str:
         "metrics": extra.get("metrics"),
         "pass": extra.get("pass"),
         "artifacts": arts,
+        "task": task_block,
     }
     if data_meta:
         body["data"] = data_meta

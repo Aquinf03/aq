@@ -28,7 +28,8 @@ Shipped tracking / eval checklist: [COMPLETED.md → Tracking](../COMPLETED.md#t
 - [Autolog](#autolog-framework-integrations)
 - [Params / metrics / tags / notes](#params--metrics--tags--notes)
 - [Logged models](#logged-models)
-- [Lineage (model → run → data)](#lineage-model--run--data)
+- [Lineage (dataset ↔ task ↔ model)](#lineage-dataset--task--model)
+- [Dataset revisions](#dataset-revisions)
 - [Artifact catalog](#artifact-catalog-aliases--promote)
 - [Plot](#plot)
 - [Fleet](#fleet-ssh-place--same-jobs-from-python)
@@ -487,10 +488,10 @@ log_model()                              # last checkpoint
 log_model("artifacts/checkpoints/3.json")
 ```
 
-## Lineage (model → run → data)
+## Lineage (dataset ↔ task ↔ model)
 
-Who trained these weights — resolve a checkpoint / model id / run id back to the run
-record and dataset revision.
+Who trained these weights — resolve a checkpoint / model id / run id back to the
+**dataset revision**, **task** (recipe family/method), run record, and model.
 
 ```bash
 aq lineage                  # last model
@@ -501,13 +502,36 @@ aq lineage --json
 ```python
 from aquin import lineage, load
 
-print(lineage("last"))           # dict: model / run / data
+print(lineage("last"))           # dict: model / task / run / data
 print(load("last").lineage())    # same for a loaded Model
+```
+
+## Dataset revisions
+
+Content hash still identifies the bytes. Each hash also gets an **immutable**
+manifest at `data/revisions/<hex>.json` (tip stays `data/revision.json`).
+Optional `recipe.yaml` → `data.name` stamps a logical dataset name.
+
+```bash
+aq data hash                # tip + manifest
+aq data list                # all manifests
+aq data show last           # or sha256:… / digest prefix
+```
+
+```python
+from aquin import hash_data, list_datasets, show_dataset, Aquin
+
+hash_data()                 # → revision dict
+list_datasets()
+show_dataset("last")
+aq = Aquin(".")
+aq.datasets()               # same list
+aq.dataset("last")
 ```
 
 ## Artifact catalog (aliases + promote)
 
-Content-addressed catalog under `artifacts/catalog/` (model / data / code / run nodes + parent links).
+Content-addressed catalog under `artifacts/catalog/` (model / data / task / code / run nodes + parent links).
 Train auto-registers; `latest` moves on each model; `best` when the run passed the eval gate.
 
 ```bash

@@ -10,7 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from protocol.revision import hash_train
+from protocol.revision import hash_train, list_train, show_train
 from protocol.paths import art_dir
 from engine.step import do_checkpoint, do_eval, do_serve, do_train
 from plot import do_plot
@@ -36,6 +36,7 @@ REQ_KEYS = {
     "capture_env",
     "capture_system",
     "capture_grads",
+    "ref",
 }
 
 
@@ -47,6 +48,10 @@ def dispatch(train: Path, req: dict) -> list[str]:
     req = {k: req[k] for k in REQ_KEYS if k in req}
     if op == "hash":
         return hash_train(train, bool(req.get("snapshot")))
+    if op == "data_list":
+        return list_train(train)
+    if op == "data_show":
+        return show_train(train, str(req.get("ref") or "last"))
     if op == "train":
         return do_train(train, req)
     if op == "eval":

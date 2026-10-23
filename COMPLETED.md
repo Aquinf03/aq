@@ -9,7 +9,7 @@ The experiment is a **directory**: `recipe.yaml` (path map) + `artifacts/` (runt
 |------|---------|
 | **Core protocol** | Train folder, CLI, local jobs, Python kernel, eval gate |
 | **Tracking** | Autolog, TUI / `aq track`, metrics, run records, classical eval suite |
-| **Artifacts** | Catalog, aliases, promote/webhooks, lineage, logged models |
+| **Artifacts** | Catalog, aliases, promote/webhooks, lineage (dataset↔task↔model), logged models, dataset revisions |
 | **Compute** | SSH places → jobs → pools |
 | **Serve** | one-shot `aq serve` + durable `aq serve --api` (local REST); SDK `load` + `predict` |
 | **Methods** | Tabular, transformers, LLM/LoRA/QLoRA, vision, VLM |
@@ -28,7 +28,7 @@ The experiment is a **directory**: `recipe.yaml` (path map) + `artifacts/` (runt
 ### CLI (`aq`)
 
 - `aq help` · `aq init` / `aq fork`
-- `aq login` / `logout` / `switch` ([aquin.app/axi](https://aquin.app/axi))
+- `aq login` / `logout` / `switch` ([aquin.app/aq](https://aquin.app/aq))
 - `aq update` / `aq version`
 - `aq train` · `aq eval` · `aq status` · `aq diff` · `aq track` · `aq plot`
 
@@ -70,7 +70,7 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 ### Params, data, live metrics
 
 - Params / metrics / tags / notes on run records + `metrics.jsonl`
-- Rich **data revision**: `aq data hash` → `data/revision.json` + `data_hash` on runs
+- Rich **data revision**: `aq data hash` → tip `data/revision.json` + immutable `data/revisions/<hex>.json`; `data_hash` / `task` on runs
 - Step curves in the train TUI; `aq plot metrics` for files
 - System metrics (CPU/GPU/mem/…) via `--system` / `capture.system`
 - Gradient & param norms via `--grads` / `capture.grads`
@@ -89,10 +89,11 @@ Id = train folder + `artifacts/runs/<id>.json`. Browse with `aq track`.
 ## Artifacts, registry & lineage
 
 - Logged models (stable ids ↔ checkpoint + data hash)
-- Data revision on runs
+- Data revision on runs (tip + immutable manifests; optional `recipe.data.name`)
 - Run records: `artifacts/runs/<id>.json` · `aq diff` · `aq status` · `aq track`
-- **Lineage** — `aq lineage` / `aquin.lineage()` / `model.lineage()`: model → run → data (who trained these weights)
-- **Catalog** — `artifacts/catalog/` content-addressed entries (model/data/code/run) with parent links; `aq artifacts` / `Aquin.catalog()`
+- **Lineage** — `aq lineage` / `aquin.lineage()` / `model.lineage()`: **dataset ↔ task ↔ model** (model → task → run → data)
+- **Dataset versions** — `aq data list|show` / `list_datasets()` / `Aquin.datasets()`; catalog `kind=data` + `kind=task`
+- **Catalog** — `artifacts/catalog/` content-addressed entries (model/data/task/code/run) with parent links; `aq artifacts` / `Aquin.catalog()`
 - **Aliases** — `latest` / `best` / custom pointers (`aq artifacts alias`, `load("prod")`)
 - **Promote + webhooks** — `aq artifacts promote [prod] [ref]` fires `artifacts.webhooks` (create/alias/promote) for CI/CD / Slack / deploy; events in `catalog/events.jsonl`
 - **Flow `self.x`** — `@step` flows persist assignments under `artifacts/flow/`; next step reads them with no manual save/load

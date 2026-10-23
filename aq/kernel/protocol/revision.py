@@ -148,6 +148,45 @@ def revision_path(train: Path) -> Path:
     return train / "data" / "revision.json"
 
 
+def _digest_hex(hid: str | None) -> str | None:
+    if not hid or not isinstance(hid, str):
+        return None
+    bare = hid[7:] if hid.startswith("sha256:") else hid
+    return bare if bare and all(c in "0123456789abcdef" for c in bare.lower()) else None
+
+
+def manifest_rel(digest: str) -> str:
+    return f"data/revisions/{digest}.json"
+
+
+def manifest_path(train: Path, digest: str) -> Path:
+    return train / "data" / "revisions" / f"{digest}.json"
+
+
+def write_manifest(train: Path, body: dict[str, Any]) -> str | None:
+    """Immutable per-hash revision under ``data/revisions/<hex>.json`` (idempotent)."""
+    digest = _digest_hex(str(body.get("hash") or ""))
+    if not digest:
+        return None
+    dest = manifest_path(train, digest)
+    rel = manifest_rel(digest)
+    if not dest.is_file():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        payload = dict(body)
+        payload["revision"] = rel
+        dest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return rel
+
+
+def ensure_manifest(train: Path, body: dict[str, Any]) -> dict[str, Any]:
+    """Attach ``revision`` pointer; write manifest if missing."""
+    out = dict(body)
+    rel = write_manifest(train, out)
+    if rel:
+        out["revision"] = rel
+    return out
+
+
 def load_revision(train: Path) -> dict[str, Any] | None:
     p = revision_path(train)
     if not p.is_file():
@@ -159,13 +198,71 @@ def load_revision(train: Path) -> dict[str, Any] | None:
         return None
 
 
+def load_manifest(train: Path, ref: str = "last") -> dict[str, Any] | None:
+    """Load tip or a specific digest / ``sha256:…`` / ``data/revisions/<hex>.json``."""
+    raw = (ref or "last").strip()
+    if raw in ("", "last", "latest", "tip"):
+        tip = load_revision(train)
+        if not tip:
+            return None
+        return ensure_manifest(train, tip)
+    if raw.endswith(".json") or raw.startswith("data/revisions/"):
+        p = (train / raw).resolve() if not Path(raw).is_absolute() else Path(raw)
+        if p.is_file():
+            try:
+                body = json.loads(p.read_text(encoding="utf-8"))
+                return body if isinstance(body, dict) else None
+            except json.JSONDecodeError:
+                return None
+    digest = _digest_hex(raw) or raw
+    if digest and (train / "data" / "revisions" / f"{digest}.json").is_file():
+        return load_manifest(train, f"data/revisions/{digest}.json")
+    # prefix match
+    rev_dir = train / "data" / "revisions"
+    if rev_dir.is_dir() and digest:
+        hits = sorted(rev_dir.glob(f"{digest}*.json"))
+        if len(hits) == 1:
+            try:
+                body = json.loads(hits[0].read_text(encoding="utf-8"))
+                return body if isinstance(body, dict) else None
+            except json.JSONDecodeError:
+                return None
+    return None
+
+
+def list_manifests(train: Path) -> list[dict[str, Any]]:
+    """All immutable revision manifests (newest ``at`` last)."""
+    rev_dir = train / "data" / "revisions"
+    out: list[dict[str, Any]] = []
+    tip = load_revision(train)
+    tip_hash = tip.get("hash") if tip else None
+    if rev_dir.is_dir():
+        for p in sorted(rev_dir.glob("*.json")):
+            try:
+                body = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(body, dict) or not body.get("hash"):
+                continue
+            row = dict(body)
+            row["revision"] = f"data/revisions/{p.name}"
+            row["tip"] = bool(tip_hash and row.get("hash") == tip_hash)
+            out.append(row)
+    if tip and tip.get("hash") and not any(r.get("hash") == tip.get("hash") for r in out):
+        row = ensure_manifest(train, tip)
+        row["tip"] = True
+        out.append(row)
+    out.sort(key=lambda r: str(r.get("at") or ""))
+    return out
+
+
 def build_revision(
     train: Path,
     *,
     snapshot: bool = False,
     write: bool = True,
 ) -> dict[str, Any]:
-    """Hash + inspect recipe data.path → revision dict (and optional data/revision.json)."""
+    """Hash + inspect recipe data.path → tip + immutable ``data/revisions/<hex>.json``."""
     recipe = load_recipe(train)
     data_cfg = recipe.get("data") if isinstance(recipe.get("data"), dict) else {}
     rel = str((data_cfg or {}).get("path") or "")
@@ -190,6 +287,9 @@ def build_revision(
         "snapshot": snap_rel,
         "at": datetime.now(timezone.utc).isoformat(),
     }
+    name = data_cfg.get("name")
+    if name is not None and str(name).strip():
+        body["name"] = str(name).strip()
     body.update(inspect_data(src, data_cfg))
 
     tok = art_dir(train) / "tokenizer.json"
@@ -199,6 +299,7 @@ def build_revision(
         body["tokenizer_path"] = "artifacts/tokenizer.json"
 
     if write:
+        body = ensure_manifest(train, body)
         dest = revision_path(train)
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
@@ -212,7 +313,8 @@ def data_identity(train: Path, rec: dict | None = None, *, refresh: bool = False
             rec = load_recipe(train)
         except Exception:
             rec = {}
-    rel = (rec.get("data") or {}).get("path") if isinstance(rec, dict) else None
+    data_cfg = (rec.get("data") or {}) if isinstance(rec, dict) else {}
+    rel = data_cfg.get("path") if isinstance(data_cfg, dict) else None
     if not rel:
         return None
     src = (train / str(rel)).resolve()
@@ -226,18 +328,21 @@ def data_identity(train: Path, rec: dict | None = None, *, refresh: bool = False
         and existing.get("path") == str(rel)
         and existing.get("hash")
     ):
-        return existing
+        return ensure_manifest(train, existing)
     try:
         return build_revision(train, snapshot=False, write=True)
     except SystemExit:
         # Fall back to hash-only if recipe load issues mid-run
         digest, nbytes, nfiles = hash_tree(src)
-        return {
+        body: dict[str, Any] = {
             "path": str(rel),
             "hash": "sha256:" + digest,
             "bytes": nbytes,
             "files": nfiles,
         }
+        if isinstance(data_cfg, dict) and data_cfg.get("name"):
+            body["name"] = str(data_cfg["name"]).strip()
+        return ensure_manifest(train, body)
 
 
 def format_revision_lines(body: dict[str, Any]) -> list[str]:
@@ -245,6 +350,7 @@ def format_revision_lines(body: dict[str, Any]) -> list[str]:
     from protocol.term_table import render_table
 
     rows: list[tuple[str, Any]] = [
+        ("name", body.get("name")),
         ("hash", body.get("hash")),
         ("path", body.get("path")),
         ("kind", body.get("kind")),
@@ -255,6 +361,7 @@ def format_revision_lines(body: dict[str, Any]) -> list[str]:
         ("n_columns", body.get("n_columns")),
         ("target", body.get("target")),
         ("n_classes", body.get("n_classes")),
+        ("revision", body.get("revision")),
         ("snapshot", body.get("snapshot")),
         ("tokenizer", body.get("tokenizer")),
         ("at", body.get("at")),
@@ -273,9 +380,47 @@ def format_revision_lines(body: dict[str, Any]) -> list[str]:
         lines.append(render_table(("key", "value"), [("inspect_error", body["inspect_error"])]))
     lines.append("file")
     lines.append("  data/revision.json")
+    if body.get("revision"):
+        lines.append("  " + str(body["revision"]))
     return lines
+
+
+def format_manifest_list(rows: list[dict[str, Any]]) -> list[str]:
+    from protocol.term_table import render_table
+
+    if not rows:
+        return ["data", "  (no revisions yet — run aq data hash or train)"]
+    table: list[list[Any]] = []
+    for r in rows:
+        hid = str(r.get("hash") or "")
+        short = hid if len(hid) <= 22 else hid[:14] + "…" + hid[-6:]
+        table.append(
+            [
+                short,
+                r.get("name") or "—",
+                r.get("path") or "—",
+                r.get("n") if r.get("n") is not None else "—",
+                "tip" if r.get("tip") else "",
+                str(r.get("at") or "")[:19],
+            ]
+        )
+    return [
+        "data revisions",
+        render_table(("hash", "name", "path", "n", "", "at"), table),
+    ]
 
 
 def hash_train(train: Path, snapshot: bool = False) -> list[str]:
     body = build_revision(train, snapshot=snapshot, write=True)
+    return format_revision_lines(body)
+
+
+def list_train(train: Path) -> list[str]:
+    return format_manifest_list(list_manifests(train))
+
+
+def show_train(train: Path, ref: str = "last") -> list[str]:
+    body = load_manifest(train, ref)
+    if not body:
+        raise SystemExit(f"no data revision for {ref!r}")
     return format_revision_lines(body)

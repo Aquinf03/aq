@@ -44,6 +44,7 @@ from aquin.catalog import (
     promote,
     rebuild_catalog,
 )
+from aquin.dataset import hash_data, list_datasets, show_dataset
 from aquin.lineage import lineage
 from aquin.model import Model, load
 from aquin.scaffold import init_run
@@ -86,9 +87,12 @@ __all__ = [
     "frameworks",
     "get_notes",
     "get_tags",
+    "hash_data",
     "init_run",
     "lineage",
+    "list_datasets",
     "load",
+    "show_dataset",
     "log_artifact",
     "log_grads",
     "log_infra",

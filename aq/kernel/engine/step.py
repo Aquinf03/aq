@@ -192,6 +192,7 @@ def do_train(train: Path, req: dict | None = None) -> list[str]:
         rid = write_run(
             train,
             {
+                "op": "train",
                 "artifacts": arts,
                 "model": model_block(model_id=mid, checkpoint=ckpt_rel, data_hash=dh),
             },

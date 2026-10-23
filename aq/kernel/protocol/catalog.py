@@ -435,9 +435,39 @@ def sync_from_run(
             kind="data",
             path=(data or {}).get("path"),
             meta={
+                "name": (data or {}).get("name"),
                 "n": (data or {}).get("n"),
                 "columns": (data or {}).get("columns"),
                 "target": (data or {}).get("target"),
+                "revision": (data or {}).get("revision"),
+                "run_id": rid or None,
+            },
+            quiet=quiet,
+        )
+        registered.append(e)
+        parents_for_model.append(str(e["id"]))
+
+    # task node: recipe identity between dataset and run/model
+    task = run.get("task") if isinstance(run.get("task"), dict) else None
+    recipe = run.get("recipe") if isinstance(run.get("recipe"), dict) else {}
+    rh = run.get("recipe_hash") or (task or {}).get("recipe_hash")
+    if rh:
+        e = register(
+            train,
+            aid=str(rh),
+            kind="task",
+            path="recipe.yaml",
+            parents=[parents_for_model[0]] if parents_for_model else None,
+            meta={
+                "family": (task or {}).get("family") or recipe.get("family"),
+                "method": (task or {}).get("method") or recipe.get("method"),
+                "name": (task or {}).get("name")
+                or (
+                    recipe.get("data", {}).get("name")
+                    if isinstance(recipe.get("data"), dict)
+                    else None
+                ),
+                "op": (task or {}).get("op"),
                 "run_id": rid or None,
             },
             quiet=quiet,
@@ -453,7 +483,7 @@ def sync_from_run(
             aid=str(ch),
             kind="code",
             path=(code or {}).get("tree"),
-            parents=[parents_for_model[0]] if parents_for_model else None,
+            parents=[parents_for_model[-1]] if parents_for_model else None,
             meta={"run_id": rid or None, "manifest": (code or {}).get("manifest")},
             quiet=quiet,
         )
@@ -533,8 +563,35 @@ def rebuild(train: Path) -> dict[str, int]:
             aid=str(rev["hash"]),
             kind="data",
             path=rev.get("path"),
-            meta={"n": rev.get("n"), "columns": rev.get("columns"), "target": rev.get("target")},
+            meta={
+                "name": rev.get("name"),
+                "n": rev.get("n"),
+                "columns": rev.get("columns"),
+                "target": rev.get("target"),
+                "revision": rev.get("revision"),
+            },
             quiet=True,
         )
         n_arts += 1
+    rev_dir = train / "data" / "revisions"
+    if rev_dir.is_dir():
+        for p in sorted(rev_dir.glob("*.json")):
+            body = _read_json(p)
+            if not body or not body.get("hash"):
+                continue
+            register(
+                train,
+                aid=str(body["hash"]),
+                kind="data",
+                path=body.get("path"),
+                meta={
+                    "name": body.get("name"),
+                    "n": body.get("n"),
+                    "columns": body.get("columns"),
+                    "target": body.get("target"),
+                    "revision": f"data/revisions/{p.name}",
+                },
+                quiet=True,
+            )
+            n_arts += 1
     return {"runs": n_runs, "artifacts": n_arts}

@@ -1,7 +1,8 @@
-"""Model → run → data lineage (who trained these weights).
+"""Dataset ↔ task ↔ model lineage (who trained these weights).
 
-Stamps already live on run records (`model`, `data`, `data_hash`). This module
-resolves a checkpoint / logged-model id / run id back to that paper trail.
+Stamps already live on run records (`model`, `data`, `data_hash`, `task`).
+This module resolves a checkpoint / logged-model id / run id back to that
+paper trail — including the recipe task between dataset and model.
 """
 
 from __future__ import annotations
@@ -165,7 +166,7 @@ def resolve_lineage(
     train: str | Path,
     ref: str | Path = "last",
 ) -> dict[str, Any]:
-    """Resolve ``ref`` to model + run + data.
+    """Resolve ``ref`` to model + task + run + data.
 
     ``ref`` may be ``last``, a checkpoint path/step, ``aq_model_id`` (``sha256:…``),
     or a run id.
@@ -179,6 +180,7 @@ def resolve_lineage(
         "train": str(root),
         "ref": raw,
         "model": None,
+        "task": None,
         "run": None,
         "data": None,
         "checkpoint": None,
@@ -268,15 +270,35 @@ def resolve_lineage(
             "pass": run.get("pass"),
             "metrics": run.get("metrics"),
         }
+        recipe = run.get("recipe") if isinstance(run.get("recipe"), dict) else {}
+        task = run.get("task") if isinstance(run.get("task"), dict) else None
+        if task is None and recipe:
+            data_cfg = recipe.get("data") if isinstance(recipe.get("data"), dict) else {}
+            task = {
+                "family": recipe.get("family"),
+                "method": recipe.get("method"),
+                "recipe_hash": run.get("recipe_hash"),
+                "name": data_cfg.get("name") if isinstance(data_cfg, dict) else None,
+            }
+        if task:
+            out["task"] = {
+                "family": task.get("family"),
+                "method": task.get("method"),
+                "recipe_hash": task.get("recipe_hash") or run.get("recipe_hash"),
+                "name": task.get("name"),
+                "op": task.get("op"),
+            }
         data = run.get("data")
         if isinstance(data, dict):
             out["data"] = {
+                "name": data.get("name"),
                 "path": data.get("path"),
                 "hash": data.get("hash") or dh,
                 "n": data.get("n"),
                 "columns": data.get("columns"),
                 "target": data.get("target"),
                 "kind": data.get("kind"),
+                "revision": data.get("revision"),
                 "at": data.get("at"),
             }
         elif dh:
@@ -286,15 +308,33 @@ def resolve_lineage(
         rev = _load_json(root / "data" / "revision.json")
         if rev is not None:
             out["data"] = {
+                "name": rev.get("name"),
                 "path": rev.get("path"),
                 "hash": rev.get("hash") or dh,
                 "n": rev.get("n"),
                 "columns": rev.get("columns"),
                 "target": rev.get("target"),
                 "kind": rev.get("kind"),
+                "revision": rev.get("revision"),
                 "at": rev.get("at"),
             }
         elif dh:
             out["data"] = {"hash": dh}
+
+    # Fill revision pointer from immutable manifest when older runs lack it.
+    data_out = out.get("data")
+    if isinstance(data_out, dict) and not data_out.get("revision"):
+        hid = data_out.get("hash") or dh
+        if isinstance(hid, str) and hid.startswith("sha256:"):
+            digest = hid[7:]
+            man = root / "data" / "revisions" / f"{digest}.json"
+            if man.is_file():
+                data_out["revision"] = f"data/revisions/{digest}.json"
+            else:
+                tip = _load_json(root / "data" / "revision.json")
+                if tip and tip.get("hash") == hid and tip.get("revision"):
+                    data_out["revision"] = tip.get("revision")
+                if tip and tip.get("hash") == hid and not data_out.get("name") and tip.get("name"):
+                    data_out["name"] = tip.get("name")
 
     return out

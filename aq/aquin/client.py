@@ -414,10 +414,22 @@ class Aquin:
         return out
 
     def lineage(self, ref: str | Path = "last") -> dict[str, Any]:
-        """Model → run → data (who trained these weights)."""
+        """Dataset ↔ task ↔ model (who trained these weights)."""
         from aquin.lineage import lineage as _lineage
 
         return _lineage(ref, train=self.root)
+
+    def datasets(self) -> list[dict[str, Any]]:
+        """List immutable data revision manifests under ``data/revisions/``."""
+        from aquin.dataset import list_datasets as _list
+
+        return _list(train=self.root)
+
+    def dataset(self, ref: str = "last") -> dict[str, Any]:
+        """Show a dataset revision (tip / hash / ``data/revisions/<hex>.json``)."""
+        from aquin.dataset import show_dataset as _show
+
+        return _show(ref, train=self.root)
 
     def catalog(self, *, kind: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
         """List content-addressed catalog entries (``artifacts/`` path stays ``.artifacts``)."""

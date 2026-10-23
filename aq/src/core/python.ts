@@ -45,6 +45,8 @@ export function pythonBin(): string {
 export type KernelReq = {
   op: string
   snapshot?: boolean
+  /** aq data show — tip / hash / revision path */
+  ref?: string
   ckpt?: string
   keep?: string
   probe?: string

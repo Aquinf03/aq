@@ -4,7 +4,7 @@
   "bytes": 92,
   "files": 1,
   "snapshot": null,
-  "at": "2026-10-16T14:19:38.895127+00:00",
+  "at": "2026-10-23T06:46:18.732681+00:00",
   "kind": "file",
   "target": "y",
   "format": "csv",
@@ -14,5 +14,6 @@
     "y"
   ],
   "n_columns": 3,
-  "n": 10
+  "n": 10,
+  "revision": "data/revisions/8cc270755cefed89bbbde6081ca3318d8e5fc7a4a7d526e7d2c035b467c4f05f.json"
 }
