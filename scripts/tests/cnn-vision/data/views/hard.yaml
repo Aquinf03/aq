@@ -1,0 +1,7 @@
+media: data/images
+similar:
+  mode: hard
+  seeds: data/views/failures/selection.jsonl
+  k: 8
+  embed: thumb
+  include_seeds: true

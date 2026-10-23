@@ -46,11 +46,14 @@ from aquin.catalog import (
 )
 from aquin.dataset import (
     apply_view,
+    build_embeddings,
     hash_data,
     list_datasets,
     list_views,
     show_dataset,
     show_view,
+    similar_dedupe,
+    similar_search,
 )
 from aquin.lineage import lineage
 from aquin.model import Model, load
@@ -95,6 +98,7 @@ __all__ = [
     "get_notes",
     "get_tags",
     "apply_view",
+    "build_embeddings",
     "hash_data",
     "init_run",
     "lineage",
@@ -103,6 +107,8 @@ __all__ = [
     "load",
     "show_dataset",
     "show_view",
+    "similar_dedupe",
+    "similar_search",
     "log_artifact",
     "log_grads",
     "log_infra",

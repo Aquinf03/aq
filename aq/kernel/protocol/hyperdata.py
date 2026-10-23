@@ -420,6 +420,13 @@ def resolve_view(
     rows = apply_filter(rows, filt=filt, query=str(query) if query else None)
     n_filtered = len(rows)
 
+    similar_stats: dict[str, Any] | None = None
+    sim = spec.get("similar") or spec.get("similarity")
+    if isinstance(sim, dict) and sim:
+        from protocol.similarity import apply_similar
+
+        rows, similar_stats = apply_similar(train, rows, sim)
+
     seed = int(spec.get("seed") or 0)
     if spec.get("oversample"):
         ov = spec["oversample"]
@@ -458,6 +465,7 @@ def resolve_view(
         "query": query,
         "oversample": spec.get("oversample"),
         "debias": deb,
+        "similar": similar_stats,
     }
 
 
@@ -528,6 +536,7 @@ def materialize_view(
         "query": resolved.get("query"),
         "oversample": resolved.get("oversample"),
         "debias": resolved.get("debias"),
+        "similar": resolved.get("similar"),
         "at": datetime.now(timezone.utc).isoformat(),
         "kind": "hyperview",
     }
@@ -593,6 +602,8 @@ def format_view_show(meta: dict[str, Any]) -> list[str]:
         kv.append(("oversample", json.dumps(meta["oversample"], sort_keys=True)))
     if meta.get("debias"):
         kv.append(("debias", json.dumps(meta["debias"], sort_keys=True)))
+    if meta.get("similar"):
+        kv.append(("similar", json.dumps(meta["similar"], sort_keys=True)))
     return ["view", render_table(("key", "value"), kv)]
 
 

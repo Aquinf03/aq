@@ -1,0 +1,33 @@
+{
+  "name": "hard",
+  "spec": "data/views/hard.yaml",
+  "selection": "data/views/hard/selection.jsonl",
+  "media": "data/images",
+  "annotations": null,
+  "media_hash": "sha256:30d7b3f17b73bf5df16d7b0f87be008faea928614cb8d84e88d29279ebee4961",
+  "annotations_hash": null,
+  "spec_hash": "sha256:1d1acae067f5b8d689a9501ca79336752b519171a4aa1a488580292f1bf6310b",
+  "selection_hash": "sha256:c46b74e5b14513b19bf983301c9ac7ba6dcc5fd657475ca3d8e756af3e3ee3f0",
+  "hash": "sha256:dfe310622cdb502e39c7573d1017c8e01dfbcefe6458abb5eab77f62fb1f5be6",
+  "n": 9,
+  "n_base": 48,
+  "n_filtered": 48,
+  "labels": {
+    "circle": 9
+  },
+  "filter": null,
+  "query": null,
+  "oversample": null,
+  "debias": null,
+  "similar": {
+    "mode": "hard",
+    "embed": "thumb",
+    "index": "data/embeddings/default.jsonl",
+    "n_in": 48,
+    "k": 8,
+    "n_seeds": 1,
+    "n_out": 9
+  },
+  "at": "2026-10-23T17:55:02.291540+00:00",
+  "kind": "hyperview"
+}

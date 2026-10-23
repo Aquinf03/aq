@@ -49,6 +49,13 @@ export type KernelReq = {
   ref?: string
   /** aq data hash --view / data view * */
   view?: string
+  /** aq data similar * */
+  embed?: string
+  index?: string
+  threshold?: number
+  k?: number
+  query?: string
+  media?: string
   ckpt?: string
   keep?: string
   probe?: string

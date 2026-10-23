@@ -77,3 +77,60 @@ def show_view(name: str, *, train: str | Path | None = None) -> dict[str, Any]:
 def apply_view(name: str, *, train: str | Path | None = None) -> dict[str, Any]:
     """Materialize ``data/views/<name>/selection.jsonl`` (paths only — no lake copy)."""
     return _hyper().materialize_view(_find_train(train), name)
+
+
+def _sim():
+    kernel = find_kernel()
+    _ensure_kernel_path(kernel)
+    from protocol import similarity as sim
+
+    return sim
+
+
+def build_embeddings(
+    train: str | Path | None = None,
+    *,
+    name: str = "default",
+    embed: str = "thumb",
+) -> dict[str, Any]:
+    """Build ``data/embeddings/<name>.jsonl`` for recipe media (thumbnail vectors by default)."""
+    root = _find_train(train)
+    rows = _sim()._pool_rows(root)
+    return _sim().build_index(root, rows, name=name, embed=embed)
+
+
+def similar_search(
+    query: str,
+    *,
+    train: str | Path | None = None,
+    k: int = 10,
+    embed: str = "thumb",
+    index: str = "default",
+) -> list[dict[str, Any]]:
+    """Nearest neighbors of ``query`` path/id (builds index if needed)."""
+    root = _find_train(train)
+    rows = _sim()._pool_rows(root)
+    out, _ = _sim().apply_similar(
+        root,
+        rows,
+        {"mode": "search", "query": query, "k": k, "embed": embed, "index": index},
+    )
+    return out
+
+
+def similar_dedupe(
+    train: str | Path | None = None,
+    *,
+    threshold: float = 0.95,
+    embed: str = "thumb",
+    index: str = "default",
+) -> list[dict[str, Any]]:
+    """Drop near-duplicates above cosine ``threshold`` (keeps first in each cluster)."""
+    root = _find_train(train)
+    rows = _sim()._pool_rows(root)
+    out, _ = _sim().apply_similar(
+        root,
+        rows,
+        {"mode": "dedupe", "threshold": threshold, "embed": embed, "index": index},
+    )
+    return out

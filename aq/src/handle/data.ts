@@ -5,7 +5,26 @@ const USAGE =
   "usage: aq data hash [dir] [--snapshot] [--view name]\n" +
   "       aq data list [dir]\n" +
   "       aq data show [dir] [ref]\n" +
-  "       aq data view list|show|apply [dir] [name]"
+  "       aq data view list|show|apply [dir] [name]\n" +
+  "       aq data similar build|search|dedupe [dir] …"
+
+function takeFlag(argv: string[], name: string): { rest: string[]; value?: string } {
+  const rest: string[] = []
+  let value: string | undefined
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === `--${name}`) {
+      value = argv[++i]
+      continue
+    }
+    if (a.startsWith(`--${name}=`)) {
+      value = a.slice(`--${name}=`.length)
+      continue
+    }
+    rest.push(a)
+  }
+  return { rest, value }
+}
 
 export async function data(argv: string[]): Promise<void> {
   const sub = argv[0]
@@ -18,8 +37,66 @@ export async function data(argv: string[]): Promise<void> {
     console.log("  aq data view list [dir]           list data/views/*.yaml")
     console.log("  aq data view show [dir] <name>    show view (meta or resolve)")
     console.log("  aq data view apply [dir] <name>   materialize selection.jsonl (no lake copy)")
-    console.log("  recipe data.view / data.annotations — hyper-dataset hooks")
+    console.log("  aq data similar build [dir] [--embed thumb|bytes] [--index name]")
+    console.log("  aq data similar search [dir] <path> [--k N]")
+    console.log("  aq data similar dedupe [dir] [--threshold 0.95]")
+    console.log("  views: similar: {mode: dedupe|hard|search, …} — near-dupes / hard examples")
     return
+  }
+  if (sub === "similar") {
+    const ssub = argv[1]
+    if (!ssub || ssub === "help" || ssub === "-h" || ssub === "--help") {
+      console.log("aq data similar\n")
+      console.log("  aq data similar build [dir] [--embed thumb|bytes] [--index name]")
+      console.log("  aq data similar search [dir] <path> [--k N] [--embed thumb]")
+      console.log("  aq data similar dedupe [dir] [--threshold 0.95]")
+      return
+    }
+    let embed = takeFlag(argv.slice(2), "embed")
+    let index = takeFlag(embed.rest, "index")
+    let threshold = takeFlag(index.rest, "threshold")
+    let k = takeFlag(threshold.rest, "k")
+    const rest = k.rest
+    if (ssub === "build") {
+      if (rest.length > 1) throw new Error(USAGE)
+      const train = assertTrain(rest[0] ?? ".")
+      await runKernel(train, {
+        op: "data_similar_build",
+        embed: embed.value || "thumb",
+        index: index.value || "default",
+      })
+      return
+    }
+    if (ssub === "search") {
+      let train = "."
+      let query = ""
+      if (rest.length === 1) query = rest[0]
+      else if (rest.length === 2) {
+        train = rest[0]
+        query = rest[1]
+      } else throw new Error(USAGE)
+      train = assertTrain(train)
+      await runKernel(train, {
+        op: "data_similar_search",
+        query,
+        k: k.value ? Number(k.value) : 10,
+        embed: embed.value || "thumb",
+        index: index.value || "default",
+      })
+      return
+    }
+    if (ssub === "dedupe") {
+      if (rest.length > 1) throw new Error(USAGE)
+      const train = assertTrain(rest[0] ?? ".")
+      await runKernel(train, {
+        op: "data_similar_dedupe",
+        threshold: threshold.value ? Number(threshold.value) : 0.95,
+        embed: embed.value || "thumb",
+        index: index.value || "default",
+      })
+      return
+    }
+    throw new Error(`unknown data similar command: ${ssub}\n${USAGE}`)
   }
   if (sub === "view") {
     const vsub = argv[1]

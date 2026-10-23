@@ -20,6 +20,7 @@ export function help(): string {
     "  aq data hash [dir] [--snapshot] [--view name]  tip + revisions; --view = hyper-dataset",
     "  aq data list|show [dir] [ref]    list / show immutable dataset revisions",
     "  aq data view list|show|apply …  media+annotations views (filter/sample, no lake copy)",
+    "  aq data similar build|search|dedupe  vector near-dupes / hard-example neighbors",
     "  aq train [dir] [--tracker] [--system] [--grads] [--capture-code] [--capture-env[=lock|full]]",
     "                          --system → CPU/GPU/mem/disk/net beside loss (metrics + TUI)",
     "                          --grads → grad/param norms (HF Trainer + torch loops)",

@@ -565,6 +565,43 @@ apply_view("balanced")       # → meta + selection.jsonl
 hash_data(view="balanced")   # revision stamps composite view hash
 ```
 
+## Vector similarity (near-dupes / hard examples)
+
+Cheap embeddings (8×8 thumbnail, or byte hist) live under `data/embeddings/`.
+Use them from a view or the CLI — still no lake copy, just a selection.
+
+```yaml
+# data/views/dedupe.yaml
+media: data/images
+similar:
+  mode: dedupe
+  threshold: 0.95
+  embed: thumb          # thumb | bytes
+
+# data/views/hard.yaml
+media: data/images
+similar:
+  mode: hard
+  seeds: data/views/failures/selection.jsonl
+  k: 20
+  embed: thumb
+```
+
+```bash
+aq data similar build
+aq data similar search data/images/circle/00.png --k 5
+aq data similar dedupe --threshold 0.92
+aq data view apply dedupe
+```
+
+```python
+from aquin import build_embeddings, similar_search, similar_dedupe
+
+build_embeddings()
+similar_search("data/images/circle/00.png", k=5)
+similar_dedupe(threshold=0.95)
+```
+
 ## Artifact catalog (aliases + promote)
 
 Content-addressed catalog under `artifacts/catalog/` (model / data / task / code / run nodes + parent links).

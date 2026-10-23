@@ -12,6 +12,7 @@ from pathlib import Path
 
 from protocol.revision import hash_train, list_train, show_train
 from protocol import hyperdata as aq_hyper
+from protocol import similarity as aq_sim
 from protocol.paths import art_dir
 from engine.step import do_checkpoint, do_eval, do_serve, do_train
 from plot import do_plot
@@ -39,6 +40,12 @@ REQ_KEYS = {
     "capture_grads",
     "ref",
     "view",
+    "embed",
+    "index",
+    "threshold",
+    "k",
+    "query",
+    "media",
 }
 
 
@@ -67,6 +74,31 @@ def dispatch(train: Path, req: dict) -> list[str]:
         if not name:
             raise SystemExit("usage: aq data view apply <name>")
         return aq_hyper.apply_train(train, name)
+    if op == "data_similar_build":
+        return aq_sim.build_train(
+            train,
+            name=str(req.get("index") or "default"),
+            embed=str(req.get("embed") or "thumb"),
+            media=str(req["media"]) if req.get("media") else None,
+        )
+    if op == "data_similar_search":
+        q = str(req.get("query") or req.get("ref") or "")
+        if not q:
+            raise SystemExit("usage: aq data similar search <path> [--k N]")
+        return aq_sim.search_train(
+            train,
+            q,
+            k=int(req.get("k") or 10),
+            embed=str(req.get("embed") or "thumb"),
+            index=str(req.get("index") or "default"),
+        )
+    if op == "data_similar_dedupe":
+        return aq_sim.dedupe_train(
+            train,
+            threshold=float(req.get("threshold") or 0.95),
+            embed=str(req.get("embed") or "thumb"),
+            index=str(req.get("index") or "default"),
+        )
     if op == "train":
         return do_train(train, req)
     if op == "eval":

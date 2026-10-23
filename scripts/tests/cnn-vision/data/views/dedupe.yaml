@@ -1,0 +1,5 @@
+media: data/images
+similar:
+  mode: dedupe
+  threshold: 0.99
+  embed: thumb

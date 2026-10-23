@@ -1,0 +1,8 @@
+{
+  "name": "default",
+  "path": "data/embeddings/default.jsonl",
+  "embed": "thumb",
+  "n": 48,
+  "dim": 64,
+  "at": "2026-10-23T17:55:02.136430+00:00"
+}
